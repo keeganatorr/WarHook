@@ -118,6 +118,7 @@ namespace MonogameTest
         private const bool START_DEBUG_MENU = false;
         private bool showDebugMenu = START_DEBUG_MENU;
         private KeyboardState previousDebugKeys;
+        private BeamAudio beamAudio;
         private bool blockEditingEnabled = false;
 
         // Continuous camo plasma at native pixel resolution, scaled without smoothing.
@@ -736,6 +737,10 @@ namespace MonogameTest
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
+            string audioSettings = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "beam-audio.json");
+            foreach (string candidate in new[] { "Assets/beam-audio.json", "PyoroGL/Assets/beam-audio.json" })
+                if (System.IO.File.Exists(candidate)) { audioSettings = System.IO.Path.GetFullPath(candidate); break; }
+            beamAudio = new BeamAudio(audioSettings);
             mainMenuBackground = loadPng("mainmenu");
             mainMenuTitle = loadPng("title");
             playfieldRasterizer = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };
@@ -1094,6 +1099,7 @@ namespace MonogameTest
         /// </summary>
         protected override void UnloadContent()
         {
+            beamAudio?.Dispose();
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             pyororight.Dispose();
             pyoroleft.Dispose();
@@ -1120,8 +1126,13 @@ namespace MonogameTest
         protected override void Update(GameTime gameTime)
         {
             KeyboardState beamKeys = Keyboard.GetState();
+            if (beamKeys.IsKeyDown(Keys.F3) && previousDebugKeys.IsKeyUp(Keys.F3))
+                beamAudio?.Reload();
             if (updateMenus(gameTime, beamKeys))
             {
+                bool audioPaused = screen == MenuScreen.Playing || screen == MenuScreen.Pause || (screen == MenuScreen.Options && optionsParent == MenuScreen.Pause);
+                if (!audioPaused) beamAudio?.Stop();
+                beamAudio?.Update(false, false, false, audioPaused, gameTime.ElapsedGameTime.TotalSeconds);
                 previousBeamKeys = beamKeys;
                 previousDebugKeys = beamKeys;
                 base.Update(gameTime);
@@ -1884,6 +1895,8 @@ namespace MonogameTest
             updateAngelQueue();
             updateAngels();
             updateRainbowClear();
+            if (pyorodead || gameover) beamAudio?.Stop();
+            beamAudio?.Update(tonguecount > 0 && !pyorodead && !gameover, recall, tonguecollide, false, gameTime.ElapsedGameTime.TotalSeconds);
             base.Update(gameTime);
         }
 

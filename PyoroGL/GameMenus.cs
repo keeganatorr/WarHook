@@ -231,6 +231,7 @@ namespace MonogameTest
 
         void resetGame()
         {
+            beamAudio?.Stop();
             x = PLAYER_START_X;
             y = PLAYER_START_Y;
             facingright = 1;

@@ -115,6 +115,12 @@ namespace MonogameTest
         private bool showDebugMenu = START_DEBUG_MENU;
         private KeyboardState previousDebugKeys;
 
+        // Dynamic animated border drawn behind the scaled game. A slowly
+        // drifting diagonal colour wash whose speed follows the game speed and
+        // whose hue shifts red while Pyoro is dead.
+        private Texture2D borderGradient;
+        private double borderTime;
+
         // Visual thickness in native pixels, measured perpendicular to the beam.
         public int BeamWidth
         {
@@ -741,6 +747,7 @@ namespace MonogameTest
             angelSprite = Content.Load<Texture2D>("angel");
             beamPixel = new Texture2D(GraphicsDevice, 1, 1);
             beamPixel.SetData(new[] { Color.White });
+            borderGradient = makeBorderGradient();
             select = Content.Load<Texture2D>("select");
             gameoversprite = Content.Load<Texture2D>("gameoversprite");
             scoresSprite = Content.Load<Texture2D>("scores");
@@ -1954,7 +1961,7 @@ namespace MonogameTest
             GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
 
             // DRAWING INSIDE RENDERTARGET            
-            GraphicsDevice.Clear(new Color(0x21, 0x21, 0x4a));
+            GraphicsDevice.Clear(new Color(0x4a, 0x39, 0x21));
             frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             drawScenery();
@@ -2060,9 +2067,8 @@ namespace MonogameTest
 
             // SET RENDERTARGET TO NOTHING
             GraphicsDevice.SetRenderTarget(null);
-            // Clear the whole window as the border colour; the scaled game is
-            // drawn centered by "rect" and any leftover space shows this fill.
-            GraphicsDevice.Clear(new Color(0x21, 0x21, 0x4a)); // #21214a border
+            // Dynamic animated border fills the whole window behind the game.
+            drawDynamicBorder(gameTime);
 
             // DRAW _nativeRenderTarget TO SCREEN at the integer scale
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
@@ -2136,6 +2142,60 @@ namespace MonogameTest
                 // Don't crash the game if a screenshot fails.
                 System.Diagnostics.Debug.WriteLine("Screenshot failed: " + ex.Message);
             }
+        }
+
+        // Build a 1x256 vertical gradient strip used by the dynamic border. The
+        // game tints and scrolls it each frame; keeping it monochrome lets all
+        // the colour work happen per-frame with sprite tints.
+        Texture2D makeBorderGradient()
+        {
+            const int size = 256;
+            Color[] pixels = new Color[size];
+            for (int i = 0; i < size; i++)
+            {
+                // Smooth wave from dark to bright and back for seamless tiling.
+                float t = (float)(0.5 - 0.5 * Math.Cos(i / (float)size * Math.PI * 2.0));
+                byte v = (byte)(40 + t * 60); // 40..100 brightness
+                pixels[i] = new Color(v, v, v);
+            }
+            Texture2D tex = new Texture2D(GraphicsDevice, 1, size);
+            tex.SetData(pixels);
+            return tex;
+        }
+
+        // Draw the animated border: a diagonal, drifting wave tinted warm brown
+        // (matching the #4a3921 backdrop), speeding up with the game speed and
+        // shifting red on death.
+        void drawDynamicBorder(GameTime gameTime)
+        {
+            borderTime += gameTime.ElapsedGameTime.TotalSeconds;
+            // Wave scroll speed scales with the current game speed.
+            double speed = 0.05 + (bigspeed / 65536.0) * 0.15;
+            if (pyorodead) speed = 0.35;
+
+            int winW = GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int winH = GraphicsDevice.PresentationParameters.BackBufferHeight;
+
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            int stripeH = 64;
+            // Draw diagonal stripes by shearing rows across the window.
+            int rows = winH / stripeH + 2;
+            for (int row = -1; row < rows; row++)
+            {
+                double phase = borderTime * speed + (row + (borderTime * speed)) * 0.35;
+                int y = row * stripeH;
+                int shear = (int)((borderTime * 24.0 + row * stripeH * 1.5) % (winW + stripeH)) - stripeH;
+                var dest = new Rectangle(shear, y, winW + stripeH * 2, stripeH);
+                // Wave brightness from the gradient strip; alternate rows flip
+                // the source to keep the wash seamless.
+                int srcY = (int)((phase % 1.0) * 255.0);
+                Color tint = pyorodead
+                    ? new Color(120, 30, 45)
+                    : new Color(74, 57, 33); // #4a3921 family
+                spriteBatch.Draw(borderGradient, dest,
+                    new Rectangle(0, srcY, 1, 1), tint);
+            }
+            spriteBatch.End();
         }
 
         // A short-lived "+points" indicator shown where a bean was caught.

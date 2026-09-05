@@ -994,10 +994,12 @@ namespace MonogameTest
 
         void drawFrame()
         {
-            // Nine-slice the supplied frame so its border stays the original thickness.
-            int[] sourceX = { 0, 6, frame.Width - 6, frame.Width };
+            // Nine-slice the supplied frame. The new frame sprite has a
+            // uniform 8px border on all four sides, so slice at 8 everywhere
+            // to keep the inner outline intact at the seams.
+            int[] sourceX = { 0, 8, frame.Width - 8, frame.Width };
             int[] sourceY = { 0, 8, frame.Height - 8, frame.Height };
-            int[] targetX = { 0, 6, NATIVE_WIDTH - 6, NATIVE_WIDTH };
+            int[] targetX = { 0, 8, NATIVE_WIDTH - 8, NATIVE_WIDTH };
             int[] targetY = { 0, 8, NATIVE_HEIGHT - 8, NATIVE_HEIGHT };
             for (int row = 0; row < 3; row++)
                 for (int column = 0; column < 3; column++)
@@ -2026,9 +2028,9 @@ namespace MonogameTest
                 DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
             }
             
+            
 
 
-            drawFrame();
             // HUD labels and counters use the pixel-perfect 8x8 bitmap font.
             DrawStringBitmap(spriteBatch, "SCORE", new Vector2(PLAYFIELD_LEFT + 4, 10), Color.White);
             DrawStringBitmap(spriteBatch, score.ToString("D6"), new Vector2(PLAYFIELD_LEFT + 4 + 6 * FONT_CELL, 10), Color.White);
@@ -2059,6 +2061,10 @@ namespace MonogameTest
             // Align the editor highlight with the floor, including after resizing.
             if (tryGetMouseColumn(out int hoverColumn))
                 spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
+
+            // Frame renders on top of everything in the playfield so sprites
+            // never overlap the border band.
+            drawFrame();
 
             // Debug menu overlay (F1).
             if (showDebugMenu)

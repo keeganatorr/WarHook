@@ -105,6 +105,8 @@ namespace MonogameTest
         private Texture2D pyorodeadright;
         private Texture2D frame;
         private Texture2D block;
+        // 4-variant 8x8 brick-face atlas (Assets/block_atlas.png) for floor blocks.
+        private Texture2D blockAtlas;
         private Texture2D collisionblock;
         private Texture2D beamPixel;
         private int beamWidth = 3;
@@ -568,7 +570,7 @@ namespace MonogameTest
                 // Carried block tile below the angel once it is moving down.
                 if (a.speed > 0)
                 {
-                    batch.Draw(block, new Vector2(PLAYFIELD_LEFT + a.column * 8, (float)System.Math.Round(a.y + 16)), Color.White);
+                    batch.Draw(blockAtlas, new Vector2(PLAYFIELD_LEFT + a.column * 8, (float)System.Math.Round(a.y + 16)), Color.White);
                 }
             }
         }
@@ -742,6 +744,7 @@ namespace MonogameTest
             }
             frame = loadPng("framewide");
             block = Content.Load<Texture2D>("block");
+            blockAtlas = loadPng("block_atlas");
             collisionblock = Content.Load<Texture2D>("collisionblock");
             explosionSprite = Content.Load<Texture2D>("explosion");
             angelSprite = Content.Load<Texture2D>("angel");
@@ -1987,7 +1990,7 @@ namespace MonogameTest
 
                 if (blocks[i])
                 {
-                    spriteBatch.Draw(block, new Vector2(blockx, blocky), Color.White);
+                    spriteBatch.Draw(blockAtlas, new Vector2(blockx, blocky), Color.White);
                 }
             }
             // Explosions draw ON TOP of the blocks they mark.

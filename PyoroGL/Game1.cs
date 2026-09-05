@@ -94,8 +94,10 @@ namespace MonogameTest
         private Texture2D block;
         private Texture2D collisionblock;
         private Texture2D beamPixel;
-        private int beamWidth = 6;
+        private int beamWidth = 3;
         private KeyboardState previousBeamKeys;
+        private bool showDebugMenu;
+        private KeyboardState previousDebugKeys;
 
         // Visual thickness in native pixels, measured perpendicular to the beam.
         public int BeamWidth
@@ -891,6 +893,52 @@ namespace MonogameTest
                 new Vector2(width, width), SpriteEffects.None, 0f);
         }
 
+        // Draw an on-screen debug overlay showing live game-state values. Held
+        // open with F1; content updates every frame.
+        void drawDebugMenu(SpriteBatch batch)
+        {
+            int panelX = 8, panelY = 8, panelW = NATIVE_WIDTH - 16;
+            // Semi-transparent backdrop.
+            batch.Draw(beamPixel, new Rectangle(panelX, panelY, panelW, 118),
+                new Color(0, 0, 0, 180));
+
+            string[] lines = new string[]
+            {
+                "=== DEBUG (F1 to close) ===",
+                $"BeamWidth (tractor):  {BeamWidth}   ([ / ] adjust)",
+                $"Score:                {score}",
+                $"HighScore:            {highScore}",
+                $"Paused:               {paused}",
+                $"GameOver:             {gameover}",
+                $"Pyoro x: {x:0.0}   y: {y:0.0}",
+                $"Active beans:         {countActiveBeans()}",
+                $"Blocks present:       {countActiveBlocks()}"
+            };
+
+            int ty = panelY + 6;
+            foreach (string line in lines)
+            {
+                batch.DrawString(smallfont, line, new Vector2(panelX + 6, ty), Color.White);
+                ty += 11;
+            }
+        }
+
+        int countActiveBeans()
+        {
+            int n = 0;
+            for (int i = 0; i < max_amount_of_beans; i++)
+                if (bean_active[i]) n++;
+            return n;
+        }
+
+        int countActiveBlocks()
+        {
+            int n = 0;
+            for (int i = 0; i < blockamount; i++)
+                if (blocks[i]) n++;
+            return n;
+        }
+
         void drawFrame()
         {
             // Nine-slice the supplied frame so its border stays the original thickness.
@@ -981,6 +1029,11 @@ namespace MonogameTest
             if (beamKeys.IsKeyDown(Keys.OemOpenBrackets) && previousBeamKeys.IsKeyUp(Keys.OemOpenBrackets)) BeamWidth--;
             if (beamKeys.IsKeyDown(Keys.OemCloseBrackets) && previousBeamKeys.IsKeyUp(Keys.OemCloseBrackets)) BeamWidth++;
             previousBeamKeys = beamKeys;
+
+            // Toggle the debug menu with F1.
+            if (beamKeys.IsKeyDown(Keys.F1) && previousDebugKeys.IsKeyUp(Keys.F1))
+                showDebugMenu = !showDebugMenu;
+            previousDebugKeys = beamKeys;
             //rand_number = (109 * rand_number) + 1021; // rand_number = (0x6D * rand_number) + 0x3FD;
             /*rand_number = ((0x6D * rand_number) + 0x3FD);
             rand_number = ((rand_number & 0x0000FFFF));
@@ -1967,6 +2020,10 @@ namespace MonogameTest
             // Align the editor highlight with the floor, including after resizing.
             if (tryGetMouseColumn(out int hoverColumn))
                 spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
+
+            // Debug menu overlay (F1).
+            if (showDebugMenu)
+                drawDebugMenu(spriteBatch);
             spriteBatch.End();
 
             // SET RENDERTARGET TO NOTHING

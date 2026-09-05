@@ -138,7 +138,6 @@ namespace MonogameTest
         private Rectangle backgroundSource;
         private Texture2D scoreLabel;
         private Texture2D highScoreLabel;
-        private Texture2D scoreDigits;
 
         private Texture2D gameoversprite;
         private Texture2D scoresSprite;
@@ -729,7 +728,6 @@ namespace MonogameTest
             loadBackdrop();
             scoreLabel = loadPng("score");
             highScoreLabel = loadPng("highscore");
-            scoreDigits = loadScoreDigits();
             loadMortarFrames();
             temp_bean_sprite = bean_centre;
             for (int i = 0; i < max_amount_of_beans; i++)
@@ -1032,20 +1030,6 @@ namespace MonogameTest
             return numbers;
         }
 
-        void drawScore(int value, int left)
-        {
-            // Keep both counters six digits wide, including leading zeroes.
-            int remaining = Math.Clamp(value, 0, 999999);
-            for (int digit = 5; digit >= 0; digit--)
-            {
-                int number = remaining % 10;
-                Rectangle source = new Rectangle(number * 8, 0, 8, 9);
-                // Zero has an extra pixel of left padding in the supplied sheet.
-                int padding = number == 0 ? 1 : 0;
-                spriteBatch.Draw(scoreDigits, new Vector2(left + digit * 8 - padding, 7), source, Color.White);
-                remaining /= 10;
-            }
-        }
 
         /// <summary>
         /// UnloadContent will be called once per game and is the place to unload
@@ -1061,7 +1045,6 @@ namespace MonogameTest
             frame.Dispose();
             scoreLabel.Dispose();
             highScoreLabel.Dispose();
-            scoreDigits.Dispose();
             _nativeRenderTarget.Dispose();
             spriteBatch.Dispose();
         }
@@ -2039,10 +2022,11 @@ namespace MonogameTest
 
 
             drawFrame();
-            spriteBatch.Draw(scoreLabel, new Vector2(PLAYFIELD_LEFT + 4, 10), Color.White);
-            drawScore(score, PLAYFIELD_LEFT + 24);
-            spriteBatch.Draw(highScoreLabel, new Vector2(PLAYFIELD_RIGHT - 83, 10), Color.White);
-            drawScore(highScore, PLAYFIELD_RIGHT - 48);
+            // HUD labels and counters use the pixel-perfect 8x8 bitmap font.
+            DrawStringBitmap(spriteBatch, "SCORE", new Vector2(PLAYFIELD_LEFT + 4, 10), Color.White);
+            DrawStringBitmap(spriteBatch, score.ToString("D6"), new Vector2(PLAYFIELD_LEFT + 4 + 6 * FONT_CELL, 10), Color.White);
+            DrawStringBitmap(spriteBatch, "HIGH", new Vector2(PLAYFIELD_RIGHT - 4 - (4 + 6 + 2) * FONT_CELL, 10), Color.White);
+            DrawStringBitmap(spriteBatch, highScore.ToString("D6"), new Vector2(PLAYFIELD_RIGHT - 4 - 6 * FONT_CELL, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("tonguecollide {0}\nrecall {1}\ntonguecount {2}\n{3}", tonguecollide, recall, tonguecount,dissappearcounter), new Vector2(0, 0), Color.White);
             //spriteBatch.DrawString(arial, string.Format("smlspeed: 0x{0:X2}\nbigspeed: 0x{1:X2}", smallspeed, bigspeed), new Vector2(150, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);

@@ -199,6 +199,8 @@ namespace MonogameTest
         // landing (mirrors the pico-8 angel effect when a white seed/rainbow
         // bean restores floor blocks). angel.png is 32x16 = 2 frames of 16x16.
         List<Angel> angels = new List<Angel>();
+        Queue<int> angelQueue = new Queue<int>();
+        int angelQueueTimer = 0;
         private Texture2D angelSprite;
 
         // Screenshot counter for Tab-key PNG saves.
@@ -209,16 +211,6 @@ namespace MonogameTest
         // indices still waiting to be cleared, and the timer paces them.
         List<int> rainbowClearQueue = new List<int>();
         int rainbowClearTimer = 0;
-
-
-        int max_amount_of_blocks = BLOCK_COUNT;
-        int rightblockcount = 0;
-        int leftblockcount = 0;
-        int rightblocktorecover = 0;
-        int leftblocktorecover = 0;
-        bool rightblockcheck = false;
-        bool leftblockcheck = false;
-        bool blockcheck = false;
 
         bool pyorodead = false;
         bool gameover = false;
@@ -396,101 +388,44 @@ namespace MonogameTest
         }
         void block_recovery()
         {
-            rightblocktorecover = (int)System.Math.Ceiling((x + speed - PLAYFIELD_LEFT + 4) / 8);
-            leftblocktorecover = (int)System.Math.Ceiling((x + speed - PLAYFIELD_LEFT + 2) / 8); ;
-            for (int i = Math.Max(0, rightblocktorecover); i < max_amount_of_blocks; i++)
+            requestBlockRecovery(false);
+        }
+
+        bool needsRecovery(int column)
+        {
+            return column >= 0 && column < blockamount && !blocks[column]
+                && !angelQueue.Contains(column)
+                && !angels.Exists(a => a.column == column && !a.blockPlaced);
+        }
+
+        void requestBlockRecovery(bool queued)
+        {
+            int start = Math.Clamp((int)Math.Ceiling((x + speed - PLAYFIELD_LEFT + 2) / 8), 0, blockamount - 1);
+            for (int distance = 0; distance < blockamount; distance++)
             {
-                if (rightblockcheck == false)
+                int left = start - distance;
+                int right = start + distance;
+                int column = needsRecovery(left) ? left : needsRecovery(right) ? right : -1;
+                if (column < 0) continue;
+                if (queued)
                 {
-                    if (blocks[i] == true)
-                    {
-                        rightblockcount++;
-                    }
-                    if (blocks[i] == false)
-                    {
-                        rightblocktorecover = i;
-                        rightblockcheck = true;
-                        blockcheck = true;
-                    }
+                    if (angelQueue.Count == 0) angelQueueTimer = 0;
+                    angelQueue.Enqueue(column);
                 }
+                else
+                    spawnAngel(column);
+                return;
             }
-            for (int i = Math.Min(leftblocktorecover, BLOCK_COUNT - 1); i >= 0; i--)
-            {
-                if (leftblockcheck == false)
-                {
-                    if (blocks[i] == true)
-                    {
-                        leftblockcount++;
-                    }
-                    if (blocks[i] == false)
-                    {
-                        leftblocktorecover = i;
-                        leftblockcheck = true;
-                        blockcheck = true;
-                    }
-                }
-            }
-            if (blockcheck == true)
-            {
-                if (rightblockcheck && leftblockcheck)
-                {
-                    if ((rightblockcount < leftblockcount)) // set to && rightblcok true?
-                    {
-                        //RIGHT BLOCK
-                        spawnAngel(rightblocktorecover);
-                        rightblockcount = 0;
-                        leftblockcount = 0;
-                        rightblocktorecover = 0;
-                        leftblocktorecover = 0;
-                        leftblockcheck = false;
-                        rightblockcheck = false;
-                        blockcheck = false;
-                    }
-                    else if (rightblockcount >= leftblockcount)
-                    {
-                        //LEFT BLOCK
-                        spawnAngel(leftblocktorecover);
-                        rightblockcount = 0;
-                        leftblockcount = 0;
-                        rightblocktorecover = 0;
-                        leftblocktorecover = 0;
-                        leftblockcheck = false;
-                        rightblockcheck = false;
-                        blockcheck = false;
-                    }
-                }
-                if (rightblockcheck && !leftblockcheck)
-                {
-                        //RIGHT BLOCK
-                        spawnAngel(rightblocktorecover);
-                        rightblockcount = 0;
-                        leftblockcount = 0;
-                        rightblocktorecover = 0;
-                        leftblocktorecover = 0;
-                        leftblockcheck = false;
-                        rightblockcheck = false;
-                        blockcheck = false;
-                }
-                if (!rightblockcheck && leftblockcheck)
-                {
-                    //RIGHT BLOCK
-                    spawnAngel(leftblocktorecover);
-                    rightblockcount = 0;
-                    leftblockcount = 0;
-                    rightblocktorecover = 0;
-                    leftblocktorecover = 0;
-                    leftblockcheck = false;
-                    rightblockcheck = false;
-                    blockcheck = false;
-                }
-            }
-            rightblockcount = 0;
-            leftblockcount = 0;
-            rightblocktorecover = 0;
-            leftblocktorecover = 0;
-            leftblockcheck = false;
-            rightblockcheck = false;
-            blockcheck = false;
+        }
+
+        void updateAngelQueue()
+        {
+            if (angelQueue.Count == 0) return;
+            if (angelQueueTimer > 0) angelQueueTimer--;
+            if (angelQueueTimer > 0) return;
+            spawnAngel(angelQueue.Dequeue());
+            // The original rainbow effect releases an angel every 16 frames.
+            angelQueueTimer = 16;
         }
 
         // Play a 3-frame 16x16 explosion animation at a native (288x162) position.
@@ -551,11 +486,10 @@ namespace MonogameTest
         }
 
         // Spawn an angel that descends to the given block column and rebuilds
-        // it on landing (mirrors pico-8 one_angel). One angel per tile.
+        // it on landing. Existing angels never suppress a new explicit request.
         void spawnAngel(int column)
         {
             if (column < 0 || column >= blockamount) return;
-            if (angels.Exists(a => a.column == column)) return;
             angels.Add(new Angel(column));
         }
 
@@ -1539,18 +1473,18 @@ namespace MonogameTest
                                                         {
                                                             // Queue the other active beans to disappear one by one,
                                                             // lowest first (highest y first).
-                                                            rainbowClearQueue.Clear();
+                                                            bool wasClearing = rainbowClearQueue.Count > 0;
                                                             for (int j = 0; j < max_amount_of_beans; j++)
                                                             {
-                                                                if (bean_active[j] == true)
+                                                                if (bean_active[j] && !rainbowClearQueue.Contains(j))
                                                                     rainbowClearQueue.Add(j);
                                                             }
                                                             // Sort descending by y so the lowest bean clears first.
                                                             rainbowClearQueue.Sort((a, b) => bean_y[b].CompareTo(bean_y[a]));
-                                                            rainbowClearTimer = 0;
+                                                            if (!wasClearing) rainbowClearTimer = 0;
                                                             for (int j = 0; j < rainbowbeantotal; j++)
                                                             {
-                                                                block_recovery();
+                                                                requestBlockRecovery(true);
                                                             }
                                                         }
                                                     }
@@ -1739,25 +1673,7 @@ namespace MonogameTest
                 // nearest missing block to Pyoro (mirrors pico-8 one_angel).
                 if (Keyboard.GetState().IsKeyDown(Keys.Q))
                 {
-                    int pyoroCol = (int)System.Math.Ceiling((x - PLAYFIELD_LEFT) / 8);
-                    if (pyoroCol < 0) pyoroCol = 0;
-                    if (pyoroCol > blockamount - 1) pyoroCol = blockamount - 1;
-                    // Search outward from Pyoro for the nearest missing block.
-                    for (int d = 0; d < blockamount; d++)
-                    {
-                        int right = pyoroCol + d;
-                        int left = pyoroCol - d;
-                        if (right < blockamount && !blocks[right])
-                        {
-                            spawnAngel(right);
-                            break;
-                        }
-                        if (left >= 0 && !blocks[left])
-                        {
-                            spawnAngel(left);
-                            break;
-                        }
-                    }
+                    block_recovery();
                 }
                 if(bigspeed<0x100)
                 {
@@ -1870,6 +1786,8 @@ namespace MonogameTest
                     scorePopups.Clear();
                     explosions.Clear();
                     angels.Clear();
+                    angelQueue.Clear();
+                    angelQueueTimer = 0;
                     rainbowClearQueue.Clear();
 
                     /*
@@ -1899,14 +1817,6 @@ namespace MonogameTest
                     dissappearcounter = 0;
                     triggerdisappear = false;
                     falsebeans = 0;
-
-                    rightblockcount = 0;
-                    leftblockcount = 0;
-                    rightblocktorecover = 0;
-                    leftblocktorecover = 0;
-                    rightblockcheck = false;
-                    leftblockcheck = false;
-                    blockcheck = false;
                 }
 
 
@@ -1915,6 +1825,7 @@ namespace MonogameTest
             //test = ((((int)x << 8 + bigspeed) - 0x28) >> 3);
             updateScorePopups();
             updateExplosions();
+            updateAngelQueue();
             updateAngels();
             updateRainbowClear();
             base.Update(gameTime);

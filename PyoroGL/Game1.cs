@@ -11,7 +11,7 @@ namespace MonogameTest
     /// <summary>
     /// This is the main type for your game.
     /// </summary>
-    public class Game1 : Game
+    public partial class Game1 : Game
     {
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
@@ -186,7 +186,6 @@ namespace MonogameTest
         int bigspeed = 0x100;
         int blocktocheck = 0;
         bool paused = false;
-        bool readytounpause = false;
         int pyorosquat = 0;
 
         
@@ -735,6 +734,8 @@ namespace MonogameTest
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
+            mainMenuBackground = loadPng("mainmenu");
+            mainMenuTitle = loadPng("title");
             playfieldRasterizer = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
@@ -1096,6 +1097,8 @@ namespace MonogameTest
             pyoroleft.Dispose();
             explosionSprite.Dispose();
             angelSprite.Dispose();
+            mainMenuBackground.Dispose();
+            mainMenuTitle.Dispose();
             borderCamo.Dispose();
             beamPixel.Dispose();
             background.Dispose();
@@ -1115,6 +1118,13 @@ namespace MonogameTest
         protected override void Update(GameTime gameTime)
         {
             KeyboardState beamKeys = Keyboard.GetState();
+            if (updateMenus(gameTime, beamKeys))
+            {
+                previousBeamKeys = beamKeys;
+                previousDebugKeys = beamKeys;
+                base.Update(gameTime);
+                return;
+            }
             if (beamKeys.IsKeyDown(Keys.OemOpenBrackets) && previousBeamKeys.IsKeyUp(Keys.OemOpenBrackets)) BeamWidth--;
             if (beamKeys.IsKeyDown(Keys.OemCloseBrackets) && previousBeamKeys.IsKeyUp(Keys.OemCloseBrackets)) BeamWidth++;
             previousBeamKeys = beamKeys;
@@ -1158,55 +1168,6 @@ namespace MonogameTest
             beanspeed = tmpspeed / bigspeed;*/
 
 
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-            {
-                Exit();
-            }
-            // TODO: Add your update logic here
-            if (Keyboard.GetState().IsKeyDown(Keys.Enter))
-            {
-                paused = true;
-                //bean_active[2] = false;
-                //readytounpause = false;
-            }
-            if (!Keyboard.GetState().IsKeyDown(Keys.Enter))
-            {
-                //paused = false;
-                readytounpause = false;
-            }
-            /*if (!Keyboard.GetState().IsKeyDown(Keys.Enter))
-            {
-                readytounpause = true;
-            }*/
-            if (paused)
-            {
-                if (!Keyboard.GetState().IsKeyDown(Keys.Enter))
-                {
-                    //paused = false;
-                    readytounpause = true;
-                }
-                if (Keyboard.GetState().IsKeyDown(Keys.Enter))
-                {
-                    if (readytounpause)
-                    {
-                        paused = false;
-                        //readytounpause = false;
-                    }
-                    //readytounpause = false;
-                }
-                /*if (!Keyboard.GetState().IsKeyDown(Keys.Enter))
-                {
-                    readytounpause = true;
-                }
-                if (readytounpause)
-                {
-                    if (Keyboard.GetState().IsKeyDown(Keys.Enter))
-                    {
-                        paused = false;
-                        readytounpause = false;
-                    }
-                }*/
-            }
             if (paused == false)
             {
 
@@ -1907,88 +1868,8 @@ namespace MonogameTest
 
 
 
-                if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover) /// RESTART GAME ///
-                {
-                    x = PLAYER_START_X;
-                    y = PLAYER_START_Y;
-                    tongueoffsetX = 1; // mirrored barrel tip
-                    tongueoffsetY = -1; // barrel tip above the player collision box
-                    tongueX = x + tongueoffsetX;
-                    tongueY = y + tongueoffsetY;
-                    tonguecount = 0;
-                    TargetElapsedTime = System.TimeSpan.FromMilliseconds(1000.0f / targetFPS);
-                    for (int i = 0; i < blockamount; i++)
-                    {
-                        blocks[i] = true;
-                    }
-                    for (int i = 0; i < max_amount_of_beans; i++)
-                    {
-                        bean_active[i] = false;
-                        bean_speed[i] = 0x0;
-                        bean_y[i] = -20;
-                        bean_x[i] = r.Next(PLAYFIELD_LEFT + 8, PLAYFIELD_RIGHT - 8);
-                        bean_anim_counter[i] = rnd.Next(0, 43);
-                        bean_rainbow_counter[i] = rnd.Next(0, 5);
-                        bean_type[i] = 0;
-                    }
-                    pyorodead = false;
-                    gameover = false;
-
-                    risingscore = 5000;
-                    tongueX = 0;
-                    tongueY = 0;
-                    facingright = 1;
-                    spaceheld = 0;
-                    tonguecount = 0;
-                    recall = false;
-                    tonguecollide = false;
-
-                    smallspeed = 0xFF;
-                    bigspeed = 0x100;
-                    blocktocheck = 0;
-                    paused = false;
-                    readytounpause = false;
-                    pyorosquat = 0;
-
-
-                    
-                    time_until_new_bean = 0x0;
-                    score = 0;
-                    scorePopups.Clear();
-                    explosions.Clear();
-                    angels.Clear();
-                    angelQueue.Clear();
-                    angelQueueTimer = 0;
-                    rainbowClearQueue.Clear();
-
-                    /*
-                    max_time = 0xB4;
-                    tmpmax = 0x0;
-                    randnum = 0x0;
-                    tmpspeed = 0x0;
-                    randnum2 = 0x0;
-                    beanspeed = 0;
-                    beantype = 0;
-                    
-                    currentbeanx = 0;
-                    randnum3 = 0x0;
-                    randnum4 = 0x0;
-                    beanxrandom = 0;
-
-                    randnummain = 0;*/
-                    beantype = 0;
-                    randnum4 = 0x0;
-                    currentbeantype = 0;
-
-                    rainbowbeantotal = 10;
-                    risingscore = 5000;
-                    create_new_bean = false;
-                    new_bean_number_debug = 0;
-                    maxdisappear = 10;
-                    dissappearcounter = 0;
-                    triggerdisappear = false;
-                    falsebeans = 0;
-                }
+                if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover)
+                    resetGame();
 
 
 
@@ -2006,18 +1887,8 @@ namespace MonogameTest
         /// This is called when the game should draw itself.
         /// </summary>
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
-        protected override void Draw(GameTime gameTime)
+        void drawGameplay(GameTime gameTime)
         {
-            // Upload before either render pass, and unbind the previous frame's target.
-            GraphicsDevice.Textures[0] = null;
-            updateCamo(gameTime.ElapsedGameTime.TotalSeconds);
-            GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
-            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
-
-            // DRAWING INSIDE RENDERTARGET            
-            // Let the animated outer camo show through outside the frame.
-            GraphicsDevice.Clear(Color.Transparent);
             frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
             // Clip every game sprite to the inside edge, including wide beams and effects.
             GraphicsDevice.ScissorRectangle = new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP,
@@ -2122,14 +1993,34 @@ namespace MonogameTest
             if (tryGetMouseColumn(out int hoverColumn))
                 spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
 
+            drawPauseOverlay();
             // Keep overlays within the same clip, then draw the frame in a separate pass.
-            if (showDebugMenu)
+            if (showDebugMenu && screen == MenuScreen.Playing)
                 drawDebugMenu(spriteBatch);
             spriteBatch.End();
 
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
             drawFrame();
             spriteBatch.End();
+
+        }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            // Upload before either render pass, and unbind the previous frame's target.
+            GraphicsDevice.Textures[0] = null;
+            updateCamo(gameTime.ElapsedGameTime.TotalSeconds);
+            GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
+
+            // DRAWING INSIDE RENDERTARGET
+            // Let the animated outer camo show through outside the frame.
+            GraphicsDevice.Clear(Color.Transparent);
+            if (usesTitleScene())
+                drawTitleScene();
+            else
+                drawGameplay(gameTime);
 
             // SET RENDERTARGET TO NOTHING
             GraphicsDevice.SetRenderTarget(null);
@@ -2140,6 +2031,9 @@ namespace MonogameTest
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             
             spriteBatch.Draw(_nativeRenderTarget, rect, Color.White);
+            float fade = transitionOpacity();
+            if (fade > 0)
+                spriteBatch.Draw(beamPixel, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * fade);
             //spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: {2:0.00}", x, y, speed), new Vector2(40, 50), Color.White);
             spriteBatch.End();
 

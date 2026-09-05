@@ -39,10 +39,16 @@ automatically by .NET at runtime.
 
 - **Left / Right arrows** — move Pyoro
 - **X** — shoot & hold / retract the tongue
-- **Enter** — pause
-- **Esc** — quit
+- **Up / Down** (or **W / S**) — select a menu item
+- **Enter / Space** — confirm a menu selection
+- **Esc** — pause / resume gameplay, or return from Options
+- **Left / Right** in Options — adjust beam width or toggle fullscreen
 - **Mouse click** — edit floor blocks (left removes, right restores); hover shows select
 - **[ / ]** — decrease / increase tractor-beam width (1–20 native pixels)
 
 The tractor beam and claw are generated in code. Set `Game1.BeamWidth` to change
 the visual thickness (default: 6); this setting scales the glow and claw too.
+
+The game opens on the main menu. Start blinks the selection brackets twice, then
+fades through black into a fresh round. The pause menu offers Resume, Restart,
+Options, Main Menu, and Exit. Gameplay and queued effects stay frozen while paused.

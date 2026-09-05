@@ -118,6 +118,7 @@ namespace MonogameTest
         private const bool START_DEBUG_MENU = false;
         private bool showDebugMenu = START_DEBUG_MENU;
         private KeyboardState previousDebugKeys;
+        private bool blockEditingEnabled = false;
 
         // Continuous camo plasma at native pixel resolution, scaled without smoothing.
         const int CAMO_WIDTH = 96;
@@ -1132,6 +1133,8 @@ namespace MonogameTest
             // Toggle the debug menu with F1.
             if (beamKeys.IsKeyDown(Keys.F1) && previousDebugKeys.IsKeyUp(Keys.F1))
                 showDebugMenu = !showDebugMenu;
+            if (beamKeys.IsKeyDown(Keys.F2) && previousDebugKeys.IsKeyUp(Keys.F2))
+                blockEditingEnabled = !blockEditingEnabled;
             previousDebugKeys = beamKeys;
             //rand_number = (109 * rand_number) + 1021; // rand_number = (0x6D * rand_number) + 0x3FD;
             /*rand_number = ((0x6D * rand_number) + 0x3FD);
@@ -1843,7 +1846,7 @@ namespace MonogameTest
                 }
                 mouseState = Mouse.GetState();
                 updates = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-                if (tryGetMouseColumn(out int click))
+                if (blockEditingEnabled && tryGetMouseColumn(out int click))
                 {
                     if (mouseState.LeftButton == ButtonState.Pressed) blocks[click] = false;
                     if (mouseState.RightButton == ButtonState.Pressed) blocks[click] = true;
@@ -1990,7 +1993,7 @@ namespace MonogameTest
             }
             
             // Align the editor highlight with the floor, including after resizing.
-            if (tryGetMouseColumn(out int hoverColumn))
+            if (blockEditingEnabled && screen == MenuScreen.Playing && tryGetMouseColumn(out int hoverColumn))
                 spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
 
             drawPauseOverlay();

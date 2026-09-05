@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PipelineBuildEvent xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SourceFile>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/font.spritefont</SourceFile>
+  <SourceTime>2018-02-13T20:11:38.9322072+11:00</SourceTime>
+  <DestFile>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/bin/Windows/font.xnb</DestFile>
+  <DestTime>2018-02-25T04:23:49.0677208+11:00</DestTime>
+  <Importer>FontDescriptionImporter</Importer>
+  <ImporterTime>2017-03-02T02:05:36+11:00</ImporterTime>
+  <Processor>FontDescriptionProcessor</Processor>
+  <ProcessorTime>2017-03-02T02:05:36+11:00</ProcessorTime>
+  <Parameters>
+    <Key>PremultiplyAlpha</Key>
+    <Value>True</Value>
+  </Parameters>
+  <Parameters>
+    <Key>TextureFormat</Key>
+    <Value>Compressed</Value>
+  </Parameters>
+  <Dependencies />
+  <BuildAsset />
+  <BuildOutput />
+</PipelineBuildEvent>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SourceFileCollection xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Profile>Reach</Profile>
+  <Platform>Windows</Platform>
+  <Config />
+  <SourceFiles>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/font.spritefont</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyoro_standing0.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/frame.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/block.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyoro_standing1.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/smallfont.spritefont</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/tonguepart.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyoroopenleft.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyoroopenright.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/select.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyorosquatleft.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyorosquatright.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/bean_centre.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/bean_left.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/bean_right.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/heightmap.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/collisionblock.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/tonguecollision.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/tonguespriteleft.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/tonguespriteright.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyorodeadleft.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/pyorodeadright.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/beanb_centre.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/beanb_left.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/beanb_right.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/beanw_centre.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/beanw_left.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/beanw_right.png</File>
+    <File>C:/Users/Keeganator/documents/visual studio 2017/Projects/MonogameTest/MonogameTest/Content/gameoversprite.png</File>
+  </SourceFiles>
+</SourceFileCollection>

@@ -2071,16 +2071,25 @@ namespace MonogameTest
             //spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: {2:0.00}", x, y, speed), new Vector2(40, 50), Color.White);
             spriteBatch.End();
 
-            // Press Tab to save the current framebuffer as a PNG.
-            if (Keyboard.GetState().IsKeyDown(Keys.Tab))
+            // Press Tab to save the current framebuffer as a PNG (edge-triggered, so
+            // holding the key only captures once; saving happens off-thread to
+            // avoid hitching the game loop).
+            KeyboardState tabKeys = Keyboard.GetState();
+            if (tabKeys.IsKeyDown(Keys.Tab) && previousTabKeys.IsKeyUp(Keys.Tab))
             {
                 SaveScreenshot();
             }
+            previousTabKeys = tabKeys;
 
             base.Draw(gameTime);
         }
 
-        // Capture the current backbuffer and write it to a PNG file.
+        KeyboardState previousTabKeys;
+        int screenshotPending;
+
+        // Capture the current backbuffer and write it to a PNG file. The GPU
+        // readback happens here (main thread), then the file write is deferred
+        // to a worker thread so the game loop doesn't stall on disk I/O.
         void SaveScreenshot()
         {
             try
@@ -2090,18 +2099,37 @@ namespace MonogameTest
                 Color[] pixels = new Color[w * h];
                 GraphicsDevice.GetBackBufferData(pixels);
 
-                Texture2D tex = new Texture2D(GraphicsDevice, w, h);
-                tex.SetData(pixels);
-
+                int count = screenshotCount++;
                 string dir = Path.Combine(AppContext.BaseDirectory, "screenshots");
                 Directory.CreateDirectory(dir);
-                string file = Path.Combine(dir, "screenshot_" + screenshotCount + ".png");
-                using (System.IO.FileStream fs = new System.IO.FileStream(file, System.IO.FileMode.Create))
+                string file = Path.Combine(dir, "screenshot_" + count + ".png");
+
+                // Encode the PNG on the main thread (SaveAsPng touches GPU
+                // state), then hand the finished bytes to a worker to write.
+                byte[] pngData;
+                using (Texture2D tex = new Texture2D(GraphicsDevice, w, h))
                 {
-                    tex.SaveAsPng(fs, w, h);
+                    tex.SetData(pixels);
+                    using (var ms = new System.IO.MemoryStream())
+                    {
+                        tex.SaveAsPng(ms, w, h);
+                        pngData = ms.ToArray();
+                    }
                 }
-                tex.Dispose();
-                screenshotCount++;
+
+                var thread = new System.Threading.Thread(() =>
+                {
+                    try
+                    {
+                        System.IO.File.WriteAllBytes(file, pngData);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Screenshot write failed: " + ex.Message);
+                    }
+                });
+                thread.IsBackground = true;
+                thread.Start();
             }
             catch (Exception ex)
             {

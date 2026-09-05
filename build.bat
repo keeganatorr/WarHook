@@ -21,6 +21,7 @@ dotnet publish PyoroGL\PyoroGL.csproj ^
     -p:IncludeNativeLibrariesForSelfExtract=true ^
     -p:PublishTrimmed=true ^
     -p:TrimMode=partial ^
+    -p:EnableCompressionInSingleFile=true ^
     -o dist\%RID%
 if errorlevel 1 goto :fail
 

@@ -30,6 +30,7 @@ dotnet publish PyoroGL/PyoroGL.csproj \
     -p:IncludeNativeLibrariesForSelfExtract=true \
     -p:PublishTrimmed=true \
     -p:TrimMode=partial \
+    -p:EnableCompressionInSingleFile=true \
     -o "dist/$RID"
 
 # The single-file bundle can't carry loose files, so copy the runtime Assets/

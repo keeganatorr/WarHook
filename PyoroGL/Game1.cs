@@ -112,11 +112,7 @@ namespace MonogameTest
         private Texture2D[] current_bean_sprite;
         private Texture2D temp_bean_sprite;
         private Texture2D background;
-        private Texture2D foreground;
-        private Color[] towerPixels;
-        private Rectangle[] towerParts;
-        private int towerSheetWidth, towerSheetHeight;
-        private readonly Random sceneryRandom = new Random();
+        private Rectangle backgroundSource;
         private Texture2D scoreLabel;
         private Texture2D highScoreLabel;
         private Texture2D scoreDigits;
@@ -713,9 +709,7 @@ namespace MonogameTest
             pyorodeadleft = Content.Load<Texture2D>("pyorodeadleft");
             pyorodeadright = Content.Load<Texture2D>("pyorodeadright");
             pyoro = pyororight;
-            background = loadPng("backdropwithstars");
-            loadTowerParts();
-            randomizeForeground();
+            loadBackdrop();
             scoreLabel = loadPng("score");
             highScoreLabel = loadPng("highscore");
             scoreDigits = loadScoreDigits();
@@ -797,70 +791,29 @@ namespace MonogameTest
             beanb_right = mortarFrames[8];
         }
 
-        void loadTowerParts()
+        void loadBackdrop()
         {
-            using (Texture2D sheet = loadPng("frontdrop"))
+            background = loadPng("newbackdrop");
+            Color[] pixels = new Color[background.Width * background.Height];
+            background.GetData(pixels);
+            // Ignore the PNG's transparent bottom padding so the scenery meets the floor.
+            int height = background.Height;
+            while (height > 1)
             {
-                towerSheetWidth = sheet.Width;
-                towerSheetHeight = sheet.Height;
-                towerPixels = new Color[sheet.Width * sheet.Height];
-                sheet.GetData(towerPixels);
-                towerParts = new Rectangle[sheet.Width / BLOCK_SIZE];
-                for (int part = 0; part < towerParts.Length; part++)
-                {
-                    int top = 0;
-                    while (top < sheet.Height - BLOCK_SIZE)
-                    {
-                        bool visible = false;
-                        for (int dx = 0; dx < BLOCK_SIZE; dx++)
-                            visible |= towerPixels[top * sheet.Width + part * BLOCK_SIZE + dx].A != 0;
-                        if (visible) break;
-                        top++;
-                    }
-                    towerParts[part] = new Rectangle(part * BLOCK_SIZE, top, BLOCK_SIZE, sheet.Height - top);
-                }
+                bool visible = false;
+                for (int x = 0; x < background.Width; x++)
+                    visible |= pixels[(height - 1) * background.Width + x].A != 0;
+                if (visible) break;
+                height--;
             }
-        }
-
-        void randomizeForeground()
-        {
-            // Compose once per round. Keep each 8px cap intact and extend its body;
-            // sample colors at the same ground-relative row so all bands line up.
-            const int foregroundLeft = 6;
-            int width = NATIVE_WIDTH - foregroundLeft * 2;
-            Color[] pixels = new Color[width * towerSheetHeight];
-            int height = sceneryRandom.Next(2, towerSheetHeight / BLOCK_SIZE + 1) * BLOCK_SIZE;
-            for (int x = 0; x < width; x += BLOCK_SIZE)
-            {
-                Rectangle part = towerParts[sceneryRandom.Next(towerParts.Length)];
-                height = Math.Clamp(height + sceneryRandom.Next(-2, 3) * BLOCK_SIZE, 16, towerSheetHeight);
-                int top = towerSheetHeight - height;
-                for (int row = top; row < towerSheetHeight; row++)
-                {
-                    int capRow = part.Y + Math.Min(row - top, BLOCK_SIZE);
-                    Color bandColor = towerPixels[row * towerSheetWidth];
-                    for (int dx = 0; dx < BLOCK_SIZE && x + dx < width; dx++)
-                        if (towerPixels[capRow * towerSheetWidth + part.X + dx].A != 0)
-                            pixels[row * width + x + dx] = bandColor;
-                }
-            }
-            if (foreground == null)
-                foreground = new Texture2D(GraphicsDevice, width, towerSheetHeight);
-            foreground.SetData(pixels);
+            backgroundSource = new Rectangle(0, 0, background.Width, height);
         }
 
         void drawScenery()
         {
-            // Tile horizontally without stretching the stars or their pixels.
-            for (int left = 0; left < NATIVE_WIDTH; left += background.Width)
-            {
-                int width = Math.Min(background.Width, NATIVE_WIDTH - left);
-                spriteBatch.Draw(background, new Vector2(left, 0), new Rectangle(0, 0, width, background.Height), Color.White);
-                if (NATIVE_HEIGHT > background.Height)
-                    spriteBatch.Draw(background, new Rectangle(left, background.Height, width, NATIVE_HEIGHT - background.Height),
-                        new Rectangle(0, background.Height - 1, width, 1), Color.White);
-            }
-            spriteBatch.Draw(foreground, new Vector2(6, BLOCK_FLOOR_Y - towerSheetHeight), Color.White);
+            spriteBatch.Draw(background,
+                new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP, PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y - PLAYFIELD_TOP),
+                backgroundSource, Color.White);
         }
 
         void drawFrame()
@@ -931,7 +884,6 @@ namespace MonogameTest
         {
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             background.Dispose();
-            foreground.Dispose();
             frame.Dispose();
             scoreLabel.Dispose();
             highScoreLabel.Dispose();
@@ -1782,7 +1734,6 @@ namespace MonogameTest
                     
                     time_until_new_bean = 0x0;
                     score = 0;
-                    randomizeForeground();
                     scorePopups.Clear();
                     explosions.Clear();
                     angels.Clear();

@@ -1131,7 +1131,7 @@ namespace MonogameTest
             if (updateMenus(gameTime, beamKeys))
             {
                 bool audioPaused = screen == MenuScreen.Playing || screen == MenuScreen.Pause || (screen == MenuScreen.Options && optionsParent == MenuScreen.Pause);
-                if (!audioPaused) beamAudio?.Stop();
+                if (!audioPaused) beamAudio?.StopBeamVoices();
                 beamAudio?.Update(false, false, false, audioPaused, gameTime.ElapsedGameTime.TotalSeconds);
                 previousBeamKeys = beamKeys;
                 previousDebugKeys = beamKeys;

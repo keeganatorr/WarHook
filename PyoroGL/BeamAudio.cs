@@ -44,6 +44,12 @@ namespace MonogameTest
             public Voice Extending { get; set; } = new Voice();
             public Voice Catch { get; set; } = new Voice { Duration=.2, Gain=.8, StartHz=660, SweepOctaves=-.8, Attack=.005, Release=.12, PullRise=.01, RampDecay=.5 };
             public Voice Returning { get; set; } = new Voice { Duration=.65, Gain=.55, StartHz=440, SweepOctaves=-1.5, Attack=.015, Release=.05, PullRise=.02, RampDecay=.3 };
+            // Mega Man-style item pickup: quick bright two-note arpeggio.
+            public double MenuGain { get; set; } = 0.5;
+            public double MenuFirstHz { get; set; } = 1318.5;  // E6
+            public double MenuSecondHz { get; set; } = 1975.5; // B6
+            public double MenuNoteSeconds { get; set; } = 0.06;
+            public double MenuTailSeconds { get; set; } = 0.05;
         }
         readonly string path;
         Task<(Settings settings, byte[][] pcm)> pending;
@@ -65,8 +71,9 @@ namespace MonogameTest
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };
-                var pcm = new byte[4][];
+                var pcm = new byte[5][];
                 for (int i=0; i<4; i++) pcm[i] = Generate(config, specs[i]);
+                pcm[4] = GenerateMenuBlip(config);
                 return (config, pcm);
             });
         }
@@ -123,22 +130,55 @@ namespace MonogameTest
             }
             return pcm;
         }
+        // Mega Man-style item pickup: two quick bright square-wave notes
+        // (E6 -> B6) with a short decay tail. Mono 16-bit PCM like the rest.
+        internal static byte[] GenerateMenuBlip(Settings s)
+        {
+            int rate=s.SampleRate;
+            int noteLen=(int)(rate*s.MenuNoteSeconds);
+            int tailLen=(int)(rate*s.MenuTailSeconds);
+            int count=noteLen*2+tailLen;
+            var pcm=new byte[count*2];
+            for (int i=0;i<count;i++)
+            {
+                double hz = i < noteLen ? s.MenuFirstHz : s.MenuSecondHz;
+                double t=(double)i/rate;
+                // Square wave, softened with a simple 2-term harmonic sum.
+                double wave=Math.Sign(Math.Sin(2*Math.PI*hz*t));
+                wave=wave*0.7+0.3*Math.Sin(4*Math.PI*hz*t);
+                // Envelope: fast attack, exp decay within each note, quick tail fade.
+                double env;
+                if (i < noteLen) env=Math.Min(1,t/0.002)*Math.Exp(-6.0*(t%s.MenuNoteSeconds)/s.MenuNoteSeconds);
+                else env=Math.Exp(-9.0*((double)(i-noteLen))/tailLen);
+                short sample=(short)(Math.Clamp(wave*env,-1,1)*s.MenuGain*.9*32767);
+                pcm[i*2]=(byte)(sample & 255); pcm[i*2+1]=(byte)((sample >> 8)&255);
+            }
+            return pcm;
+        }
+        // Fire the menu blip (index 4). Safe to call before audio finishes loading.
+        public void PlayMenuBlip()
+        {
+            if (voices == null || voices.Length < 5 || voices[4] == null) return;
+            var v=voices[4];
+            v.Stop();
+            v.Volume=(float)Math.Clamp(settings.MenuGain,0,1);
+            v.Play();
+        }
         void PollReload()
         {
             if (pending == null || !pending.IsCompleted) return;
-            var replacements=new SoundEffect[4];
-            var instances=new SoundEffectInstance[4];
+            var replacements=new SoundEffect[5];
+            var instances=new SoundEffectInstance[5];
             try
             {
                 var result=pending.GetAwaiter().GetResult();
-                for (int i=0;i<4;i++)
+                for (int i=0;i<5;i++)
                 {
                     replacements[i]=new SoundEffect(result.pcm[i],result.settings.SampleRate,AudioChannels.Mono);
                     instances[i]=replacements[i].CreateInstance();
                     instances[i].IsLooped=i==1 || i==3;
                     instances[i].Volume=0;
                 }
-                DisposeVoices();
                 sounds=replacements; voices=instances; settings=result.settings;
                 specs=new[] { settings.Fire,settings.Extending,settings.Catch,settings.Returning };
                 wasActive=wasCaught=suspended=false;
@@ -187,6 +227,14 @@ namespace MonogameTest
         public void Stop()
         {
             if (voices != null) foreach (var voice in voices) { voice.Stop(); voice.Volume=0; }
+            wasActive=wasCaught=suspended=false;
+        }
+        // Stop only the beam voices (0..3), leaving the menu blip (4) alone so
+        // menu sounds can play while the beam loop is silenced on menus.
+        public void StopBeamVoices()
+        {
+            if (voices == null) return;
+            for (int i=0;i<4 && i<voices.Length;i++) { voices[i].Stop(); voices[i].Volume=0; }
             wasActive=wasCaught=suspended=false;
         }
         void DisposeVoices()

@@ -103,7 +103,10 @@ namespace MonogameTest
         private Texture2D beanb_right;
         private Texture2D[] current_bean_sprite;
         private Texture2D temp_bean_sprite;
-        private Texture2D heightmap;
+        private Texture2D background;
+        private Texture2D scoreLabel;
+        private Texture2D highScoreLabel;
+        private Texture2D scoreDigits;
 
         private Texture2D gameoversprite;
         private Texture2D scoresSprite;
@@ -145,6 +148,7 @@ namespace MonogameTest
         int randnum = 0x0;
         int time_until_new_bean = 0x0;
         int score = 0;
+        int highScore = 10000;
         
         int tmpspeed = 0x0;
         int randnum2 = 0x0;
@@ -603,6 +607,7 @@ namespace MonogameTest
         void addScore(float x, float y, int pts)
         {
             score += pts;
+            highScore = Math.Max(highScore, score);
             scorePopups.Add(new ScorePopup(x, y, pts));
         }
 
@@ -676,7 +681,7 @@ namespace MonogameTest
             graphics.PreferredBackBufferHeight = 640; // 640
             graphics.ApplyChanges();
             computeIntegerScale();
-            x = 100;
+            x = 111;
             y = 128;
             tongueoffsetX = 2; // 1
             tongueoffsetY = 7; // 7
@@ -718,7 +723,7 @@ namespace MonogameTest
 
 
             /* restart game
-            x = 100;
+            x = 111;
             y = 128;
             tongueoffsetX = 2; // 1
             tongueoffsetY = 7; // 7
@@ -761,7 +766,10 @@ namespace MonogameTest
             pyorodeadleft = Content.Load<Texture2D>("pyorodeadleft");
             pyorodeadright = Content.Load<Texture2D>("pyorodeadright");
             pyoro = pyororight;
-            heightmap = Content.Load<Texture2D>("heightmap");
+            background = loadPng("background");
+            scoreLabel = loadPng("score");
+            highScoreLabel = loadPng("highscore");
+            scoreDigits = loadScoreDigits();
             bean_centre = Content.Load<Texture2D>("bean_centre");
             bean_left = Content.Load<Texture2D>("bean_left");
             bean_right = Content.Load<Texture2D>("bean_right");
@@ -793,13 +801,55 @@ namespace MonogameTest
             // TODO: use this.Content to load your game content here
         }
 
+        Texture2D loadPng(string name)
+        {
+            using (Stream stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Assets", name + ".png")))
+                return Texture2D.FromStream(GraphicsDevice, stream);
+        }
+
+        Texture2D loadScoreDigits()
+        {
+            // numbers.png contains ten 8x9 cells, ordered 0 through 9.
+            Texture2D numbers = loadPng("numbers");
+            Color[] pixels = new Color[numbers.Width * numbers.Height];
+            numbers.GetData(pixels);
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                // Match the reference's white HUD ink while preserving transparency.
+                byte alpha = pixels[i].A;
+                pixels[i] = new Color(alpha, alpha, alpha, alpha);
+            }
+            numbers.SetData(pixels);
+            return numbers;
+        }
+
+        void drawScore(int value, int left)
+        {
+            // Keep both counters six digits wide, including leading zeroes.
+            int remaining = Math.Clamp(value, 0, 999999);
+            for (int digit = 5; digit >= 0; digit--)
+            {
+                int number = remaining % 10;
+                Rectangle source = new Rectangle(number * 8, 0, 8, 9);
+                // Zero has an extra pixel of left padding in the supplied sheet.
+                int padding = number == 0 ? 1 : 0;
+                spriteBatch.Draw(scoreDigits, new Vector2(left + digit * 8 - padding, 7), source, Color.White);
+                remaining /= 10;
+            }
+        }
+
         /// <summary>
         /// UnloadContent will be called once per game and is the place to unload
         /// game-specific content.
         /// </summary>
         protected override void UnloadContent()
         {
-            // TODO: Unload any non ContentManager content here
+            background.Dispose();
+            scoreLabel.Dispose();
+            highScoreLabel.Dispose();
+            scoreDigits.Dispose();
+            _nativeRenderTarget.Dispose();
+            spriteBatch.Dispose();
         }
 
         /// <summary>
@@ -1632,7 +1682,7 @@ namespace MonogameTest
 
                 if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover) /// RESTART GAME ///
                 {
-                    x = 100;
+                    x = 111;
                     y = 128;
                     tongueoffsetX = 2; // 1
                     tongueoffsetY = 7; // 7
@@ -1736,10 +1786,10 @@ namespace MonogameTest
             GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
 
             // DRAWING INSIDE RENDERTARGET            
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.Clear(new Color(0x21, 0x21, 0x4a));
             frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-            spriteBatch.Begin();
-            spriteBatch.Draw(heightmap, new Vector2(0, 0), Color.White);
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            spriteBatch.Draw(background, new Vector2(40, 8), Color.White);
             /*spriteBatch.DrawString(arial, string.Format("FPS {0:0.00}/s\nUPDATES: {1:0.00000}/s", frameRate, updates), new Vector2(40, 20), Color.White);
             spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: 0x{2:0.0000}", recall, spaceheld, speed), new Vector2(40, 50), Color.White);
             spriteBatch.DrawString(arial, string.Format("MouseX: {0}\nMosueY: {1}\nPyoroBoxX: {2}\nTongueX: {3} Space: {4} TC: {5}", mouseState.X/gameSize, mouseState.Y / gameSize, System.Math.Ceiling((x+speed - 40)/8), tongueY - (tonguecount), spaceheld, tonguecollide), new Vector2(40, 90), Color.White); // ((mouseState.X / gameSize - 40)/8) mouse on small rendertarget
@@ -1843,9 +1893,10 @@ namespace MonogameTest
                 spriteBatch.Draw(tonguecollision, new Vector2((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)), (float)(tongueY - (tonguecount + (2 * speed)))), Color.White);
             }*/
             spriteBatch.Draw(frame, new Vector2(0, 0), Color.White);
-            // Draw the "SCORE" label sprite, then the numeric value beside it.
-            spriteBatch.Draw(scoresSprite, new Vector2(50, 10), Color.White);
-            spriteBatch.DrawString(arial, string.Format("{0}", score), new Vector2(50 + scoresSprite.Width + 2, 10), Color.White);
+            spriteBatch.Draw(scoreLabel, new Vector2(44, 10), Color.White);
+            drawScore(score, 64);
+            spriteBatch.Draw(highScoreLabel, new Vector2(117, 10), Color.White);
+            drawScore(highScore, 152);
             //spriteBatch.DrawString(arial, string.Format("tonguecollide {0}\nrecall {1}\ntonguecount {2}\n{3}", tonguecollide, recall, tonguecount,dissappearcounter), new Vector2(0, 0), Color.White);
             //spriteBatch.DrawString(arial, string.Format("smlspeed: 0x{0:X2}\nbigspeed: 0x{1:X2}", smallspeed, bigspeed), new Vector2(150, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);

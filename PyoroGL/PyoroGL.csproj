@@ -21,4 +21,9 @@
     <None Include="Content/**/*.xnb" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Assets/background.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

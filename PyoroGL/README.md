@@ -42,3 +42,7 @@ automatically by .NET at runtime.
 - **Enter** — pause
 - **Esc** — quit
 - **Mouse click** — edit floor blocks (left removes, right restores); hover shows select
+- **[ / ]** — decrease / increase tractor-beam width (1–20 native pixels)
+
+The tractor beam and claw are generated in code. Set `Game1.BeamWidth` to change
+the visual thickness (default: 6); this setting scales the glow and claw too.

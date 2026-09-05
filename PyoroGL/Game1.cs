@@ -93,7 +93,16 @@ namespace MonogameTest
         private Texture2D frame;
         private Texture2D block;
         private Texture2D collisionblock;
-        private Texture2D tractorBeam;
+        private Texture2D beamPixel;
+        private int beamWidth = 6;
+        private KeyboardState previousBeamKeys;
+
+        // Visual thickness in native pixels, measured perpendicular to the beam.
+        public int BeamWidth
+        {
+            get { return beamWidth; }
+            set { beamWidth = Math.Clamp(value, 1, 20); }
+        }
         private Texture2D select;
         private Texture2D[] mortarFrames;
         private Texture2D bean_centre;
@@ -713,7 +722,8 @@ namespace MonogameTest
             collisionblock = Content.Load<Texture2D>("collisionblock");
             explosionSprite = Content.Load<Texture2D>("explosion");
             angelSprite = Content.Load<Texture2D>("angel");
-            tractorBeam = loadPng("tractorbeam-pixelart");
+            beamPixel = new Texture2D(GraphicsDevice, 1, 1);
+            beamPixel.SetData(new[] { Color.White });
             select = Content.Load<Texture2D>("select");
             gameoversprite = Content.Load<Texture2D>("gameoversprite");
             scoresSprite = Content.Load<Texture2D>("scores");
@@ -834,31 +844,51 @@ namespace MonogameTest
         {
             if (pyorodead || tonguecount <= 0) return;
             Vector2 start = new Vector2((float)Math.Round(tongueX), (float)Math.Round(tongueY));
-            int length = (int)Math.Round(tonguecount);
-            // A cross-section of the middle sprite repeats along the 45-degree ray.
-            // This extends the beam without stretching its glow or adding segment seams.
-            Rectangle beamSection = new Rectangle(52, 20, 1, 16);
-            for (int step = 0; step < length; step++)
-            {
-                int beamX = (int)start.X + step * facingright;
-                int beamY = (int)start.Y - step;
-                if (beamX < PLAYFIELD_LEFT || beamX >= PLAYFIELD_RIGHT || beamY < PLAYFIELD_TOP) continue;
-                spriteBatch.Draw(tractorBeam, new Rectangle(beamX, beamY - 4, 1, 8), beamSection, Color.White);
-            }
-            // The claw is drawn at half size to match the tank's native pixels.
-            drawBeamPart(new Rectangle(70, 0, 44, 42),
-                start + new Vector2(length * facingright, -length), new Vector2(34, 12));
+            Vector2 end = start + new Vector2(tonguecount * facingright, -tonguecount);
+            Vector2 direction = Vector2.Normalize(end - start);
+            Vector2 normal = new Vector2(-direction.Y, direction.X);
+            float length = Vector2.Distance(start, end);
+            float headDepth = Math.Min(length, Math.Max(6f, BeamWidth * 1.5f));
+            float headRadius = Math.Min(headDepth * 0.75f, Math.Max(4f, BeamWidth));
+            Vector2 neck = end - direction * headDepth;
+
+            // Draw every layer over the entire beam, so adjoining strokes share a glow.
+            drawBeamLayer(start, neck, end, direction, normal, headDepth, headRadius,
+                BeamWidth, new Color(0, 100, 220));
+            drawBeamLayer(start, neck, end, direction, normal, headDepth, headRadius,
+                Math.Max(1f, BeamWidth * 0.65f), new Color(0, 235, 255));
+            drawBeamLayer(start, neck, end, direction, normal, headDepth, headRadius,
+                Math.Max(1f, BeamWidth * 0.25f), new Color(225, 255, 255));
         }
 
-        void drawBeamPart(Rectangle source, Vector2 anchor, Vector2 origin)
+        void drawBeamLayer(Vector2 start, Vector2 neck, Vector2 end, Vector2 direction,
+            Vector2 normal, float depth, float radius, float width, Color color)
         {
-            SpriteEffects effects = SpriteEffects.None;
-            if (facingright == -1)
+            drawBeamStroke(start, neck, width, color);
+            for (int side = -1; side <= 1; side += 2)
             {
-                effects = SpriteEffects.FlipHorizontally;
-                origin.X = source.Width - origin.X;
+                Vector2 shoulder = end - direction * (depth * 0.45f) + normal * (radius * side);
+                Vector2 prong = end + direction * (depth * 0.25f) + normal * (radius * side);
+                Vector2 tip = end + direction * (depth * 0.45f) + normal * (radius * 0.55f * side);
+                drawBeamStroke(neck, shoulder, width, color);
+                drawBeamStroke(shoulder, prong, width, color);
+                drawBeamStroke(prong, tip, width, color);
             }
-            spriteBatch.Draw(tractorBeam, anchor, source, Color.White, 0f, origin, 0.5f, effects, 0f);
+        }
+
+        void drawBeamStroke(Vector2 start, Vector2 end, float width, Color color)
+        {
+            Vector2 delta = end - start;
+            float length = delta.Length();
+            if (length < 0.01f) return;
+            float angle = (float)Math.Atan2(delta.Y, delta.X);
+            // Slightly overlap the ends so claw joints stay connected at every width.
+            spriteBatch.Draw(beamPixel, start, null, color, angle, new Vector2(0.5f, 0.5f),
+                new Vector2(width, width), SpriteEffects.None, 0f);
+            spriteBatch.Draw(beamPixel, start, null, color, angle, new Vector2(0, 0.5f),
+                new Vector2(length, width), SpriteEffects.None, 0f);
+            spriteBatch.Draw(beamPixel, end, null, color, angle, new Vector2(0.5f, 0.5f),
+                new Vector2(width, width), SpriteEffects.None, 0f);
         }
 
         void drawFrame()
@@ -930,7 +960,7 @@ namespace MonogameTest
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             pyororight.Dispose();
             pyoroleft.Dispose();
-            tractorBeam.Dispose();
+            beamPixel.Dispose();
             background.Dispose();
             frame.Dispose();
             scoreLabel.Dispose();
@@ -947,6 +977,10 @@ namespace MonogameTest
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
+            KeyboardState beamKeys = Keyboard.GetState();
+            if (beamKeys.IsKeyDown(Keys.OemOpenBrackets) && previousBeamKeys.IsKeyUp(Keys.OemOpenBrackets)) BeamWidth--;
+            if (beamKeys.IsKeyDown(Keys.OemCloseBrackets) && previousBeamKeys.IsKeyUp(Keys.OemCloseBrackets)) BeamWidth++;
+            previousBeamKeys = beamKeys;
             //rand_number = (109 * rand_number) + 1021; // rand_number = (0x6D * rand_number) + 0x3FD;
             /*rand_number = ((0x6D * rand_number) + 0x3FD);
             rand_number = ((rand_number & 0x0000FFFF));

@@ -73,3 +73,4 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/smallfont.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/mortars-pixelart-cleaned.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/newbackdrop.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/tank-pixelart.png

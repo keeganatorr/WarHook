@@ -130,7 +130,7 @@ namespace MonogameTest
         float tongueX, tongueY;
         int facingright = 1;
         int tongueoffsetX, tongueoffsetY;
-        int rightoffset = 9;
+        int rightoffset = 13;
         int spaceheld = 0;
         float tonguecount = 0;
         bool recall = false;
@@ -626,8 +626,8 @@ namespace MonogameTest
             computeIntegerScale();
             x = PLAYER_START_X;
             y = PLAYER_START_Y;
-            tongueoffsetX = 2; // 1
-            tongueoffsetY = 7; // 7
+            tongueoffsetX = 1; // mirrored barrel tip
+            tongueoffsetY = -1; // barrel tip above the player collision box
             tongueX = x + tongueoffsetX;
             tongueY = y + tongueoffsetY;
             tonguecount = 0;
@@ -668,8 +668,8 @@ namespace MonogameTest
             /* restart game
             x = PLAYER_START_X;
             y = PLAYER_START_Y;
-            tongueoffsetX = 2; // 1
-            tongueoffsetY = 7; // 7
+            tongueoffsetX = 1; // mirrored barrel tip
+            tongueoffsetY = -1; // barrel tip above the player collision box
             tongueX = x + tongueoffsetX;
             tongueY = y + tongueoffsetY;
             tonguecount = 0;
@@ -700,14 +700,7 @@ namespace MonogameTest
             spriteBatch = new SpriteBatch(GraphicsDevice);
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
-            pyororight = Content.Load<Texture2D>("pyoro_standing0");
-            pyoroleft = Content.Load<Texture2D>("pyoro_standing1");
-            pyorosquatright = Content.Load<Texture2D>("pyorosquatright");
-            pyorosquatleft = Content.Load<Texture2D>("pyorosquatleft");
-            pyoroopenright = Content.Load<Texture2D>("pyoroopenright");
-            pyoroopenleft = Content.Load<Texture2D>("pyoroopenleft");
-            pyorodeadleft = Content.Load<Texture2D>("pyorodeadleft");
-            pyorodeadright = Content.Load<Texture2D>("pyorodeadright");
+            loadPlayerTank();
             pyoro = pyororight;
             loadBackdrop();
             scoreLabel = loadPng("score");
@@ -748,6 +741,35 @@ namespace MonogameTest
                 texture.SetData(pixels);
                 return texture;
             }
+        }
+
+        void loadPlayerTank()
+        {
+            using (Texture2D sheet = loadPng("tank-pixelart"))
+            {
+                Color[] source = new Color[sheet.Width * sheet.Height];
+                sheet.GetData(source);
+                Color backgroundColor = source[0];
+                // Remove the solid background and one-pixel outer gutter, retaining native pixels.
+                int width = sheet.Width - 2, height = sheet.Height - 2;
+                Color[] right = new Color[width * height];
+                Color[] left = new Color[right.Length];
+                for (int y = 0; y < height; y++)
+                    for (int x = 0; x < width; x++)
+                    {
+                        Color pixel = source[(y + 1) * sheet.Width + x + 1];
+                        if (pixel == backgroundColor) pixel = Color.Transparent;
+                        right[y * width + x] = pixel;
+                        left[y * width + width - 1 - x] = pixel;
+                    }
+                pyororight = new Texture2D(GraphicsDevice, width, height);
+                pyororight.SetData(right);
+                pyoroleft = new Texture2D(GraphicsDevice, width, height);
+                pyoroleft.SetData(left);
+            }
+            // The supplied tank has one pose; use it for every player state.
+            pyorosquatright = pyoroopenright = pyorodeadright = pyororight;
+            pyorosquatleft = pyoroopenleft = pyorodeadleft = pyoroleft;
         }
 
         void loadMortarFrames()
@@ -883,6 +905,8 @@ namespace MonogameTest
         protected override void UnloadContent()
         {
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
+            pyororight.Dispose();
+            pyoroleft.Dispose();
             background.Dispose();
             frame.Dispose();
             scoreLabel.Dispose();
@@ -1691,8 +1715,8 @@ namespace MonogameTest
                 {
                     x = PLAYER_START_X;
                     y = PLAYER_START_Y;
-                    tongueoffsetX = 2; // 1
-                    tongueoffsetY = 7; // 7
+                    tongueoffsetX = 1; // mirrored barrel tip
+                    tongueoffsetY = -1; // barrel tip above the player collision box
                     tongueX = x + tongueoffsetX;
                     tongueY = y + tongueoffsetY;
                     tonguecount = 0;
@@ -1858,7 +1882,9 @@ namespace MonogameTest
             // Explosions draw ON TOP of the blocks they mark.
             drawExplosions(spriteBatch);
             //}
-            spriteBatch.Draw(pyoro, new Vector2((float)System.Math.Round((decimal)x), (float)System.Math.Round((decimal)y)), Color.White);
+            // Center the native-size tank over the existing collision box, with treads on the floor.
+            spriteBatch.Draw(pyoro, new Vector2((float)Math.Round(x) + (16 - pyoro.Width) / 2,
+                (float)Math.Round(y) + 16 - pyoro.Height), Color.White);
             //spriteBatch.Draw(collisionblock, new Vector2((float)System.Math.Round((decimal)x), y), Color.White);
 
             for (int i = 0; i < max_amount_of_beans; i++)

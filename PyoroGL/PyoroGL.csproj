@@ -33,7 +33,7 @@
     <!-- Raw PNGs loaded at runtime via Texture2D.FromStream (loadPng) from the
          output Assets/ folder. Copied on EVERY build so edits always propagate
          when pressing F5. -->
-    <None Update="Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png"
+    <None Update="Assets/tank-pixelart.png;Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png"
           CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
 

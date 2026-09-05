@@ -9,6 +9,10 @@
     <RootNamespace>MonogameTest</RootNamespace>
     <AssemblyName>MonogameTest</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Stay architecture-neutral so a RuntimeIdentifier (win-x64/linux-x64)
+         can never conflict with an inherited x86 PlatformTarget. -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Platforms>AnyCPU</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

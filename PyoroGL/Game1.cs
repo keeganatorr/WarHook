@@ -32,6 +32,7 @@ namespace MonogameTest
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
+            graphics.SynchronizeWithVerticalRetrace = true;
             Content.RootDirectory = "Content";
             Window.AllowUserResizing = true;
             // Allow starting with the debug menu enabled: run with "--debug".
@@ -118,18 +119,17 @@ namespace MonogameTest
         private bool showDebugMenu = START_DEBUG_MENU;
         private KeyboardState previousDebugKeys;
 
-        // Dynamic animated border drawn behind the scaled game. A slowly
-        // drifting diagonal colour wash whose speed follows the game speed and
-        // whose hue shifts red while Pyoro is dead.
-        // Camo knobs mirror camo_full.py; window scaling stays nearest-neighbor.
+        // Continuous camo plasma at native pixel resolution, scaled without smoothing.
         const int CAMO_WIDTH = 96;
         const int CAMO_HEIGHT = 54;
-        const int CAMO_FRAMES = 140;
-        const double CAMO_LOOP_SECONDS = 9.3;
         private Texture2D borderCamo;
         private readonly Color[] borderPixels = new Color[CAMO_WIDTH * CAMO_HEIGHT];
-        private int borderFrame = -1;
+        private readonly double[] camoXWave1 = new double[CAMO_WIDTH];
+        private readonly double[] camoXWave2 = new double[CAMO_WIDTH];
+        private readonly Color[] camoPalette = makeCamoPalette();
         private double borderTime;
+        private readonly Rectangle[] frameSources = new Rectangle[8];
+        private readonly Rectangle[] frameDestinations = new Rectangle[8];
 
         // Visual thickness in native pixels, measured perpendicular to the beam.
         public int BeamWidth
@@ -669,7 +669,6 @@ namespace MonogameTest
             tongueX = x + tongueoffsetX;
             tongueY = y + tongueoffsetY;
             tonguecount = 0;
-            graphics.SynchronizeWithVerticalRetrace = false; //Vsync
             IsFixedTimeStep = true;
             TargetElapsedTime = System.TimeSpan.FromMilliseconds(1000.0f / targetFPS);
             this.IsMouseVisible = true;
@@ -752,6 +751,7 @@ namespace MonogameTest
                 current_bean_sprite[i] = bean_centre;
             }
             frame = loadPng("framewide");
+            prepareFrameSlices();
             block = Content.Load<Texture2D>("block");
             blockAtlas = loadPng("block_atlas");
             collisionblock = Content.Load<Texture2D>("collisionblock");
@@ -1006,7 +1006,7 @@ namespace MonogameTest
             return n;
         }
 
-        void drawFrame()
+        void prepareFrameSlices()
         {
             // Nine-slice the supplied frame. The new frame sprite has a
             // uniform 8px border on all four sides, so slice at 8 everywhere
@@ -1015,14 +1015,21 @@ namespace MonogameTest
             int[] sourceY = { 0, 8, frame.Height - 8, frame.Height };
             int[] targetX = { 0, 8, NATIVE_WIDTH - 8, NATIVE_WIDTH };
             int[] targetY = { 0, 8, NATIVE_HEIGHT - 8, NATIVE_HEIGHT };
+            int slice = 0;
             for (int row = 0; row < 3; row++)
                 for (int column = 0; column < 3; column++)
                 {
                     if (row == 1 && column == 1) continue;
-                    spriteBatch.Draw(frame,
-                        new Rectangle(targetX[column], targetY[row], targetX[column + 1] - targetX[column], targetY[row + 1] - targetY[row]),
-                        new Rectangle(sourceX[column], sourceY[row], sourceX[column + 1] - sourceX[column], sourceY[row + 1] - sourceY[row]), Color.White);
+                    frameDestinations[slice] = new Rectangle(targetX[column], targetY[row], targetX[column + 1] - targetX[column], targetY[row + 1] - targetY[row]);
+                    frameSources[slice] = new Rectangle(sourceX[column], sourceY[row], sourceX[column + 1] - sourceX[column], sourceY[row + 1] - sourceY[row]);
+                    slice++;
                 }
+        }
+
+        void drawFrame()
+        {
+            for (int i = 0; i < frameSources.Length; i++)
+                spriteBatch.Draw(frame, frameDestinations[i], frameSources[i], Color.White);
         }
 
         bool tryGetMouseColumn(out int column)
@@ -1975,8 +1982,12 @@ namespace MonogameTest
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
-            // SET RENDERTARGET TO _nativeRenderTarget
+            // Upload before either render pass, and unbind the previous frame's target.
+            GraphicsDevice.Textures[0] = null;
+            updateCamo(gameTime.ElapsedGameTime.TotalSeconds);
             GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
 
             // DRAWING INSIDE RENDERTARGET            
             // Let the animated outer camo show through outside the frame.
@@ -2097,7 +2108,7 @@ namespace MonogameTest
             // SET RENDERTARGET TO NOTHING
             GraphicsDevice.SetRenderTarget(null);
             // Dynamic animated border fills the whole window behind the game.
-            drawDynamicBorder(gameTime);
+            drawDynamicBorder();
 
             // DRAW _nativeRenderTarget TO SCREEN at the integer scale
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
@@ -2173,38 +2184,58 @@ namespace MonogameTest
             }
         }
 
-        void drawDynamicBorder(GameTime gameTime)
+        static Color[] makeCamoPalette()
         {
-            borderTime += gameTime.ElapsedGameTime.TotalSeconds;
-            int currentFrame = (int)((borderTime % CAMO_LOOP_SECONDS) * CAMO_FRAMES / CAMO_LOOP_SECONDS);
-            if (currentFrame != borderFrame)
-            {
-                borderFrame = currentFrame;
-                double t = currentFrame * CAMO_LOOP_SECONDS / CAMO_FRAMES;
-                for (int y = 0; y < CAMO_HEIGHT; y++)
+            Color[] palette = new Color[16];
+            for (int hue = 0; hue < 2; hue++)
+                for (int level = 0; level < 8; level++)
                 {
-                    double py = y / (double)(CAMO_HEIGHT - 1);
-                    for (int x = 0; x < CAMO_WIDTH; x++)
-                    {
-                        double px = x / (double)(CAMO_WIDTH - 1);
-                        double plasma = Math.Sin(px * 12.0 + t * 1.3) * Math.Sin(py * 15.0 - t * 1.1)
-                            + 0.6 * Math.Sin(px * 7.0 + t * 1.1) * Math.Sin(py * 9.0 - t * 0.9);
-                        bool tan = plasma > 0;
-                        double shade = 0.55 + 0.45 * Math.Clamp(plasma, -1.0, 1.0);
-                        // Eight shades per hue give a stable 16-color palette without dithering.
-                        double darkest = tan ? 0.55 : 0.10;
-                        shade = darkest + Math.Round((shade - darkest) / 0.45 * 7.0) * 0.45 / 7.0;
-                        borderPixels[y * CAMO_WIDTH + x] = new Color(
-                            (byte)((tan ? 118 : 56) * shade),
-                            (byte)((tan ? 94 : 60) * shade),
-                            (byte)((tan ? 54 : 32) * shade));
-                    }
+                    double shade = (hue == 1 ? 0.55 : 0.10) + level * 0.45 / 7.0;
+                    palette[hue * 8 + level] = new Color(
+                        (byte)((hue == 1 ? 118 : 56) * shade),
+                        (byte)((hue == 1 ? 94 : 60) * shade),
+                        (byte)((hue == 1 ? 54 : 32) * shade));
                 }
-                borderCamo.SetData(borderPixels);
+            return palette;
+        }
+
+        void updateCamo(double elapsedSeconds)
+        {
+            // No frame limit or loop reset: phase advances continuously for the entire session.
+            borderTime += elapsedSeconds;
+            for (int x = 0; x < CAMO_WIDTH; x++)
+            {
+                double px = x / (double)(CAMO_WIDTH - 1);
+                camoXWave1[x] = Math.Sin(px * 12.0 + borderTime * 1.3);
+                camoXWave2[x] = Math.Sin(px * 7.0 + borderTime * 1.1);
             }
+            for (int y = 0; y < CAMO_HEIGHT; y++)
+            {
+                double py = y / (double)(CAMO_HEIGHT - 1);
+                double wave1 = Math.Sin(py * 15.0 - borderTime * 1.1);
+                double wave2 = 0.6 * Math.Sin(py * 9.0 - borderTime * 0.9);
+                for (int x = 0; x < CAMO_WIDTH; x++)
+                {
+                    double plasma = Math.Clamp(camoXWave1[x] * wave1 + camoXWave2[x] * wave2, -1.0, 1.0);
+                    int hue = plasma > 0 ? 8 : 0;
+                    int shade = (int)Math.Round((plasma > 0 ? plasma : plasma + 1.0) * 7.0);
+                    borderPixels[y * CAMO_WIDTH + x] = camoPalette[hue + shade];
+                }
+            }
+            borderCamo.SetData(borderPixels);
+        }
+
+        void drawDynamicBorder()
+        {
             int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
             int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            // Reset target-dependent state and overwrite every backbuffer pixel each frame.
+            GraphicsDevice.Viewport = new Viewport(0, 0, width, height);
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, width, height);
+            GraphicsDevice.Clear(Color.Black);
+            spriteBatch.Begin(blendState: BlendState.Opaque, samplerState: SamplerState.PointClamp,
+                rasterizerState: RasterizerState.CullNone);
             spriteBatch.Draw(borderCamo, new Rectangle(0, 0, width, height), Color.White);
             spriteBatch.End();
         }

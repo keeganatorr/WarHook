@@ -845,8 +845,7 @@ namespace MonogameTest
                 if (beamX < PLAYFIELD_LEFT || beamX >= PLAYFIELD_RIGHT || beamY < PLAYFIELD_TOP) continue;
                 spriteBatch.Draw(tractorBeam, new Rectangle(beamX, beamY - 4, 1, 8), beamSection, Color.White);
             }
-            // The supplied parts are twice the scale of the tank's native pixels.
-            drawBeamPart(new Rectangle(2, 14, 32, 30), start, new Vector2(8, 20));
+            // The claw is drawn at half size to match the tank's native pixels.
             drawBeamPart(new Rectangle(70, 0, 44, 42),
                 start + new Vector2(length * facingright, -length), new Vector2(34, 12));
         }

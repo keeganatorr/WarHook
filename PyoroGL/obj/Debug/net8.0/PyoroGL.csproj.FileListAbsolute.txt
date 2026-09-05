@@ -74,3 +74,4 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/mortars-pixelart-cleaned.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/newbackdrop.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/tank-pixelart.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/tractorbeam-pixelart.png

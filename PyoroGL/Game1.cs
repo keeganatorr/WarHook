@@ -93,11 +93,7 @@ namespace MonogameTest
         private Texture2D frame;
         private Texture2D block;
         private Texture2D collisionblock;
-        private Texture2D tongue;
-        private Texture2D tonguesprite;
-        private Texture2D tonguespriteright;
-        private Texture2D tonguespriteleft;
-        private Texture2D tonguecollision;
+        private Texture2D tractorBeam;
         private Texture2D select;
         private Texture2D[] mortarFrames;
         private Texture2D bean_centre;
@@ -717,11 +713,7 @@ namespace MonogameTest
             collisionblock = Content.Load<Texture2D>("collisionblock");
             explosionSprite = Content.Load<Texture2D>("explosion");
             angelSprite = Content.Load<Texture2D>("angel");
-            tongue = Content.Load<Texture2D>("tonguepart");
-            tonguespriteright = Content.Load<Texture2D>("tonguespriteright");
-            tonguespriteleft = Content.Load<Texture2D>("tonguespriteleft");
-            tonguesprite = tonguespriteright;
-            tonguecollision = Content.Load<Texture2D>("tonguecollision");
+            tractorBeam = loadPng("tractorbeam-pixelart");
             select = Content.Load<Texture2D>("select");
             gameoversprite = Content.Load<Texture2D>("gameoversprite");
             scoresSprite = Content.Load<Texture2D>("scores");
@@ -838,6 +830,38 @@ namespace MonogameTest
                 backgroundSource, Color.White);
         }
 
+        void drawTractorBeam()
+        {
+            if (pyorodead || tonguecount <= 0) return;
+            Vector2 start = new Vector2((float)Math.Round(tongueX), (float)Math.Round(tongueY));
+            int length = (int)Math.Round(tonguecount);
+            // A cross-section of the middle sprite repeats along the 45-degree ray.
+            // This extends the beam without stretching its glow or adding segment seams.
+            Rectangle beamSection = new Rectangle(52, 20, 1, 16);
+            for (int step = 0; step < length; step++)
+            {
+                int beamX = (int)start.X + step * facingright;
+                int beamY = (int)start.Y - step;
+                if (beamX < PLAYFIELD_LEFT || beamX >= PLAYFIELD_RIGHT || beamY < PLAYFIELD_TOP) continue;
+                spriteBatch.Draw(tractorBeam, new Rectangle(beamX, beamY - 4, 1, 8), beamSection, Color.White);
+            }
+            // The supplied parts are twice the scale of the tank's native pixels.
+            drawBeamPart(new Rectangle(2, 14, 32, 30), start, new Vector2(8, 20));
+            drawBeamPart(new Rectangle(70, 0, 44, 42),
+                start + new Vector2(length * facingright, -length), new Vector2(34, 12));
+        }
+
+        void drawBeamPart(Rectangle source, Vector2 anchor, Vector2 origin)
+        {
+            SpriteEffects effects = SpriteEffects.None;
+            if (facingright == -1)
+            {
+                effects = SpriteEffects.FlipHorizontally;
+                origin.X = source.Width - origin.X;
+            }
+            spriteBatch.Draw(tractorBeam, anchor, source, Color.White, 0f, origin, 0.5f, effects, 0f);
+        }
+
         void drawFrame()
         {
             // Nine-slice the supplied frame so its border stays the original thickness.
@@ -907,6 +931,7 @@ namespace MonogameTest
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             pyororight.Dispose();
             pyoroleft.Dispose();
+            tractorBeam.Dispose();
             background.Dispose();
             frame.Dispose();
             scoreLabel.Dispose();
@@ -1336,24 +1361,20 @@ namespace MonogameTest
                                 if (pyorosquat < 2)
                                 {
                                     pyoro = pyorosquatleft;
-                                    tonguesprite = tonguespriteleft;
                                 }
                                 if (pyorosquat >= 2)
                                 {
                                     pyoro = pyoroleft;
-                                    tonguesprite = tonguespriteleft;
                                 }
                                 break;
                             case 1:
                                 if (pyorosquat < 2)
                                 {
                                     pyoro = pyorosquatright;
-                                    tonguesprite = tonguespriteright;
                                 }
                                 if (pyorosquat >= 2)
                                 {
                                     pyoro = pyororight;
-                                    tonguesprite = tonguespriteright;
                                 }
                                 break;
                             default:
@@ -1827,45 +1848,7 @@ namespace MonogameTest
 
             //spriteBatch.Draw(current_bean_sprite, new Vector2(160,120), Color.White);
 
-            if (!pyorodead)
-            {
-                spriteBatch.Draw(tongue, new Vector2((float)System.Math.Round((decimal)tongueX), tongueY), Color.White);
-            }
-            /*if(spaceheld==1)
-            {*/
-            int tonguefaceoffset = 0;
-            if (facingright == 1)
-            {
-                tonguefaceoffset = 1;
-            }
-            if (facingright == -1)
-            {
-                tonguefaceoffset = 2;
-            }
-            int beantongueoffset = 0;
-            if (facingright == 1)
-            {
-                beantongueoffset = 0;
-            }
-            if (facingright == -1)
-            {
-                beantongueoffset = 10;
-            }
-            if (tonguecount > 0 && !pyorodead)
-            {
-                spriteBatch.Draw(tonguesprite, new Vector2((float)System.Math.Round((decimal)tongueX - tongueoffsetX - tonguefaceoffset + ((decimal)(tonguecount + (2 * speed)) * facingright)), (float)System.Math.Round((tongueY - 5 - (tonguecount + (2 * speed))))), Color.White);
-            }
-            for (int j = 0; j < System.Math.Ceiling(tonguecount); j++)
-            {
-                if ((float)System.Math.Round((decimal)tongueX + (j * facingright)) < PLAYFIELD_RIGHT - 1 && (float)System.Math.Round((decimal)tongueX + (j * facingright)) > PLAYFIELD_LEFT)
-                {
-                    if (tongueY - j > PLAYFIELD_TOP && !pyorodead)
-                    {
-                        spriteBatch.Draw(tongue, new Vector2((float)System.Math.Round((decimal)tongueX + (j * facingright)), (int)tongueY - j), Color.White);
-                    }
-                }
-
-            }
+            drawTractorBeam();
             // Angels descending to restore blocks (drawn behind existing blocks)
             drawAngels(spriteBatch);
 
@@ -1902,13 +1885,14 @@ namespace MonogameTest
                     //bean_y[i];
                 }
                 //temp_bean_sprite = current_bean_sprite[i];
-                if (tonguecollide && recall && tonguecount>0)
-                {
-                    spriteBatch.Draw(current_bean_sprite[caughtbean], new Vector2((float)Math.Round(tongueX- beantongueoffset + tonguecount * facingright), (float)Math.Round((decimal)(tongueY - tonguecount-14))), Color.White);
-                }
-
             }
-            
+            if (tonguecollide && recall && tonguecount > 0 && !pyorodead)
+            {
+                spriteBatch.Draw(current_bean_sprite[caughtbean],
+                    new Vector2((float)Math.Round(tongueX + tonguecount * facingright) - 8,
+                        (float)Math.Round(tongueY - tonguecount) - 8), Color.White);
+            }
+
             if(gameover)
             {
                 spriteBatch.Draw(gameoversprite, new Vector2((NATIVE_WIDTH - gameoversprite.Width) / 2, NATIVE_HEIGHT / 2), Color.White);
@@ -1920,10 +1904,6 @@ namespace MonogameTest
             
 
 
-            /*if (tonguecount > 0)
-            {
-                spriteBatch.Draw(tonguecollision, new Vector2((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)), (float)(tongueY - (tonguecount + (2 * speed)))), Color.White);
-            }*/
             drawFrame();
             spriteBatch.Draw(scoreLabel, new Vector2(PLAYFIELD_LEFT + 4, 10), Color.White);
             drawScore(score, PLAYFIELD_LEFT + 24);

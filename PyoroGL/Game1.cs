@@ -33,6 +33,13 @@ namespace MonogameTest
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             Window.AllowUserResizing = true;
+            // Allow starting with the debug menu enabled: run with "--debug".
+            string[] args = Environment.GetCommandLineArgs();
+            foreach (string arg in args)
+            {
+                if (arg == "--debug" || arg == "-d")
+                    showDebugMenu = true;
+            }
         }
 
         // Compute the largest integer scale factor that fits the current window,
@@ -96,7 +103,10 @@ namespace MonogameTest
         private Texture2D beamPixel;
         private int beamWidth = 3;
         private KeyboardState previousBeamKeys;
-        private bool showDebugMenu;
+        // Start with the debug menu open when "--debug" is passed on the
+        // command line (or START_DEBUG_MENU is set to true below).
+        private const bool START_DEBUG_MENU = false;
+        private bool showDebugMenu = START_DEBUG_MENU;
         private KeyboardState previousDebugKeys;
 
         // Visual thickness in native pixels, measured perpendicular to the beam.

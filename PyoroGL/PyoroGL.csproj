@@ -22,14 +22,28 @@
   </ItemGroup>
 
   <!-- Rebuild the MonoGame content (sprites, fonts) before compiling so that
-       pressing F5 always produces fresh .xnb files from Content.mgcb. Uses the
-       global dotnet-mgcb tool via its full shim path (PATH may not include
-       ~/.dotnet/tools under MSBuild/VS). -->
+       builds always produce fresh .xnb files from Content.mgcb. Uses the
+       global dotnet-mgcb tool; resolves the tool shim cross-platform
+       (~/.dotnet/tools on Linux/macOS, %USERPROFILE%\.dotnet\tools on Windows). -->
   <Target Name="BuildContent" BeforeTargets="Build">
+    <PropertyGroup>
+      <MGCBHome Condition="'$(MGCBHome)' == '' AND '$(HOME)' != ''">$(HOME)/.dotnet/tools</MGCBHome>
+      <MGCBHome Condition="'$(MGCBHome)' == '' AND '$(USERPROFILE)' != ''">$(USERPROFILE)\.dotnet\tools</MGCBHome>
+      <MGCBExe Condition="'$(MGCBExe)' == ''">&quot;$(MGCBHome)/mgcb&quot;</MGCBExe>
+      <MGCBExe Condition="!Exists('$(MGCBHome)/mgcb') AND Exists('$(MGCBHome)/mgcb.exe')">&quot;$(MGCBHome)/mgcb.exe&quot;</MGCBExe>
+    </PropertyGroup>
     <!-- Run inside Content/ so /outputDir:. resolves next to the .mgcb, not in
          the project root (mgcb resolves relative paths from the CWD). -->
-    <Exec Command="&quot;$(HOME)/.dotnet/tools/mgcb&quot; Content.mgcb" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
+    <Exec Command="$(MGCBExe) Content.mgcb" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
   </Target>
+
+  <!-- Single-file publish settings for win-x64 / linux-x64 -->
+  <PropertyGroup>
+    <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">true</PublishSingleFile>
+    <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' AND '$(NT)' != ''">win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
 
   <ItemGroup>
     <!-- Raw PNGs loaded at runtime via Texture2D.FromStream (loadPng) from the

@@ -16,6 +16,7 @@ namespace MonogameTest
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
         RenderTarget2D _nativeRenderTarget;
+        RasterizerState playfieldRasterizer;
 
         const int NATIVE_WIDTH = 288;
         const int NATIVE_HEIGHT = 162;
@@ -735,6 +736,7 @@ namespace MonogameTest
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
+            playfieldRasterizer = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
             fontAtlas = loadPng("font8x8_atlas");
@@ -1067,6 +1069,7 @@ namespace MonogameTest
             frame.Dispose();
             scoreLabel.Dispose();
             highScoreLabel.Dispose();
+            playfieldRasterizer.Dispose();
             _nativeRenderTarget.Dispose();
             spriteBatch.Dispose();
         }
@@ -1979,7 +1982,10 @@ namespace MonogameTest
             // Let the animated outer camo show through outside the frame.
             GraphicsDevice.Clear(Color.Transparent);
             frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            // Clip every game sprite to the inside edge, including wide beams and effects.
+            GraphicsDevice.ScissorRectangle = new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP,
+                PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y + BLOCK_SIZE - PLAYFIELD_TOP);
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer);
             drawScenery();
             /*spriteBatch.DrawString(arial, string.Format("FPS {0:0.00}/s\nUPDATES: {1:0.00000}/s", frameRate, updates), new Vector2(40, 20), Color.White);
             spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: 0x{2:0.0000}", recall, spaceheld, speed), new Vector2(40, 50), Color.White);
@@ -2079,13 +2085,13 @@ namespace MonogameTest
             if (tryGetMouseColumn(out int hoverColumn))
                 spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
 
-            // Frame renders on top of everything in the playfield so sprites
-            // never overlap the border band.
-            drawFrame();
-
-            // Debug menu overlay (F1).
+            // Keep overlays within the same clip, then draw the frame in a separate pass.
             if (showDebugMenu)
                 drawDebugMenu(spriteBatch);
+            spriteBatch.End();
+
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
+            drawFrame();
             spriteBatch.End();
 
             // SET RENDERTARGET TO NOTHING

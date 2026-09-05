@@ -877,9 +877,17 @@ namespace MonogameTest
 
         void drawScenery()
         {
+            // Draw the backdrop shifted down 8px; fill the exposed strip above
+            // with the backdrop's own top row so no gap shows.
+            const int BG_DOWN = 8;
             spriteBatch.Draw(background,
-                new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP, PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y - PLAYFIELD_TOP),
+                new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP + BG_DOWN,
+                    PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y - PLAYFIELD_TOP - BG_DOWN),
                 backgroundSource, Color.White);
+            spriteBatch.Draw(background,
+                new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP, PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BG_DOWN),
+                new Rectangle(backgroundSource.X, backgroundSource.Y, backgroundSource.Width, 1),
+                Color.White);
         }
 
         void drawTractorBeam()

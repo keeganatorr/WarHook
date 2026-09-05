@@ -26,14 +26,16 @@
        global dotnet-mgcb tool via its full shim path (PATH may not include
        ~/.dotnet/tools under MSBuild/VS). -->
   <Target Name="BuildContent" BeforeTargets="Build">
-    <Exec Command="&quot;$(HOME)/.dotnet/tools/mgcb&quot; &quot;Content/Content.mgcb&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <!-- Run inside Content/ so /outputDir:. resolves next to the .mgcb, not in
+         the project root (mgcb resolves relative paths from the CWD). -->
+    <Exec Command="&quot;$(HOME)/.dotnet/tools/mgcb&quot; Content.mgcb" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
   </Target>
 
   <ItemGroup>
     <!-- Raw PNGs loaded at runtime via Texture2D.FromStream (loadPng) from the
          output Assets/ folder. Copied on EVERY build so edits always propagate
          when pressing F5. -->
-    <None Update="Assets/tank-pixelart.png;Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png"
+    <None Update="Assets/tank-pixelart.png;Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png;Assets/font8x8_atlas.png"
           CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
 

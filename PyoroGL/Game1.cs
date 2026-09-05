@@ -83,6 +83,12 @@ namespace MonogameTest
 
         SpriteFont arial;
         SpriteFont smallfont;
+        // Pixel-perfect 8x8 bitmap font atlas (Assets/font8x8_atlas.png):
+        // 16 columns of ASCII 32..126, binary alpha, zero anti-aliasing.
+        Texture2D fontAtlas;
+        const int FONT_CELL = 8;
+        const int FONT_COLS = 16;
+        const int FONT_FIRST_CHAR = 32;
         Rectangle rect;
         float frameRate;
         float updates;
@@ -717,6 +723,7 @@ namespace MonogameTest
             spriteBatch = new SpriteBatch(GraphicsDevice);
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
+            fontAtlas = loadPng("font8x8_atlas");
             loadPlayerTank();
             pyoro = pyororight;
             loadBackdrop();
@@ -754,6 +761,29 @@ namespace MonogameTest
                     pixels[i] = Color.FromNonPremultiplied(pixels[i].R, pixels[i].G, pixels[i].B, pixels[i].A);
                 texture.SetData(pixels);
                 return texture;
+            }
+        }
+
+        // Measure a string in the 8x8 bitmap font (monospace: 8px per char).
+        Vector2 MeasureStringBitmap(string text)
+        {
+            return new Vector2(text.Length * FONT_CELL, FONT_CELL);
+        }
+
+        // Draw a string with the pixel-perfect 8x8 bitmap font. Every glyph is
+        // an unfiltered 8x8 cell from the atlas, so there is zero anti-aliasing.
+        void DrawStringBitmap(SpriteBatch batch, string text, Vector2 position, Color color)
+        {
+            for (int i = 0; i < text.Length; i++)
+            {
+                int index = text[i] - FONT_FIRST_CHAR;
+                if (index < 0 || index >= (fontAtlas.Width / FONT_CELL) * (fontAtlas.Height / FONT_CELL))
+                    index = '?' - FONT_FIRST_CHAR;
+                Rectangle src = new Rectangle(
+                    (index % FONT_COLS) * FONT_CELL,
+                    (index / FONT_COLS) * FONT_CELL,
+                    FONT_CELL, FONT_CELL);
+                batch.Draw(fontAtlas, new Vector2((int)position.X + i * FONT_CELL, (int)position.Y), src, color);
             }
         }
 
@@ -928,7 +958,7 @@ namespace MonogameTest
             int ty = panelY + 6;
             foreach (string line in lines)
             {
-                batch.DrawString(smallfont, line, new Vector2(panelX + 6, ty), Color.White);
+                DrawStringBitmap(batch, line, new Vector2(panelX + 6, ty), Color.White);
                 ty += 11;
             }
         }
@@ -1994,8 +2024,8 @@ namespace MonogameTest
                 spriteBatch.Draw(gameoversprite, new Vector2((NATIVE_WIDTH - gameoversprite.Width) / 2, NATIVE_HEIGHT / 2), Color.White);
                 // Small centred hint below the game-over text.
                 string retry = "Press R to Retry";
-                Vector2 retrySize = smallfont.MeasureString(retry);
-                spriteBatch.DrawString(smallfont, retry, new Vector2((NATIVE_WIDTH - retrySize.X) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
+                float retryWidth = MeasureStringBitmap(retry).X;
+                DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
             }
             
 

@@ -41,7 +41,6 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/bean_right.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/block.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/collisionblock.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/font.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/frame.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/gameoversprite.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/heightmap.xnb
@@ -54,7 +53,6 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/pyoro_standing0.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/pyoro_standing1.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/select.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/smallfont.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/tonguecollision.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/tonguepart.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/tonguespriteleft.xnb
@@ -66,11 +64,9 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/numbers.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/score.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/framewide.png
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/angel.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/explosion.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/font.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/scores.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/smallfont.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/mortars-pixelart-cleaned.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/newbackdrop.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/tank-pixelart.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/font.xnb
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/smallfont.xnb
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/font8x8_atlas.png

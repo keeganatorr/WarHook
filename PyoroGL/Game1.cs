@@ -498,8 +498,9 @@ namespace MonogameTest
             {
                 bean_active[j] = false;
                 addScore(bean_x[j], bean_y[j], 50);
-                // Explosion where the bean disappears.
-                spawnExplosion(bean_x[j], bean_y[j]);
+                // Use the mortar sprite centre; its position is the top-left corner.
+                spawnExplosion(bean_x[j] + current_bean_sprite[j].Width / 2f,
+                    bean_y[j] + current_bean_sprite[j].Height / 2f);
             }
         }
 
@@ -1305,8 +1306,9 @@ namespace MonogameTest
                         bean_active[i] = false;
                         blocks[blocktocheckagainstbean] = false;
                         bean_y[i] = -20;
-                        // Explosion where the block disappears.
-                        spawnExplosion(PLAYFIELD_LEFT + blocktocheckagainstbean * 8, BLOCK_FLOOR_Y);
+                        // Centre the explosion on the destroyed floor block.
+                        spawnExplosion(PLAYFIELD_LEFT + blocktocheckagainstbean * BLOCK_SIZE + BLOCK_SIZE / 2f,
+                            BLOCK_FLOOR_Y + BLOCK_SIZE / 2f);
                     }
                     if (bean_y[i] > NATIVE_HEIGHT + 20)
                     {

@@ -882,12 +882,14 @@ namespace MonogameTest
 
         void drawScenery()
         {
-            // Draw the backdrop shifted down 8px; fill the exposed strip above
-            // with the backdrop's own top row so no gap shows.
+            // Draw the backdrop shifted down 8px at full height, so its bottom
+            // tucks behind the floor blocks (no gap shows when blocks
+            // disappear). The exposed 8px strip above the image is filled with
+            // the image's own top row so the sky isn't cut off.
             const int BG_DOWN = 8;
             spriteBatch.Draw(background,
                 new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP + BG_DOWN,
-                    PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y - PLAYFIELD_TOP - BG_DOWN),
+                    PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y - PLAYFIELD_TOP),
                 backgroundSource, Color.White);
             spriteBatch.Draw(background,
                 new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP, PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BG_DOWN),

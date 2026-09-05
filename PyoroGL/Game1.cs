@@ -99,6 +99,7 @@ namespace MonogameTest
         private Texture2D tonguespriteleft;
         private Texture2D tonguecollision;
         private Texture2D select;
+        private Texture2D[] mortarFrames;
         private Texture2D bean_centre;
         private Texture2D bean_left;
         private Texture2D bean_right;
@@ -784,15 +785,7 @@ namespace MonogameTest
             scoreLabel = loadPng("score");
             highScoreLabel = loadPng("highscore");
             scoreDigits = loadScoreDigits();
-            bean_centre = Content.Load<Texture2D>("bean_centre");
-            bean_left = Content.Load<Texture2D>("bean_left");
-            bean_right = Content.Load<Texture2D>("bean_right");
-            beanw_centre = Content.Load<Texture2D>("beanw_centre");
-            beanw_left = Content.Load<Texture2D>("beanw_left");
-            beanw_right = Content.Load<Texture2D>("beanw_right");
-            beanb_centre = Content.Load<Texture2D>("beanb_centre");
-            beanb_left = Content.Load<Texture2D>("beanb_left");
-            beanb_right = Content.Load<Texture2D>("beanb_right");
+            loadMortarFrames();
             temp_bean_sprite = bean_centre;
             for (int i = 0; i < max_amount_of_beans; i++)
             {
@@ -827,6 +820,47 @@ namespace MonogameTest
                 texture.SetData(pixels);
                 return texture;
             }
+        }
+
+        void loadMortarFrames()
+        {
+            // Rows: green, white, blue. Columns: upright, leaning left, leaning right.
+            // The sheet's columns are unevenly spaced; split at the transparent gutters.
+            int[] columns = { 0, 24, 51, 78 };
+            mortarFrames = new Texture2D[9];
+            using (Texture2D sheet = loadPng("mortars-pixelart-cleaned"))
+            {
+                Color[] source = new Color[sheet.Width * sheet.Height];
+                sheet.GetData(source);
+                for (int row = 0; row < 3; row++)
+                    for (int pose = 0; pose < 3; pose++)
+                    {
+                        Rectangle region = new Rectangle(columns[pose], row * 36, columns[pose + 1] - columns[pose], 36);
+                        // Fit into the existing collision space without squashing the artwork.
+                        const int size = 16;
+                        int width = (int)Math.Round(region.Width * (float)size / region.Height);
+                        Color[] pixels = new Color[size * size];
+                        for (int y = 0; y < size; y++)
+                            for (int x = 0; x < width; x++)
+                            {
+                                int sourceX = region.X + (int)((x + 0.5f) * region.Width / width);
+                                int sourceY = region.Y + (int)((y + 0.5f) * region.Height / size);
+                                pixels[y * size + (size - width) / 2 + x] = source[sourceY * sheet.Width + sourceX];
+                            }
+                        Texture2D frame = new Texture2D(GraphicsDevice, size, size);
+                        frame.SetData(pixels);
+                        mortarFrames[row * 3 + pose] = frame;
+                    }
+            }
+            bean_centre = mortarFrames[0];
+            bean_left = mortarFrames[1];
+            bean_right = mortarFrames[2];
+            beanw_centre = mortarFrames[3];
+            beanw_left = mortarFrames[4];
+            beanw_right = mortarFrames[5];
+            beanb_centre = mortarFrames[6];
+            beanb_left = mortarFrames[7];
+            beanb_right = mortarFrames[8];
         }
 
         void loadTowerParts()
@@ -961,6 +995,7 @@ namespace MonogameTest
         /// </summary>
         protected override void UnloadContent()
         {
+            foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             background.Dispose();
             foreground.Dispose();
             frame.Dispose();

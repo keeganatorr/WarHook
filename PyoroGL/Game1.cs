@@ -17,9 +17,16 @@ namespace MonogameTest
         SpriteBatch spriteBatch;
         RenderTarget2D _nativeRenderTarget;
 
-        const int NATIVE_WIDTH = 240;
-        const int NATIVE_HEIGHT = 160;
-        const int BLOCK_FLOOR_Y = 144;
+        const int NATIVE_WIDTH = 288;
+        const int NATIVE_HEIGHT = 162;
+        const int PLAYFIELD_LEFT = 8;
+        const int PLAYFIELD_RIGHT = NATIVE_WIDTH - 8;
+        const int PLAYFIELD_TOP = 8;
+        const int BLOCK_SIZE = 8;
+        const int BLOCK_COUNT = (PLAYFIELD_RIGHT - PLAYFIELD_LEFT) / BLOCK_SIZE;
+        const int BLOCK_FLOOR_Y = NATIVE_HEIGHT - 16;
+        const int PLAYER_START_X = NATIVE_WIDTH / 2 - 9;
+        const int PLAYER_START_Y = BLOCK_FLOOR_Y - 16;
 
         public Game1()
         {
@@ -29,7 +36,7 @@ namespace MonogameTest
         }
 
         // Compute the largest integer scale factor that fits the current window,
-        // preserving the 240x160 aspect ratio. Also center the render target
+        // preserving the 288x162 aspect ratio. Also center the render target
         // destination and fill leftover space with the border colour.
         void computeIntegerScale()
         {
@@ -45,7 +52,7 @@ namespace MonogameTest
             }
 
             // Largest integer multiplier where both dimensions still fit,
-            // keeping the 240:160 (3:2) aspect ratio.
+            // keeping the 16:9 aspect ratio.
             int s = Math.Min(winW / NATIVE_WIDTH, winH / NATIVE_HEIGHT);
             if (s < 1) s = 1;
             gameSize = s;
@@ -104,6 +111,11 @@ namespace MonogameTest
         private Texture2D[] current_bean_sprite;
         private Texture2D temp_bean_sprite;
         private Texture2D background;
+        private Texture2D foreground;
+        private Color[] towerPixels;
+        private Rectangle[] towerParts;
+        private int towerSheetWidth, towerSheetHeight;
+        private readonly Random sceneryRandom = new Random();
         private Texture2D scoreLabel;
         private Texture2D highScoreLabel;
         private Texture2D scoreDigits;
@@ -112,7 +124,7 @@ namespace MonogameTest
         private Texture2D scoresSprite;
 
         //Timer t1sec = new Timer(1000);
-        int blockamount = 20;
+        int blockamount = BLOCK_COUNT;
         
         float speed = 1.0f;
         MouseState mouseState;
@@ -198,7 +210,7 @@ namespace MonogameTest
         int rainbowClearTimer = 0;
 
 
-        int max_amount_of_blocks = 20;
+        int max_amount_of_blocks = BLOCK_COUNT;
         int rightblockcount = 0;
         int leftblockcount = 0;
         int rightblocktorecover = 0;
@@ -383,9 +395,9 @@ namespace MonogameTest
         }
         void block_recovery()
         {
-            rightblocktorecover = (int)System.Math.Ceiling((x + speed - 40 + 4) / 8);
-            leftblocktorecover = (int)System.Math.Ceiling((x + speed - 40 + 2) / 8); ;
-            for (int i = rightblocktorecover; i < max_amount_of_blocks; i++)
+            rightblocktorecover = (int)System.Math.Ceiling((x + speed - PLAYFIELD_LEFT + 4) / 8);
+            leftblocktorecover = (int)System.Math.Ceiling((x + speed - PLAYFIELD_LEFT + 2) / 8); ;
+            for (int i = Math.Max(0, rightblocktorecover); i < max_amount_of_blocks; i++)
             {
                 if (rightblockcheck == false)
                 {
@@ -401,7 +413,7 @@ namespace MonogameTest
                     }
                 }
             }
-            for (int i = leftblocktorecover; i > 0; i--)
+            for (int i = Math.Min(leftblocktorecover, BLOCK_COUNT - 1); i >= 0; i--)
             {
                 if (leftblockcheck == false)
                 {
@@ -480,7 +492,7 @@ namespace MonogameTest
             blockcheck = false;
         }
 
-        // Play a 3-frame 16x16 explosion animation at a native (240x160) position.
+        // Play a 3-frame 16x16 explosion animation at a native (288x162) position.
         // Mirrors the pico-8 smoke/burst used when a block or bean disappears.
         void spawnExplosion(float x, float y)
         {
@@ -587,7 +599,7 @@ namespace MonogameTest
             {
                 int frame = ((int)a.timer / 4) % 2; // alternate every 4 ticks
                 Rectangle src = new Rectangle(frame * 16, 0, 16, 16);
-                int blockx = 40 + a.column * 8 - 4; // centre on 8px block
+                int blockx = PLAYFIELD_LEFT + a.column * 8 - 4; // centre on 8px block
                 float dx = blockx;
                 // Round to whole pixels so the pixel-art sprite stays crisp
                 // (no sub-pixel smoothing while the angel moves).
@@ -597,13 +609,13 @@ namespace MonogameTest
                 // Carried block tile below the angel once it is moving down.
                 if (a.speed > 0)
                 {
-                    batch.Draw(block, new Vector2(40 + a.column * 8, (float)System.Math.Round(a.y + 16)), Color.White);
+                    batch.Draw(block, new Vector2(PLAYFIELD_LEFT + a.column * 8, (float)System.Math.Round(a.y + 16)), Color.White);
                 }
             }
         }
 
         // Add points to the running score and spawn a short-lived "+pts" popup
-        // at the given native (240x160) position, mirroring the pico-8 version.
+        // at the given native (288x162) position, mirroring the pico-8 version.
         void addScore(float x, float y, int pts)
         {
             score += pts;
@@ -673,16 +685,16 @@ namespace MonogameTest
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
-            _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, 240, 160);
+            _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
-            // Start the window at 4x scale (960x640).
-            graphics.PreferredBackBufferWidth = 960; // 960
-            graphics.PreferredBackBufferHeight = 640; // 640
+            // Start the 16:9 window at 4x scale (1152x648).
+            graphics.PreferredBackBufferWidth = NATIVE_WIDTH * gameSize;
+            graphics.PreferredBackBufferHeight = NATIVE_HEIGHT * gameSize;
             graphics.ApplyChanges();
             computeIntegerScale();
-            x = 111;
-            y = 128;
+            x = PLAYER_START_X;
+            y = PLAYER_START_Y;
             tongueoffsetX = 2; // 1
             tongueoffsetY = 7; // 7
             tongueX = x + tongueoffsetX;
@@ -710,7 +722,7 @@ namespace MonogameTest
                 bean_active[i] = false;
                 bean_speed[i] = 0x0;
                 bean_y[i] = -20;
-                bean_x[i] = r.Next(40, 192);
+                bean_x[i] = r.Next(PLAYFIELD_LEFT + 8, PLAYFIELD_RIGHT - 8);
                 bean_anim_counter[i] = rnd.Next(0, 43);
                 bean_rainbow_counter[i] = rnd.Next(0, 5);
                 bean_type[i] = 0;
@@ -723,8 +735,8 @@ namespace MonogameTest
 
 
             /* restart game
-            x = 111;
-            y = 128;
+            x = PLAYER_START_X;
+            y = PLAYER_START_Y;
             tongueoffsetX = 2; // 1
             tongueoffsetY = 7; // 7
             tongueX = x + tongueoffsetX;
@@ -740,7 +752,7 @@ namespace MonogameTest
                 bean_active[i] = false;
                 bean_speed[i] = 0x0;
                 bean_y[i] = -20;
-                bean_x[i] = r.Next(40, 192);
+                bean_x[i] = r.Next(PLAYFIELD_LEFT + 8, PLAYFIELD_RIGHT - 8);
                 bean_anim_counter[i] = rnd.Next(0, 43);
                 bean_rainbow_counter[i] = rnd.Next(0, 5);
                 bean_type[i] = 0;
@@ -766,7 +778,9 @@ namespace MonogameTest
             pyorodeadleft = Content.Load<Texture2D>("pyorodeadleft");
             pyorodeadright = Content.Load<Texture2D>("pyorodeadright");
             pyoro = pyororight;
-            background = loadPng("background");
+            background = loadPng("backdropwithstars");
+            loadTowerParts();
+            randomizeForeground();
             scoreLabel = loadPng("score");
             highScoreLabel = loadPng("highscore");
             scoreDigits = loadScoreDigits();
@@ -784,7 +798,7 @@ namespace MonogameTest
             {
                 current_bean_sprite[i] = bean_centre;
             }
-            frame = Content.Load<Texture2D>("frame");
+            frame = loadPng("framewide");
             block = Content.Load<Texture2D>("block");
             collisionblock = Content.Load<Texture2D>("collisionblock");
             explosionSprite = Content.Load<Texture2D>("explosion");
@@ -797,14 +811,117 @@ namespace MonogameTest
             select = Content.Load<Texture2D>("select");
             gameoversprite = Content.Load<Texture2D>("gameoversprite");
             scoresSprite = Content.Load<Texture2D>("scores");
-            // game frame is (start x=40,y=8 . end x=199, y=151) (width = 160 height = 144 , 20x18 8px blocks)
+            // The widescreen playfield uses BLOCK_COUNT eight-pixel floor columns.
             // TODO: use this.Content to load your game content here
         }
 
         Texture2D loadPng(string name)
         {
             using (Stream stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Assets", name + ".png")))
-                return Texture2D.FromStream(GraphicsDevice, stream);
+            {
+                Texture2D texture = Texture2D.FromStream(GraphicsDevice, stream);
+                Color[] pixels = new Color[texture.Width * texture.Height];
+                texture.GetData(pixels);
+                for (int i = 0; i < pixels.Length; i++)
+                    pixels[i] = Color.FromNonPremultiplied(pixels[i].R, pixels[i].G, pixels[i].B, pixels[i].A);
+                texture.SetData(pixels);
+                return texture;
+            }
+        }
+
+        void loadTowerParts()
+        {
+            using (Texture2D sheet = loadPng("frontdrop"))
+            {
+                towerSheetWidth = sheet.Width;
+                towerSheetHeight = sheet.Height;
+                towerPixels = new Color[sheet.Width * sheet.Height];
+                sheet.GetData(towerPixels);
+                towerParts = new Rectangle[sheet.Width / BLOCK_SIZE];
+                for (int part = 0; part < towerParts.Length; part++)
+                {
+                    int top = 0;
+                    while (top < sheet.Height - BLOCK_SIZE)
+                    {
+                        bool visible = false;
+                        for (int dx = 0; dx < BLOCK_SIZE; dx++)
+                            visible |= towerPixels[top * sheet.Width + part * BLOCK_SIZE + dx].A != 0;
+                        if (visible) break;
+                        top++;
+                    }
+                    towerParts[part] = new Rectangle(part * BLOCK_SIZE, top, BLOCK_SIZE, sheet.Height - top);
+                }
+            }
+        }
+
+        void randomizeForeground()
+        {
+            // Compose once per round. Keep each 8px cap intact and extend its body;
+            // sample colors at the same ground-relative row so all bands line up.
+            const int foregroundLeft = 6;
+            int width = NATIVE_WIDTH - foregroundLeft * 2;
+            Color[] pixels = new Color[width * towerSheetHeight];
+            int height = sceneryRandom.Next(2, towerSheetHeight / BLOCK_SIZE + 1) * BLOCK_SIZE;
+            for (int x = 0; x < width; x += BLOCK_SIZE)
+            {
+                Rectangle part = towerParts[sceneryRandom.Next(towerParts.Length)];
+                height = Math.Clamp(height + sceneryRandom.Next(-2, 3) * BLOCK_SIZE, 16, towerSheetHeight);
+                int top = towerSheetHeight - height;
+                for (int row = top; row < towerSheetHeight; row++)
+                {
+                    int capRow = part.Y + Math.Min(row - top, BLOCK_SIZE);
+                    Color bandColor = towerPixels[row * towerSheetWidth];
+                    for (int dx = 0; dx < BLOCK_SIZE && x + dx < width; dx++)
+                        if (towerPixels[capRow * towerSheetWidth + part.X + dx].A != 0)
+                            pixels[row * width + x + dx] = bandColor;
+                }
+            }
+            if (foreground == null)
+                foreground = new Texture2D(GraphicsDevice, width, towerSheetHeight);
+            foreground.SetData(pixels);
+        }
+
+        void drawScenery()
+        {
+            // Tile horizontally without stretching the stars or their pixels.
+            for (int left = 0; left < NATIVE_WIDTH; left += background.Width)
+            {
+                int width = Math.Min(background.Width, NATIVE_WIDTH - left);
+                spriteBatch.Draw(background, new Vector2(left, 0), new Rectangle(0, 0, width, background.Height), Color.White);
+                if (NATIVE_HEIGHT > background.Height)
+                    spriteBatch.Draw(background, new Rectangle(left, background.Height, width, NATIVE_HEIGHT - background.Height),
+                        new Rectangle(0, background.Height - 1, width, 1), Color.White);
+            }
+            spriteBatch.Draw(foreground, new Vector2(6, BLOCK_FLOOR_Y - towerSheetHeight), Color.White);
+        }
+
+        void drawFrame()
+        {
+            // Nine-slice the supplied frame so its border stays the original thickness.
+            int[] sourceX = { 0, 6, frame.Width - 6, frame.Width };
+            int[] sourceY = { 0, 8, frame.Height - 8, frame.Height };
+            int[] targetX = { 0, 6, NATIVE_WIDTH - 6, NATIVE_WIDTH };
+            int[] targetY = { 0, 8, NATIVE_HEIGHT - 8, NATIVE_HEIGHT };
+            for (int row = 0; row < 3; row++)
+                for (int column = 0; column < 3; column++)
+                {
+                    if (row == 1 && column == 1) continue;
+                    spriteBatch.Draw(frame,
+                        new Rectangle(targetX[column], targetY[row], targetX[column + 1] - targetX[column], targetY[row + 1] - targetY[row]),
+                        new Rectangle(sourceX[column], sourceY[row], sourceX[column + 1] - sourceX[column], sourceY[row + 1] - sourceY[row]), Color.White);
+                }
+        }
+
+        bool tryGetMouseColumn(out int column)
+        {
+            column = -1;
+            if (!rect.Contains(mouseState.X, mouseState.Y)) return false;
+            int nativeX = (mouseState.X - rect.X) * NATIVE_WIDTH / rect.Width;
+            int nativeY = (mouseState.Y - rect.Y) * NATIVE_HEIGHT / rect.Height;
+            if (nativeX < PLAYFIELD_LEFT || nativeX >= PLAYFIELD_RIGHT || nativeY < PLAYFIELD_TOP || nativeY >= BLOCK_FLOOR_Y + BLOCK_SIZE)
+                return false;
+            column = (nativeX - PLAYFIELD_LEFT) / BLOCK_SIZE;
+            return true;
         }
 
         Texture2D loadScoreDigits()
@@ -845,6 +962,8 @@ namespace MonogameTest
         protected override void UnloadContent()
         {
             background.Dispose();
+            foreground.Dispose();
+            frame.Dispose();
             scoreLabel.Dispose();
             highScoreLabel.Dispose();
             scoreDigits.Dispose();
@@ -981,7 +1100,7 @@ namespace MonogameTest
                     //beanspeed = (beanspeed & 0x000000FF);
                     //time_max_rand(max_time);
                     ///// BEAN X 
-                    beanxrandom = 0x90 << 16;
+                    beanxrandom = (PLAYFIELD_RIGHT - PLAYFIELD_LEFT - 16) << 16;
                     beanxrandom = beanxrandom >> 16;
                     randnum3 = (0x6D * randnum3) + 0x3FD;
                     randnum3 = (randnum3 & 0x0000FFFF);
@@ -989,7 +1108,7 @@ namespace MonogameTest
                     beanxrandom = beanxrandom >> 16;
                     beanxrandom = beanxrandom << 16;
                     beanxrandom = beanxrandom >> 16;
-                    beanxrandom += 0x30;
+                    beanxrandom += PLAYFIELD_LEFT + 8;
                     currentbeanx = beanxrandom;
                     ///// BEAN TYPE 
                     beantype = 0x09 << 16;
@@ -1036,7 +1155,7 @@ namespace MonogameTest
                             new_bean_number_debug = i;
                             bean_speed[i] = beanspeed;
                             bean_y[i] = -20;
-                            bean_x[i] = currentbeanx; // r.Next(40, 192);
+                            bean_x[i] = currentbeanx; // r.Next(PLAYFIELD_LEFT + 8, PLAYFIELD_RIGHT - 8);
                             bean_type[i] = currentbeantype;                        //bean_type[i] = currentbeantype;
                         }
                     }
@@ -1071,16 +1190,16 @@ namespace MonogameTest
                         }
 
                     }
-                    int blocktocheckagainstbean = (int)System.Math.Ceiling((bean_x[i] - 40) / 8);
-                    if (bean_y[i] > 128 && blocks[blocktocheckagainstbean] == true && bean_active[i])
+                    int blocktocheckagainstbean = (int)System.Math.Ceiling((bean_x[i] - PLAYFIELD_LEFT) / 8);
+                    if (bean_y[i] > PLAYER_START_Y && blocks[blocktocheckagainstbean] == true && bean_active[i])
                     {
                         bean_active[i] = false;
                         blocks[blocktocheckagainstbean] = false;
                         bean_y[i] = -20;
                         // Explosion where the block disappears.
-                        spawnExplosion(40 + blocktocheckagainstbean * 8, 144);
+                        spawnExplosion(PLAYFIELD_LEFT + blocktocheckagainstbean * 8, BLOCK_FLOOR_Y);
                     }
-                    if (bean_y[i] > 180)
+                    if (bean_y[i] > NATIVE_HEIGHT + 20)
                     {
                         bean_active[i] = false;
                         bean_y[i] = -20;
@@ -1112,7 +1231,7 @@ namespace MonogameTest
                 bean_animation();
                 //float tempspeed = bigspeed;
                 speed = (float)bigspeed / 256;
-                if (Keyboard.GetState().IsKeyDown(Keys.Left) && !pyorodead)// && x > 40)
+                if (Keyboard.GetState().IsKeyDown(Keys.Left) && !pyorodead)// && x > PLAYFIELD_LEFT)
                 {
                     if (spaceheld == 0)
                     {
@@ -1130,18 +1249,18 @@ namespace MonogameTest
                             pyoro = pyoroleft;
                         }
                         float tmp = x - speed;
-                        blocktocheck = (int)System.Math.Ceiling((x - speed - 40) / 8);
+                        blocktocheck = (int)System.Math.Ceiling((x - speed - PLAYFIELD_LEFT) / 8);
                         if (blocktocheck < 0)
                         {
                             blocktocheck = 0;
                         }
-                        if (blocktocheck > 19)
+                        if (blocktocheck >= BLOCK_COUNT)
                         {
-                            blocktocheck = 19;
+                            blocktocheck = BLOCK_COUNT - 1;
                         }
                         if (blocks[blocktocheck] == false)
                         {
-                            x = ((blocktocheck) * 8) + 40;
+                            x = ((blocktocheck) * 8) + PLAYFIELD_LEFT;
                         }
                         else
                         {
@@ -1158,7 +1277,7 @@ namespace MonogameTest
 
                         /*float checkxhex = x + speed; // pyoro_x+current_movement_speed = current_x_in_memory
                         int checkx = (int)System.Math.Floor(checkxhex); // current_x_in_memory>>8
-                        int subtract = checkx - 40 - 2; // ((current_x_in_memory>>8)-0x28)
+                        int subtract = checkx - PLAYFIELD_LEFT - 2; // ((current_x_in_memory>>8)-0x28)
                         blocktocheck = (subtract >> 3) + 1;*/
                         /*if (blocks[blocktocheck] == true)
                         {
@@ -1187,18 +1306,18 @@ namespace MonogameTest
                             pyoro = pyororight;
                         }
                         float tmp = x + speed;
-                        blocktocheck = (int)System.Math.Ceiling((x + speed - 40 + 1) / 8);
+                        blocktocheck = (int)System.Math.Ceiling((x + speed - PLAYFIELD_LEFT + 1) / 8);
                         if (blocktocheck < 0)
                         {
                             blocktocheck = 0;
                         }
-                        if (blocktocheck > 19)
+                        if (blocktocheck >= BLOCK_COUNT)
                         {
-                            blocktocheck = 19;
+                            blocktocheck = BLOCK_COUNT - 1;
                         }
                         if (blocks[blocktocheck] == false)
                         {
-                            x = ((blocktocheck - 1) * 8) + 40 - 1;
+                            x = ((blocktocheck - 1) * 8) + PLAYFIELD_LEFT - 1;
                         }
                         else
                         {
@@ -1322,9 +1441,9 @@ namespace MonogameTest
                     if (recall == false)
                     {
                         spaceheld = 1;
-                        if ((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount+(2 * speed)) * facingright)) < 202 && (float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)) > 37)
+                        if ((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount+(2 * speed)) * facingright)) < PLAYFIELD_RIGHT + 2 && (float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)) > PLAYFIELD_LEFT - 3)
                         {
-                            if (tongueY - tonguecount > 8)
+                            if (tongueY - tonguecount > PLAYFIELD_TOP)
                             {
                                 tonguecount += 2 * speed; 
                                 for (int i = 0; i < max_amount_of_beans; i++)
@@ -1565,13 +1684,13 @@ namespace MonogameTest
                     default:
                         break;
                 }
-                if (x < 40)
+                if (x < PLAYFIELD_LEFT)
                 {
-                    x = 40;
+                    x = PLAYFIELD_LEFT;
                 }
-                if (x > 183)
+                if (x > PLAYFIELD_RIGHT - 17)
                 {
-                    x = 183;
+                    x = PLAYFIELD_RIGHT - 17;
                 }
                 if (Keyboard.GetState().IsKeyDown(Keys.Add))
                 {
@@ -1585,7 +1704,7 @@ namespace MonogameTest
                 // nearest missing block to Pyoro (mirrors pico-8 one_angel).
                 if (Keyboard.GetState().IsKeyDown(Keys.Q))
                 {
-                    int pyoroCol = (int)System.Math.Ceiling((x - 40) / 8);
+                    int pyoroCol = (int)System.Math.Ceiling((x - PLAYFIELD_LEFT) / 8);
                     if (pyoroCol < 0) pyoroCol = 0;
                     if (pyoroCol > blockamount - 1) pyoroCol = blockamount - 1;
                     // Search outward from Pyoro for the nearest missing block.
@@ -1640,25 +1759,10 @@ namespace MonogameTest
                 }
                 mouseState = Mouse.GetState();
                 updates = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-                if (mouseState.LeftButton == ButtonState.Pressed)
+                if (tryGetMouseColumn(out int click))
                 {
-                    // Do whatever you want here
-                    // Map mouse to native 240x160 coords relative to the
-                    // centered scaled rect, then to a block column.
-                    int nativeX = mouseState.X - rect.X;
-                    int click = ((nativeX / gameSize - 40) / 8);
-                    if (click > 19) click = 19;
-                    if (click < 0) click = 0;
-                    blocks[click] = false;
-                }
-                if (mouseState.RightButton == ButtonState.Pressed)
-                {
-                    // Do whatever you want here
-                    int nativeX = mouseState.X - rect.X;
-                    int click = ((nativeX / gameSize - 40) / 8);
-                    if (click > 19) click = 19;
-                    if (click < 0) click = 0;
-                    blocks[click] = true;
+                    if (mouseState.LeftButton == ButtonState.Pressed) blocks[click] = false;
+                    if (mouseState.RightButton == ButtonState.Pressed) blocks[click] = true;
                 }
 
                 if(pyorodead)
@@ -1672,7 +1776,7 @@ namespace MonogameTest
                     {
                         pyoro = pyorodeadleft;
                     }
-                    if(y>160)
+                    if(y > NATIVE_HEIGHT)
                     {
                         gameover = true;
                     }
@@ -1682,8 +1786,8 @@ namespace MonogameTest
 
                 if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover) /// RESTART GAME ///
                 {
-                    x = 111;
-                    y = 128;
+                    x = PLAYER_START_X;
+                    y = PLAYER_START_Y;
                     tongueoffsetX = 2; // 1
                     tongueoffsetY = 7; // 7
                     tongueX = x + tongueoffsetX;
@@ -1699,7 +1803,7 @@ namespace MonogameTest
                         bean_active[i] = false;
                         bean_speed[i] = 0x0;
                         bean_y[i] = -20;
-                        bean_x[i] = r.Next(40, 192);
+                        bean_x[i] = r.Next(PLAYFIELD_LEFT + 8, PLAYFIELD_RIGHT - 8);
                         bean_anim_counter[i] = rnd.Next(0, 43);
                         bean_rainbow_counter[i] = rnd.Next(0, 5);
                         bean_type[i] = 0;
@@ -1727,6 +1831,11 @@ namespace MonogameTest
                     
                     time_until_new_bean = 0x0;
                     score = 0;
+                    randomizeForeground();
+                    scorePopups.Clear();
+                    explosions.Clear();
+                    angels.Clear();
+                    rainbowClearQueue.Clear();
 
                     /*
                     max_time = 0xB4;
@@ -1789,10 +1898,10 @@ namespace MonogameTest
             GraphicsDevice.Clear(new Color(0x21, 0x21, 0x4a));
             frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-            spriteBatch.Draw(background, new Vector2(40, 8), Color.White);
+            drawScenery();
             /*spriteBatch.DrawString(arial, string.Format("FPS {0:0.00}/s\nUPDATES: {1:0.00000}/s", frameRate, updates), new Vector2(40, 20), Color.White);
             spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: 0x{2:0.0000}", recall, spaceheld, speed), new Vector2(40, 50), Color.White);
-            spriteBatch.DrawString(arial, string.Format("MouseX: {0}\nMosueY: {1}\nPyoroBoxX: {2}\nTongueX: {3} Space: {4} TC: {5}", mouseState.X/gameSize, mouseState.Y / gameSize, System.Math.Ceiling((x+speed - 40)/8), tongueY - (tonguecount), spaceheld, tonguecollide), new Vector2(40, 90), Color.White); // ((mouseState.X / gameSize - 40)/8) mouse on small rendertarget
+            spriteBatch.DrawString(arial, string.Format("MouseX: {0}\nMosueY: {1}\nPyoroBoxX: {2}\nTongueX: {3} Space: {4} TC: {5}", mouseState.X/gameSize, mouseState.Y / gameSize, System.Math.Ceiling((x+speed - PLAYFIELD_LEFT)/8), tongueY - (tonguecount), spaceheld, tonguecollide), new Vector2(40, 90), Color.White); // ((mouseState.X / gameSize - PLAYFIELD_LEFT)/8) mouse on small rendertarget
             */
 
             //spriteBatch.Draw(current_bean_sprite, new Vector2(160,120), Color.White);
@@ -1827,9 +1936,9 @@ namespace MonogameTest
             }
             for (int j = 0; j < System.Math.Ceiling(tonguecount); j++)
             {
-                if ((float)System.Math.Round((decimal)tongueX + (j * facingright)) < 199 && (float)System.Math.Round((decimal)tongueX + (j * facingright)) > 40)
+                if ((float)System.Math.Round((decimal)tongueX + (j * facingright)) < PLAYFIELD_RIGHT - 1 && (float)System.Math.Round((decimal)tongueX + (j * facingright)) > PLAYFIELD_LEFT)
                 {
-                    if (tongueY - j > 8 && !pyorodead)
+                    if (tongueY - j > PLAYFIELD_TOP && !pyorodead)
                     {
                         spriteBatch.Draw(tongue, new Vector2((float)System.Math.Round((decimal)tongueX + (j * facingright)), (int)tongueY - j), Color.White);
                     }
@@ -1841,8 +1950,8 @@ namespace MonogameTest
 
             for (int i = 0; i < blockamount; i++)
             {
-                int blockx = 40 + (i * 8);
-                int blocky = 144;
+                int blockx = PLAYFIELD_LEFT + (i * 8);
+                int blocky = BLOCK_FLOOR_Y;
 
                 if (blocks[i])
                 {
@@ -1879,11 +1988,11 @@ namespace MonogameTest
             
             if(gameover)
             {
-                spriteBatch.Draw(gameoversprite, new Vector2(120-35, 80), Color.White);
+                spriteBatch.Draw(gameoversprite, new Vector2((NATIVE_WIDTH - gameoversprite.Width) / 2, NATIVE_HEIGHT / 2), Color.White);
                 // Small centred hint below the game-over text.
                 string retry = "Press R to Retry";
                 Vector2 retrySize = smallfont.MeasureString(retry);
-                spriteBatch.DrawString(smallfont, retry, new Vector2(120 - retrySize.X / 2f, 92), Color.White);
+                spriteBatch.DrawString(smallfont, retry, new Vector2((NATIVE_WIDTH - retrySize.X) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
             }
             
 
@@ -1892,11 +2001,11 @@ namespace MonogameTest
             {
                 spriteBatch.Draw(tonguecollision, new Vector2((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)), (float)(tongueY - (tonguecount + (2 * speed)))), Color.White);
             }*/
-            spriteBatch.Draw(frame, new Vector2(0, 0), Color.White);
-            spriteBatch.Draw(scoreLabel, new Vector2(44, 10), Color.White);
-            drawScore(score, 64);
-            spriteBatch.Draw(highScoreLabel, new Vector2(117, 10), Color.White);
-            drawScore(highScore, 152);
+            drawFrame();
+            spriteBatch.Draw(scoreLabel, new Vector2(PLAYFIELD_LEFT + 4, 10), Color.White);
+            drawScore(score, PLAYFIELD_LEFT + 24);
+            spriteBatch.Draw(highScoreLabel, new Vector2(PLAYFIELD_RIGHT - 83, 10), Color.White);
+            drawScore(highScore, PLAYFIELD_RIGHT - 48);
             //spriteBatch.DrawString(arial, string.Format("tonguecollide {0}\nrecall {1}\ntonguecount {2}\n{3}", tonguecollide, recall, tonguecount,dissappearcounter), new Vector2(0, 0), Color.White);
             //spriteBatch.DrawString(arial, string.Format("smlspeed: 0x{0:X2}\nbigspeed: 0x{1:X2}", smallspeed, bigspeed), new Vector2(150, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);
@@ -1919,13 +2028,9 @@ namespace MonogameTest
                 }
             }
             
-            //cursor highlight (native coords, offset-aware)
-            int hoverNativeX = mouseState.X - rect.X;
-            int hoverNativeY = mouseState.Y - rect.Y;
-            if (hoverNativeX >= 0 && hoverNativeY >= 0 && hoverNativeX < NATIVE_WIDTH && hoverNativeY < NATIVE_HEIGHT)
-            {
-                spriteBatch.Draw(select, new Vector2((float)System.Math.Floor(((decimal)hoverNativeX / gameSize) / 8) * 8, (float)System.Math.Floor(((decimal)hoverNativeY / gameSize) / 8) * 8), Color.Purple);
-            }
+            // Align the editor highlight with the floor, including after resizing.
+            if (tryGetMouseColumn(out int hoverColumn))
+                spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
             spriteBatch.End();
 
             // SET RENDERTARGET TO NOTHING
@@ -2006,7 +2111,7 @@ namespace MonogameTest
         // side-by-side (48x16), mirroring the pico-8 spritesheet burst effect.
         class Explosion
         {
-            public float x, y;      // native (240x160) centre position
+            public float x, y;      // native (288x162) centre position
             public int timer;           // elapsed frames
             public int frameDuration;   // frames per sprite frame
 

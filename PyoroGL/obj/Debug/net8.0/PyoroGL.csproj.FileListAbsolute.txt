@@ -62,7 +62,14 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/explosion.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/angel.xnb
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/scores.xnb
-/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/background.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/highscore.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/numbers.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/score.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/backdropwithstars.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/framewide.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/frontdrop.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/angel.xnb
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/explosion.xnb
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/font.xnb
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/scores.xnb
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Content/Content/smallfont.xnb

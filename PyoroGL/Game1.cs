@@ -120,7 +120,14 @@ namespace MonogameTest
         // Dynamic animated border drawn behind the scaled game. A slowly
         // drifting diagonal colour wash whose speed follows the game speed and
         // whose hue shifts red while Pyoro is dead.
-        private Texture2D borderGradient;
+        // Camo knobs mirror camo_full.py; window scaling stays nearest-neighbor.
+        const int CAMO_WIDTH = 96;
+        const int CAMO_HEIGHT = 54;
+        const int CAMO_FRAMES = 140;
+        const double CAMO_LOOP_SECONDS = 9.3;
+        private Texture2D borderCamo;
+        private readonly Color[] borderPixels = new Color[CAMO_WIDTH * CAMO_HEIGHT];
+        private int borderFrame = -1;
         private double borderTime;
 
         // Visual thickness in native pixels, measured perpendicular to the beam.
@@ -750,7 +757,7 @@ namespace MonogameTest
             angelSprite = Content.Load<Texture2D>("angel");
             beamPixel = new Texture2D(GraphicsDevice, 1, 1);
             beamPixel.SetData(new[] { Color.White });
-            borderGradient = makeBorderGradient();
+            borderCamo = new Texture2D(GraphicsDevice, CAMO_WIDTH, CAMO_HEIGHT);
             select = Content.Load<Texture2D>("select");
             gameoversprite = Content.Load<Texture2D>("gameoversprite");
             scoresSprite = Content.Load<Texture2D>("scores");
@@ -1054,6 +1061,7 @@ namespace MonogameTest
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             pyororight.Dispose();
             pyoroleft.Dispose();
+            borderCamo.Dispose();
             beamPixel.Dispose();
             background.Dispose();
             frame.Dispose();
@@ -1968,7 +1976,8 @@ namespace MonogameTest
             GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
 
             // DRAWING INSIDE RENDERTARGET            
-            GraphicsDevice.Clear(new Color(0x4a, 0x39, 0x21));
+            // Let the animated outer camo show through outside the frame.
+            GraphicsDevice.Clear(Color.Transparent);
             frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             drawScenery();
@@ -2158,57 +2167,39 @@ namespace MonogameTest
             }
         }
 
-        // Build a 1x256 vertical gradient strip used by the dynamic border. The
-        // game tints and scrolls it each frame; keeping it monochrome lets all
-        // the colour work happen per-frame with sprite tints.
-        Texture2D makeBorderGradient()
-        {
-            const int size = 256;
-            Color[] pixels = new Color[size];
-            for (int i = 0; i < size; i++)
-            {
-                // Smooth wave from dark to bright and back for seamless tiling.
-                float t = (float)(0.5 - 0.5 * Math.Cos(i / (float)size * Math.PI * 2.0));
-                byte v = (byte)(40 + t * 60); // 40..100 brightness
-                pixels[i] = new Color(v, v, v);
-            }
-            Texture2D tex = new Texture2D(GraphicsDevice, 1, size);
-            tex.SetData(pixels);
-            return tex;
-        }
-
-        // Draw the animated border: a diagonal, drifting wave tinted warm brown
-        // (matching the #4a3921 backdrop), speeding up with the game speed and
-        // shifting red on death.
         void drawDynamicBorder(GameTime gameTime)
         {
             borderTime += gameTime.ElapsedGameTime.TotalSeconds;
-            // Wave scroll speed scales with the current game speed.
-            double speed = 0.05 + (bigspeed / 65536.0) * 0.15;
-            if (pyorodead) speed = 0.35;
-
-            int winW = GraphicsDevice.PresentationParameters.BackBufferWidth;
-            int winH = GraphicsDevice.PresentationParameters.BackBufferHeight;
-
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-            int stripeH = 64;
-            // Draw diagonal stripes by shearing rows across the window.
-            int rows = winH / stripeH + 2;
-            for (int row = -1; row < rows; row++)
+            int currentFrame = (int)((borderTime % CAMO_LOOP_SECONDS) * CAMO_FRAMES / CAMO_LOOP_SECONDS);
+            if (currentFrame != borderFrame)
             {
-                double phase = borderTime * speed + (row + (borderTime * speed)) * 0.35;
-                int y = row * stripeH;
-                int shear = (int)((borderTime * 24.0 + row * stripeH * 1.5) % (winW + stripeH)) - stripeH;
-                var dest = new Rectangle(shear, y, winW + stripeH * 2, stripeH);
-                // Wave brightness from the gradient strip; alternate rows flip
-                // the source to keep the wash seamless.
-                int srcY = (int)((phase % 1.0) * 255.0);
-                Color tint = pyorodead
-                    ? new Color(120, 30, 45)
-                    : new Color(74, 57, 33); // #4a3921 family
-                spriteBatch.Draw(borderGradient, dest,
-                    new Rectangle(0, srcY, 1, 1), tint);
+                borderFrame = currentFrame;
+                double t = currentFrame * CAMO_LOOP_SECONDS / CAMO_FRAMES;
+                for (int y = 0; y < CAMO_HEIGHT; y++)
+                {
+                    double py = y / (double)(CAMO_HEIGHT - 1);
+                    for (int x = 0; x < CAMO_WIDTH; x++)
+                    {
+                        double px = x / (double)(CAMO_WIDTH - 1);
+                        double plasma = Math.Sin(px * 12.0 + t * 1.3) * Math.Sin(py * 15.0 - t * 1.1)
+                            + 0.6 * Math.Sin(px * 7.0 + t * 1.1) * Math.Sin(py * 9.0 - t * 0.9);
+                        bool tan = plasma > 0;
+                        double shade = 0.55 + 0.45 * Math.Clamp(plasma, -1.0, 1.0);
+                        // Eight shades per hue give a stable 16-color palette without dithering.
+                        double darkest = tan ? 0.55 : 0.10;
+                        shade = darkest + Math.Round((shade - darkest) / 0.45 * 7.0) * 0.45 / 7.0;
+                        borderPixels[y * CAMO_WIDTH + x] = new Color(
+                            (byte)((tan ? 118 : 56) * shade),
+                            (byte)((tan ? 94 : 60) * shade),
+                            (byte)((tan ? 54 : 32) * shade));
+                    }
+                }
+                borderCamo.SetData(borderPixels);
             }
+            int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            spriteBatch.Draw(borderCamo, new Rectangle(0, 0, width, height), Color.White);
             spriteBatch.End();
         }
 

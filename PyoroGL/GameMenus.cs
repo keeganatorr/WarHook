@@ -65,7 +65,9 @@ namespace MonogameTest
             int move = 0;
             if (pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp)) move--;
             if (pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown)) move++;
-            if (move != 0 || accept) beamAudio?.PlayMenuBlip();
+            // Navigation gets the short blip; accept gets the rising "ba-LEAP".
+            if (accept) beamAudio?.PlayMenuConfirm();
+            else if (move != 0) beamAudio?.PlayMenuBlip();
             if (screen == MenuScreen.Main)
             {
                 mainSelection = (mainSelection + move + mainItems.Length) % mainItems.Length;

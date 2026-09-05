@@ -50,6 +50,14 @@ namespace MonogameTest
             public double MenuSecondHz { get; set; } = 1975.5; // B6
             public double MenuNoteSeconds { get; set; } = 0.06;
             public double MenuTailSeconds { get; set; } = 0.05;
+            // Confirm sound: rising "ba-LEAP" — low note sweeping up to a held
+            // high note, slightly longer than the navigation blip.
+            public double ConfirmGain { get; set; } = 0.55;
+            public double ConfirmLowHz { get; set; } = 659.3;   // E5
+            public double ConfirmHighHz { get; set; } = 1975.5; // B6
+            public double ConfirmSweepSeconds { get; set; } = 0.07;
+            public double ConfirmHoldSeconds { get; set; } = 0.09;
+            public double ConfirmTailSeconds { get; set; } = 0.08;
         }
         readonly string path;
         Task<(Settings settings, byte[][] pcm)> pending;
@@ -71,9 +79,10 @@ namespace MonogameTest
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };
-                var pcm = new byte[5][];
+                var pcm = new byte[6][];
                 for (int i=0; i<4; i++) pcm[i] = Generate(config, specs[i]);
                 pcm[4] = GenerateMenuBlip(config);
+                pcm[5] = GenerateConfirm(config);
                 return (config, pcm);
             });
         }
@@ -155,24 +164,71 @@ namespace MonogameTest
             }
             return pcm;
         }
+        // Confirm "ba-LEAP": a low note that sweeps up into a held, slightly
+        // brighter high note — reads as a positive "choose this" chirp.
+        internal static byte[] GenerateConfirm(Settings s)
+        {
+            int rate=s.SampleRate;
+            int sweepLen=(int)(rate*s.ConfirmSweepSeconds);
+            int holdLen=(int)(rate*s.ConfirmHoldSeconds);
+            int tailLen=(int)(rate*s.ConfirmTailSeconds);
+            int count=sweepLen+holdLen+tailLen;
+            var pcm=new byte[count*2];
+            double phase=0;
+            for (int i=0;i<count;i++)
+            {
+                double t=(double)i/rate;
+                // Frequency: low note, exponential glide to high during sweep,
+                // then hold. Exponential sounds natural for pitch jumps.
+                double hz;
+                if (i < sweepLen)
+                {
+                    double k=(double)i/sweepLen;
+                    hz=s.ConfirmLowHz*Math.Pow(s.ConfirmHighHz/s.ConfirmLowHz, k);
+                }
+                else hz=s.ConfirmHighHz;
+                phase+=hz/rate;
+                // Square-ish timbre softened with harmonics, like the blip.
+                double wave=Math.Sign(Math.Sin(2*Math.PI*phase));
+                wave=wave*0.65+0.35*Math.Sin(4*Math.PI*phase);
+                // Envelope: quick attack through the sweep, full during hold,
+                // exponential tail.
+                double env;
+                if (i < sweepLen) env=Math.Min(1,t/0.002)*(0.55+0.45*((double)i/sweepLen));
+                else if (i < sweepLen+holdLen) env=1;
+                else env=Math.Exp(-7.0*((double)(i-sweepLen-holdLen))/tailLen);
+                short sample=(short)(Math.Clamp(wave*env,-1,1)*s.ConfirmGain*.9*32767);
+                pcm[i*2]=(byte)(sample & 255); pcm[i*2+1]=(byte)((sample >> 8)&255);
+            }
+            return pcm;
+        }
         // Fire the menu blip (index 4). Safe to call before audio finishes loading.
         public void PlayMenuBlip()
         {
-            if (voices == null || voices.Length < 5 || voices[4] == null) return;
+            if (voices == null || voices.Length < 6 || voices[4] == null) return;
             var v=voices[4];
             v.Stop();
             v.Volume=(float)Math.Clamp(settings.MenuGain,0,1);
             v.Play();
         }
+        // Fire the confirm "ba-LEAP" (index 5). Safe to call before audio loads.
+        public void PlayMenuConfirm()
+        {
+            if (voices == null || voices.Length < 6 || voices[5] == null) return;
+            var v=voices[5];
+            v.Stop();
+            v.Volume=(float)Math.Clamp(settings.ConfirmGain,0,1);
+            v.Play();
+        }
         void PollReload()
         {
             if (pending == null || !pending.IsCompleted) return;
-            var replacements=new SoundEffect[5];
-            var instances=new SoundEffectInstance[5];
+            var replacements=new SoundEffect[6];
+            var instances=new SoundEffectInstance[6];
             try
             {
                 var result=pending.GetAwaiter().GetResult();
-                for (int i=0;i<5;i++)
+                for (int i=0;i<6;i++)
                 {
                     replacements[i]=new SoundEffect(result.pcm[i],result.settings.SampleRate,AudioChannels.Mono);
                     instances[i]=replacements[i].CreateInstance();
@@ -236,8 +292,7 @@ namespace MonogameTest
             if (voices == null) return;
             for (int i=0;i<4 && i<voices.Length;i++) { voices[i].Stop(); voices[i].Volume=0; }
             wasActive=wasCaught=suspended=false;
-        }
-        void DisposeVoices()
+        }        void DisposeVoices()
         {
             Stop();
             if (voices != null) foreach (var v in voices) v.Dispose();

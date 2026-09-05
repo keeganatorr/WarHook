@@ -72,3 +72,5 @@
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/font8x8_atlas.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/frame_panel.png
 /home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/block_atlas.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/explosion-new.png
+/home/keegan/Repos/pyoro/PyoroGL/bin/Debug/net8.0/Assets/parachute.png

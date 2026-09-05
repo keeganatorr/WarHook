@@ -510,7 +510,7 @@ namespace MonogameTest
             {
                 int frame = (int)(e.timer / e.frameDuration);
                 if (frame > 2) frame = 2;
-                // explosion.png is 48x16 = 3 frames of 16x16 in a row.
+                // Generated explosion sheet is sampled into three 16x16 cells at load time.
                 Rectangle src = new Rectangle(frame * 16, 0, 16, 16);
                 // Centre the 16x16 sprite on the given position.
                 float dx = e.x - 8;
@@ -559,7 +559,7 @@ namespace MonogameTest
             }
         }
 
-        // Render angels: 2-frame 16x16 animation (angel.png is 32x16). When the
+        // Render supply parachutes using two 16x16 sway frames. When the
         // angel is falling fast enough it carries a block tile below it,
         // mirroring pico-8's sspr(44,12,6,6) carried tile.
         void drawAngels(SpriteBatch batch)
@@ -755,8 +755,8 @@ namespace MonogameTest
             block = Content.Load<Texture2D>("block");
             blockAtlas = loadPng("block_atlas");
             collisionblock = Content.Load<Texture2D>("collisionblock");
-            explosionSprite = Content.Load<Texture2D>("explosion");
-            angelSprite = Content.Load<Texture2D>("angel");
+            explosionSprite = loadEffectSheet("explosion-new", 3);
+            angelSprite = loadEffectSheet("parachute", 2);
             beamPixel = new Texture2D(GraphicsDevice, 1, 1);
             beamPixel.SetData(new[] { Color.White });
             borderCamo = new Texture2D(GraphicsDevice, CAMO_WIDTH, CAMO_HEIGHT);
@@ -801,6 +801,30 @@ namespace MonogameTest
                     (index / FONT_COLS) * FONT_CELL,
                     FONT_CELL, FONT_CELL);
                 batch.Draw(fontAtlas, new Vector2((int)position.X + i * FONT_CELL, (int)position.Y), src, color);
+            }
+        }
+
+        Texture2D loadEffectSheet(string name, int frameCount)
+        {
+            const int frameSize = 16;
+            using (Texture2D sheet = loadPng(name))
+            {
+                Color[] source = new Color[sheet.Width * sheet.Height];
+                sheet.GetData(source);
+                int sourceWidth = sheet.Width / frameCount;
+                int atlasWidth = frameCount * frameSize;
+                Color[] pixels = new Color[atlasWidth * frameSize];
+                for (int frame = 0; frame < frameCount; frame++)
+                    for (int y = 0; y < frameSize; y++)
+                        for (int x = 0; x < frameSize; x++)
+                        {
+                            int sx = frame * sourceWidth + (int)((x + 0.5f) * sourceWidth / frameSize);
+                            int sy = (int)((y + 0.5f) * sheet.Height / frameSize);
+                            pixels[y * atlasWidth + frame * frameSize + x] = source[sy * sheet.Width + sx];
+                        }
+                Texture2D atlas = new Texture2D(GraphicsDevice, atlasWidth, frameSize);
+                atlas.SetData(pixels);
+                return atlas;
             }
         }
 
@@ -1070,6 +1094,8 @@ namespace MonogameTest
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             pyororight.Dispose();
             pyoroleft.Dispose();
+            explosionSprite.Dispose();
+            angelSprite.Dispose();
             borderCamo.Dispose();
             beamPixel.Dispose();
             background.Dispose();

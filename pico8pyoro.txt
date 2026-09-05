@@ -1,0 +1,1045 @@
+
+
+
+floor_str = "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
+floor = nil
+
+pal_reset = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}
+bushes = {    92,80,68,56,56,56,56,50,
+            92,80,68,56,56,56,50,
+            92,80,68,56,56,50,
+            92,80,68,56,56,50,
+            92,80,68,56,50,
+            92,80,62,
+            92,74,
+            86,
+            92,74,
+            92,74,
+            92,80,62,
+            92,74,
+            86,
+            92,80,68,50,
+            92,80,62,
+            86,
+            92,74,
+            92,80,62,
+            92,80,62,
+            92,80,68,50}
+
+starfield = {48,19,0,26,23,1,66,25,0,109,30,1,30,31,0,78,31,0,12,43,0,60,43,0,108,43,0,24,61,0,120,61,0,72,67,0,42,73,0,96,73,0,48,79,0,84,85,0}
+grad_data = {-32,16,1,-24,16,13,18,16,2,42,16,12,66,16,6,86,8,15,98,4,10}
+grad_move1 = {120,-32,16,-24,16,66,16,116,16,124,16,132,16,140,16}
+grad_move2 = {120,18,16,98,4,108,16,116,16,124,16,132,16,140,16}
+grad_move3 = {120,-88,16,-64,16,-40,16,-16,16,18,16,66,16,86,8}
+grad_move4 = {120,108,16,140,16,172,16,204,16,236,16,268,16,300,16}
+
+pal_string = [[1:2:3:131:5:6:7:8:9:135:11:134:130:14:15.
+1:2:3:131:128:6:7:8:9:135:11:134:130:14:15.
+1:2:3:131:140:6:7:8:9:135:11:134:130:14:15.
+1:134:13:5:134:6:7:134:15:7:134:134:13:6:15.
+1:0:0:0:6:7:7:0:0:7:0:0:13:0:140]]
+pal_data = split(pal_string,".")
+
+prop_string = [[80:48:8:16:74:110:dy:95:90:1.
+80:48:8:16:94:110:dy:90:90:1.
+76:18:11:22:45:110:dy:86:120:1.
+24:24:20:27:27:110:dy:73:120:1.
+44:18:32:32:91:110:dy:74:120:1.
+112:104:12:20:70:110:dy:86:120:1.
+88:24:19:50:48:110:dy:47:240:1.
+108:12:12:60:20:90:dy:24:300:1.
+76:40:12:5:128:21:dx:34:300:0.
+0:24:24:24:82:90:dy:38:300:0]]
+prop_data = split(prop_string,".")
+menuitem(1,"made with love")
+menuitem(2,"by @wowitsjolyne")
+
+function _init()
+    poke(0x5f5c,255)
+    palt(15,true)
+    palt(0,false)
+    pal(pal_reset,1)
+    timer = 0
+    sfx_timer = 0
+    seed_timer = 0
+    gamespeed_timer = 0
+    score_counter = 0
+    level = 0
+    game_state = 0
+    pal_timer = 0
+    pal_change = false
+    pal_counter = 1
+    palette = split(pal_data[pal_counter],":")
+
+    hs_level = peek(0x4301)
+    highscore = peek(0x4300)
+    objects = {}
+    --resets music
+    reload(0x3100,0x3100,4608)
+    music(0)
+
+    grads = {}
+    comets = {}
+    angel_queue = {}
+    seed_queue = {}
+    spinning_stars = {}
+    angels = {}
+    props = {}
+    angel_timer = 0
+   
+    for i = 1,#grad_data,3 do
+        grad:new(unpack(grad_data,i,i+2))
+    end
+   
+end
+
+
+
+
+function _update60()
+    if game_state == 0 then
+        if titlescreen_fade then
+            titlescreen_fade-= 1
+            if titlescreen_fade == 0 then 
+                create(pyoro,58,100)
+                floor = split(floor_str)
+                game_state = 1
+                titlescreen_fade = nil
+                music(6)
+            end
+        elseif btnp(4) or btnp(5) then
+            titlescreen_fade = 60
+            music(-1,800)
+            psfx(54,8,8)
+        end
+
+    else --gamestate 1 or 2
+        --if (btnp(3)) score_counter += 1000
+        --if (btnp(2)) create(seed,rnd(109)+4,-3,green_seed)
+        --if (btnp(3)) create(seed,rnd(109)+4,-3,white_seed)
+        --if (btnp(4)) create(seed,rnd(109)+4,-3,blue_seed)
+        if seed_timer >= 20 - (gamespeed_timer>>12) and rnd() < 0.008 + (gamespeed_timer>>17) then
+            if rnd() < 0.1 then
+                create(seed,rnd(109)+4,-3,white_seed)
+            else
+                create(seed,rnd(109)+4,-3,green_seed)
+            end
+        end
+
+        if (game_state == 1) gamespeed_timer = min(gamespeed_timer + 2, 21601)
+        timer = timer%34000+1
+        sfx_timer = max(sfx_timer - 1)
+        seed_timer += 1
+        pal_timer = max(pal_timer - 1)
+
+        if pal_timer > 0 then
+            pal_change = true
+        elseif pal_change then
+            pal_counter = min(pal_counter+1,5)
+            pal_change = false
+            palette = split(pal_data[pal_counter],":")
+        end
+
+        --update sunset effect
+        for g in all(grads) do
+            g:update()
+        end
+
+        for p in all(props) do
+            p:update()
+        end
+
+        for o in all(objects) do
+            o:update()
+        end
+
+        if (stat(18) == 51 or stat(18) == 42 or stat(18) == 48) and stat(22) == 22 then
+            local tempo = peek(0x3200 + 65) - 1
+            if (tempo != 10) then
+                poke(0x3200 + 65,tempo)
+                poke(0x3200 + 65 + 68*2,tempo)
+               
+                for i = 23,51 do
+                    poke(0x3200 + 68*i + 65,tempo)
+                end
+            end
+        end
+
+        --update angels and seed detonation from eating blue seed
+        if #angel_queue > 0 or #seed_queue > 0 then
+            if #seed_queue > 0 and angel_timer%6 == 0 then
+                score:new(seed_queue[1].x,seed_queue[1].y,50)
+                smoke:new(seed_queue[1].x,seed_queue[1].y)
+                del(objects,seed_queue[1])
+                deli(seed_queue,1)
+                psfx(6,8,8)
+            end
+            if #angel_queue > 0 and angel_timer%16 == 0 then
+                angel:new(angel_queue[1])
+                deli(angel_queue,1)
+            end
+            angel_timer += 1
+        end
+
+        --Spawn star effect
+        if level >= 50 and #spinning_stars < 20 then
+            spinning_star:new(rnd(120)+4,rnd(20)+100)
+        end
+
+        --Update Level counter
+        if score_counter > 999 then
+            score_counter = score_counter%1000
+            level += 1
+
+            --Add new prop to scenery
+            if level == 5 then
+            elseif level == 6 then
+                prop:new(unpack(split(prop_data[5],":")))
+                prop:new(unpack(split(prop_data[6],":")))
+            elseif level <= 10 then
+                prop:new(unpack(split(prop_data[level],":")))
+            end
+
+            if level >= 5 then
+                create(seed,rnd(109)+4,-50,blue_seed)
+            end
+            if level == 5 then
+                for i = 0,19 do
+                    local adr = 0x3118 + i*4
+                    local val = peek(adr) & 0b11000000 | 0b00000010
+                    poke(adr,val)
+                end
+                for i = 2, #grad_move1, 2 do
+                    grads[i>>1]:move_to(grad_move1[i],grad_move1[i+1],grad_move1[1])
+                end
+                pal_timer = 120
+            elseif level == 10 then
+                for i = 2, #grad_move2, 2 do
+                    grads[i>>1]:move_to(grad_move2[i],grad_move2[i+1],grad_move2[1])
+                end
+                pal_timer = 120
+            elseif level > 10 and level < 20 then
+                comet:new()
+            elseif level == 20 then
+                for i = 2, #grad_move3, 2 do
+                    grads[i>>1]:move_to(grad_move3[i],grad_move3[i+1],grad_move3[1])
+                end
+                pal_timer = 120
+            elseif level == 30 then
+                for i = 2, #grad_move4, 2 do
+                    grads[i>>1]:move_to(grad_move4[i],grad_move4[i+1],grad_move4[1])
+                end
+                pal_timer = 120
+            elseif level == 50 then
+                for i = 1,20 do
+                    spinning_star:new(rnd(120)+4,rnd(118)+10)
+                end
+                pal_timer = 120
+            end
+        end
+
+        --update high score
+        if level > hs_level then
+            hs_level = level
+            highscore = score_counter
+        elseif level == hs_level and score_counter > highscore then
+            highscore = score_counter
+        end
+
+        --Exit to menu
+        if game_state == 2 and (btnp(4) or btnp(5)) then
+            titlescreen_fade = 90
+            music(-1,800)
+            psfx(54,8,8)
+        end
+
+        if titlescreen_fade then
+            titlescreen_fade-= 1
+            if titlescreen_fade == 0 then 
+                if level > peek(0x4301) then
+                    poke(0x4301,level)
+                    poke(0x4300,score_counter)
+                    cstore(0x4300,0x4300,2)
+                elseif level == peek(0x4301) and score_counter > peek(0x4300) then
+                    poke(0x4300,score_counter)
+                    cstore(0x4300,0x4300)
+                end
+                titlescreen_fade = nil
+                _init()
+            end
+        end
+    end
+end
+
+party_lights = {7,12,11,8,11,0,10,8}
+
+function _draw()
+    --cls(13)
+    if game_state == 0 then
+        pal(2,138,1)
+        pal(4,131,1)
+        pal(5,140,1)
+
+        cls(2)
+        --rectfill(4,82,123,117,7)
+        for i = 0,9 do
+            rectfill(5+12*i,11,14+12*i,20,11)
+            rectfill(5+12*i,23,14+12*i,32,11)
+           
+            rectfill(5+12*i,35,14+12*i,44,11)
+            fillp(0xafaf)
+            rectfill(5+12*i,47,14+12*i,56,0xb2)
+            fillp(0x5a5a)
+            rectfill(5+12*i,59,14+12*i,68,0xb2)
+            fillp(0x0a0a)
+            rectfill(5+12*i,71,14+12*i,80,0xb2)
+            fillp()
+            rectfill(5+12*i,83,14+12*i,92,2)
+            fillp(0xafaf)
+            rectfill(5+12*i,95,14+12*i,104,0x27)
+            fillp(0x5a5a)
+            rectfill(5+12*i,107,14+12*i,116,0x27)
+            fillp()
+        end
+        --print("pyoro!",50,80,0)
+        --spr(176,9,19,14,6)
+        sspr(0,75,112,53,7,19)
+        print("press 🅾️/❎/z/x to start",16,88,0)
+
+       
+    else
+        pal(palette,1)
+
+        if level >= 40 then
+            local flash = timer%208\26+1
+            pal(10,party_lights[flash],1)
+        end
+
+        --Draw sky layer
+        palt(15,false)
+
+        --[[if level < 5 then
+
+        elseif level < 10 then
+           
+        elseif level < 20 then
+           
+        elseif level < 30 then
+            pal(10,7)
+            pal(15,7)
+            pal(6,15)
+            pal(12,14)
+            pal(13,14)
+            pal(1,2)
+        else -- level >= 30
+            pal(0,7)
+            pal(1,0)
+            pal(6,0)
+            pal(10,0)
+            pal(13,0)
+            pal(15,0)
+        end]]
+       
+        local start
+        color(0)
+        for g in all(grads) do
+            start = g:draw(start)
+        end
+        fillp()
+        rectfill(0,start,123,113)
+       
+        --[[for i = 1,15 do
+            sspr(120,12,8,92,i*8-4,10)
+        end
+        rectfill(4,102,123,113,10)]]
+
+        pal(0,0)
+        pal(pal_reset)
+        palt(15,true)
+       
+        if (level >= 40) pal(10,7)
+        --Draw Stars Layer
+        if level < 50 then
+            for i = 1,46,3 do
+                circfill(starfield[i],starfield[i+1],starfield[i+2],7)
+            end
+        else
+            for i = #spinning_stars,1,-1 do
+                spinning_stars[i]:draw()
+            end
+        end
+
+        if #comets >= 1 and level < 20 then -- Comet
+            comets[1]:draw()
+        end
+        --Draw Scenery Layer
+       
+        if (#props == 10) props[1]:draw()--Moon
+        if pal_counter < 3 then
+        elseif pal_counter == 3 then
+            pal(5,0)
+            pal(1,0)
+        elseif pal_counter == 4 then
+            pal(1,13)
+            pal(0,1)
+        else --level >= 30
+            pal(1,0)
+            pal(10,10)
+            pal(5,0)
+        end
+
+        if (#props%10 != 0) props[1]:draw()
+        for i = 2, #props do
+            props[i]:draw()
+        end
+
+       
+        -- spr(48,82,38,3,3) 
+        --[[
+        if (level >= 8) sspr(108,12,12,60,20,24)--Skyscraper
+        --spr(48,20,24,1.5,7.5)
+        if (level >= 9) sspr(76,40,12,5,34,21)--UFO
+        --spr(105,34,21,1.5,0.625)
+        if (level >= 7) spr(59,48,47,2.375,6.25)--Effeil Tower
+        --sspr(12,24,19,50,48,47)
+        if (level >= 4) spr(51,27,73,2.5,3.375) --Ferris Wheel
+        if level >= 6 then
+            spr(222,70,86,1.5,2.5)
+            --sspr(108,16,12,20,70,86) -- Back Bridge
+            --spr(52,92,74,4,4) -- Front Bridge
+            sspr(44,18,32,32,92,74)
+        end
+
+        if (level >= 2) spr(106,95,90,1,2) --Lamppost 
+        if (level >= 1) spr(106,74,95,1,2) -- Lamppost
+       
+        if (level >= 3) sspr(76,18,11,22,45,86)-- Church]]
+
+
+        pal(0,0)
+        pal(pal_reset)
+
+        -- 30000 + pts
+        if pal_counter == 5 then
+            pal(0,7)
+            pal(7,0)
+        end
+        --Draw Bush Layer
+        local bush_count = 4
+        local bush_height = 106
+        for i = 1, #bushes do
+            sspr(bushes[i],12,6,6,bush_count,bush_height)
+            bush_height -= 6
+            if bushes[i]%12 == 2 then 
+                bush_height = 106
+                bush_count += 6
+            end
+        end
+        rectfill(4,112,123,117,3)
+        --Draw Floor Tiles
+        for i = 1, #floor do
+            if (floor[i] == 1) sspr(44,12,6,6,6*i-2,112)
+        end
+        --Draw Angels
+        for o in all(angels) do
+            o:draw()
+        end
+        --Draw Seeds and then Pyoro
+        local p = nil
+        for o in all(objects) do
+            if o.base == pyoro then p = o else o:draw() end
+        end
+
+        if pal_counter == 5 then
+            pal(0,7)
+            pal(7,0)
+        end
+
+        if p then p:draw() end
+
+       
+        --Draw Smoke
+        for o in all(particles) do
+            o:draw()
+        end
+        --Draw Scores
+        if pal_counter == 5 then
+            pal(1,7)
+            pal(8,7)
+            pal(7,7)
+        end
+        for o in all(scores) do
+            o:draw()
+        end
+       
+
+        if game_state == 2 then
+            print("game over",46,62,7)
+        end
+
+        pal(0,0)
+        pal(pal_reset)
+
+        print("score " .. (level < 100 and 0 or "")..(level < 10 and 0 or "")..level..(score_counter<100 and 0 or "")..(score_counter<10 and 0 or "")..score_counter,6,10,7)
+        print("highscore " .. (hs_level < 100 and 0 or "")..(hs_level < 10 and 0 or "")..hs_level..(highscore<100 and 0 or "")..(highscore<10 and 0 or "")..highscore,58,10,7)
+
+    end
+   
+    if titlescreen_fade and titlescreen_fade < 20 then
+        cls(0)
+        pal(pal_reset,1)
+    end
+
+    rectfill(0,0,127,5,1)
+    rectfill(0,122,127,127)
+    rectfill(4,6,123,8,7)
+    rectfill(0,10,2,117)
+    rectfill(4,119,123,121)
+    rectfill(125,10,127,117)
+    rect(3,9,124,118,0)
+    spr(138,0,6,0.5,0.5)
+    spr(138,124,6,0.5,0.5,true)
+    spr(138,0,118,0.5,0.5,false,true)
+    spr(138,124,118,0.5,0.5,true,true)
+    --[[sspr(120,12,4,4,0,6)
+    sspr(120,12,4,4,124,6,4,4,true)
+    sspr(120,12,4,4,0,118,4,4,false,true)
+    sspr(120,12,4,4,124,118,4,4,true,true)]]
+
+end
+
+function psfx(id, off, len, lock)
+    if sfx_timer <= 0 or lock then
+        sfx(id, 3, off, len)
+        if lock then sfx_timer = lock end
+    end
+end
+
+function create(object,x,y,...)
+ local obj={x=x, y=y, base = object}
+ setmetatable(obj, {__index = object})
+ add(objects,obj)
+ if (obj.init) obj:init(...)
+ return obj
+end
+
+pyoro = {
+a = 0,
+flip_x = 1,
+sprite = 8,
+state = 0,
+remainder_x = 0,
+hit_x = 2,
+hit_y = 3,
+hit_w = 8,
+hit_h = 9,
+licked_seed = nil,
+is_walking = false,
+tongue = {x = 0,
+y = 0,
+hit_x = 0,
+hit_y = 0,
+hit_w = 8,
+hit_h = 8,
+l = 0} }
+
+grads = {}
+
+grad = {yb=0,yc=0,t=0,d=0,hb=0,hc=0}
+
+function grad:new(_y,_h,_c)
+    local obj = {y=_y, h=_h, col=_c}
+    setmetatable(obj,{__index = self})
+    add(grads,obj)
+end
+
+function grad:update()
+    if self.t != self.d then
+        self.t += 1
+        local t = self.t / self.d
+        self.y = -self.yc*t*(t-2)+self.yb
+        self.h = -self.hc*t*(t-2)+self.hb
+    end
+end
+
+function grad:draw(start)
+    local y = self.y & 0xfffe.0000
+ local    quarter = max(self.h>>2, 2)
+ local start = start or 0
+ local c1 = color()
+ local col = self.col | (c1<<4)
+ fillp()
+ rectfill(4,start,123,y-1,c1)
+    fillp(0x5f5f)
+    rectfill(4,y,123,y+quarter-1,col)
+    fillp(0x5a5a)
+    rectfill(4,y+quarter,123,y+3*quarter-1,col)
+    fillp(0x0a0a)
+    rectfill(4,y+quarter*3,123,y+self.h-1,col)
+    start = y+self.h
+    return start
+end
+
+function grad:move_to(_yto,_hto,_d)
+    local b = self.y 
+    self.yb = b
+    self.yc = _yto - b
+
+    b = self.h
+    self.hb = b
+    self.hc = _hto - b
+
+    self.t = 0
+    self.d = _d
+end
+
+prop = {t = 0,b = 0,c = 0}
+
+function prop:new(sx,sy,sw,sh,dx,dy,p,to,d,s)
+    local obj = {sx = sx,
+    sy = sy,
+    sw = sw,
+    sh = sh,
+    dx = dx,
+    x = dx,
+    dy = dy,
+    p = p,
+    d = d&0xfffe,
+    s = s,
+    to = to}
+    setmetatable(obj,{__index = self})
+    add(props,obj,1)
+end
+
+function prop:update()
+    if self.t == 0 then
+        local b = self[self.p]
+        self.c = self.to-b
+        self.b = b
+    end
+    if self.t != self.d then
+        self.t += 1
+        self[self.p] = self.c*self.t/self.d+self.b
+        if (self.s == 1) self.dx = self.x + (self.t%10\5)
+    end
+end
+
+function prop:draw()
+    sspr(self.sx,self.sy,self.sw,self.sh,self.dx,self.dy)
+end
+
+function pyoro:update()
+    if self.state == 0 then
+        if self.eating then
+            self.a = (self.a + 1) % 32766
+            self.sprite = self.a % 8 \ 4 * 36 + 8
+            if (self.a == 40) self.eating = false
+        end
+
+        if btnp(5) or btnp(4) then
+            self.sprite = 32
+            self.state = 1
+            self.tongue.x = self.x+2+6*self.flip_x
+            self.tongue.y = self.y-1
+            self.is_walking = false
+           
+         else
+            local speed = 0.8 + (gamespeed_timer>>14)
+             local vx = (btn(1) and speed or 0) - (btn(0) and speed or 0)
+            self:move(vx)
+            self.x = mid(4,self.x,112)
+            if btn(1) or btn(0) then
+                self.a = (self.a + 1) % 32766
+                self.flip_x = (btn(0) and -1 or 1)
+                self.eating = false
+                self.sprite = self.a % 6 \ 3 * 12 + 8
+                psfx(6,0,3)
+                self.is_walking = true
+            elseif self.is_walking then
+                psfx(6,3,3)
+                self.is_walking = false
+            end
+        end
+    elseif self.state == 1 then
+        if btn(5) or btn(4) then
+            local speed = 1.5 + (gamespeed_timer>>12)
+            self.tongue.x += speed*self.flip_x
+            self.tongue.y -= speed
+        else
+            self.state = 2
+        end
+
+        for o in all(objects) do
+            self.eating = o.base == seed and overlaps(self.tongue,o)
+            if self.eating then
+                self.state = 2
+                o:get_licked(self)
+                self.licked_seed = o
+                break
+            end
+        end
+
+        if self.tongue.l == 3 then
+            psfx(52,0,8)
+        end
+
+        if self.tongue.x != mid(5,self.tongue.x,116) or self.tongue.y <= 10 then
+            self.state = 2
+        end
+    elseif self.state == 2 then
+            local speed = 6 + (gamespeed_timer>>14)
+            self.tongue.x -= speed*self.flip_x
+            self.tongue.y += speed
+            if self.tongue.l <= 1 then
+                self.state = 0
+                psfx(6,16,8)
+                self.a = 0
+                self.sprite = 8
+                del(objects,self.licked_seed)
+                if (self.licked_seed and self.licked_seed.on_eat) self.licked_seed.on_eat(self)
+               
+                self.licked_seed = nil
+            end
+    elseif self.state == 3 then
+        self.y += 0.25
+        if self.y > 118 then
+            del(objects,self)
+            game_state = 2
+            music(26)
+        end
+    end
+
+    if self.state != 3 then
+        if floor[(self.x+2)\6+1] != 1 then
+            self:die()
+        else
+            for o in all(objects) do
+                if o.base == seed and overlaps(self,o) then
+                    smoke:new(o.x,o.y)
+                    del(objects,o)
+                    self:die()
+                    break
+                end
+            end
+        end
+    end
+
+    self.tongue.l = (abs(self.x-self.tongue.x)-3.5-1.5*self.flip_x)\6
+end
+
+function pyoro:die()
+    self.state = 3
+    self.sprite = 56 
+    psfx(52,8,8,48)
+    music(-1)
+end
+
+function pyoro:draw()
+    local flip = (self.flip_x == -1)
+    if self.state == 1 or self.state == 2 then
+     spr(16,self.tongue.x,self.tongue.y,1,1,flip)
+        for i = 1, self.tongue.l do
+            spr(32,self.tongue.x-6*i*self.flip_x,self.tongue.y+6*i,1,1,flip)
+        end
+    end
+    --print(self.tongue.l,self.x, self.y-6,0) -- Debug
+    sspr(self.sprite,0,12,12,self.x,self.y,12,12,flip)
+end
+
+function pyoro:move(x)    --compare to the movement code article from May 2020
+    self.remainder_x += x
+    local mx = flr(self.remainder_x + 0.5)
+    self.remainder_x -= mx
+
+    local total = mx
+    local mxs = sgn(mx)
+    while mx != 0
+    do
+        if floor[(self.x+mxs+2)\6+1] != 1 then --values for floor are 0 (no floor), 1 (floor), and 2(angel about to replace floor)
+            return true
+        else
+            self.x += mxs
+            mx -= mxs
+        end
+    end
+
+    return false
+end
+
+seed = {
+state = 0,
+attatched = nil,
+a = 1,
+c = 1,
+anim = {18,8,8,20,18,32,8,20},
+timer = 0,
+hit_x = 4,
+hit_y = 0,
+hit_w = 4,
+hit_h = 8}
+
+one_angel = function(self) --Pyoro is used as the parameter
+    local start = (self.x+2) \6 +1
+    local length = max(start,20-start)
+    for i = 1,#floor do
+        if floor[i] == 0 then
+            psfx(52,16,12,66)
+            break
+        end
+    end
+    for i = 1,length do
+        if floor[start+i] == 0 then
+            angel:new(start+i)
+            floor[start+i] = 2  --holds place so only one angel per tile
+            return
+        elseif floor[start-i+1] == 0 then
+            angel:new(start-i+1)
+            floor[start-i+1] = 2
+            return
+        end
+    end
+end
+
+many_angels = function(self) --Pyoro is used as the parameter
+    angel_timer = 0
+    local start = (self.x+2) \6 +1
+    local length = max(start,20-start)
+
+    for o in all(objects) do
+        if (o.base != pyoro) add(seed_queue,o)
+    end
+    for i = 1,length do
+        if floor[start+i] == 0 then
+            add(angel_queue,start+i)
+            floor[start+i] = 2  --holds place so only one angel per tile
+        end
+        if floor[start-i+1] == 0 then
+            add(angel_queue,start-i+1)
+            floor[start-i+1] = 2
+        end
+        if (#angel_queue >= 12) break
+    end
+    if (#angel_queue < 1) return
+    psfx(53,0,#angel_queue,#angel_queue*16)
+end
+
+green_seed = {{{6,3,1,11}}}
+white_seed = {{{3,2,11,14,1,7}},one_angel}
+blue_seed = {{{3,11,6,0,7,1},{6,3,1,11},{3,2,11,14,1,7}},many_angels}
+
+function seed:init(tbl_type)
+ self.timer = timer
+ local spd = 0.275 + (gamespeed_timer>>15) + rnd(0.2+(gamespeed_timer>>16))
+ self.speed = spd
+ self.color = tbl_type[1]
+ if (tbl_type[2]) self.on_eat = tbl_type[2]
+ seed_timer = 0
+end
+
+function seed:update()
+    if self.state == 0 then
+        if (timer - self.timer) == self.anim[self.a*2-1] then
+            self.a = self.a%4+1    --sets animation frame
+            self.timer = timer
+        end
+        self.c = timer % (#self.color*2) \ 2 + 1 -- sets color palatte for blue seed
+        self.y += self.speed
+        if (self.y >= 118) del(objects,self)
+    elseif self.state == 1 then
+        self.y = self.attatched.y-6
+        self.x = (self.a == 3 and self.attatched.x+2 or self.attatched.x-7)
+        if self.attatched.l == 0 then
+            del(objects,self)
+        end
+    end
+   
+    if self.y > 102 then
+        local x1 = (self.x - 1) \ 6 + 1
+        local x2 = (self.x + 4) \ 6 + 1
+        if (floor[x1] == 1) then
+            floor[x1] = 0
+            smoke:new(self.x,self.y)
+            del(objects,self)
+            psfx(6,8,8)
+        elseif (floor[x2] == 1) then
+            floor[x2] = 0
+            smoke:new(self.x,self.y)
+            del(objects,self)
+            psfx(6,8,8)
+        end
+    end
+end
+
+function seed:draw()
+    local col = self.color[self.c]
+    for i = 1, #col,2 do
+        pal(col[i],col[i+1])
+    end
+    sspr(self.anim[self.a*2],12,12,12,self.x,self.y,12,12)
+    for i = 1, #col,2 do
+        pal(col[i],col[i])
+    end
+end
+
+function seed:get_licked(a) --takes pyoro as an argument
+    --dependent on pyoro.flip_x and all the tongue data
+    self.state = 1
+    self.attatched = a.tongue
+    self.a = (a.flip_x == 1 and 3 or 1)
+
+    local s
+    if self.y < 30 then
+        s = 1000
+    elseif self.y < 45 then
+        s = 300
+    elseif self.y < 69 then
+        s = 100
+    elseif self.y < 90 then
+        s = 50
+    else
+        s = 10
+    end
+    score:new(self.x,self.y,s)
+end
+
+function overlaps(a, b, ox, oy) -- hitbox collision
+    if a == b then return false end
+    ox = ox or 0
+    oy = oy or 0
+    return
+        ox + a.x + a.hit_x + a.hit_w > b.x + b.hit_x and
+        oy + a.y + a.hit_y + a.hit_h > b.y + b.hit_y and
+        ox + a.x + a.hit_x < b.x + b.hit_x + b.hit_w and
+        oy + a.y + a.hit_y < b.y + b.hit_y + b.hit_h
+end
+
+scores = {}
+score = {t = 0,
+c = 0,
+c_1000 = {9,0,7},
+c_300 = {9,12,0}}
+
+function score:new(x,y,s)
+    local obj = {x=x, y=y, s = s, base = self}
+    setmetatable(obj, {__index = self})
+     add(scores,obj)
+    obj:init()
+end
+
+function score:init()
+    if self.s == 1000 then
+        self.t = 108
+    elseif self.s == 300 then
+        self.t = 84
+    elseif self.s == 100 then
+        self.t = 60
+        self.c = 7
+    elseif self.s == 50 then
+        self.t = 42
+        self.c = 1
+    else --if self.s == 10
+        self.t = 30
+        self.c = 8
+    end
+    score_counter += self.s
+end
+
+function score:draw()
+    if self.s == 1000 then
+        self.c = self.c_1000[(108-self.t)%6/2+1]
+    elseif self.s == 300 then
+        self.c = self.c_300[(84-self.t)%6/2+1]
+    end
+
+    self.t -= 1
+    if (self.t == 0) del(scores,self)
+
+    print(self.s,self.x,self.y,self.c)
+end
+
+particles = {}
+smoke = {t = 0}
+
+function smoke:new(x,y)
+    local obj = {x=x, y=y, base = self}
+    setmetatable(obj, {__index = self})
+     add(particles,obj)
+end
+
+function smoke:draw()
+    local s = self.t\4*12+68
+    sspr(s,0,12,12,self.x,self.y)
+   
+    self.t += 1
+    if (self.t == 12) del(particles,self)
+end
+
+
+angel = {
+    y = -8,
+    dir = 1,
+    acc = 0x0.218,
+    spd = 5.4
+}
+
+function angel:new(t)
+    local obj = {t = t, base = self}
+    setmetatable(obj, {__index = self})
+     add(angels,obj)
+end
+
+function angel:draw()
+    self.spd -= self.acc 
+    self.y += self.spd
+   
+    if self.y >= 100 then
+        floor[self.t] = 1
+    end
+
+    local a = timer % 8 \ 4 * 12 + 104
+    sspr(a,0,12,12,self.t*6-5,self.y)
+    if sgn(self.spd) == 1 then
+        sspr(44,12,6,6,self.t*6-2,self.y+12)
+    end
+
+    if (self.y < -9) del(angels,self)
+end
+
+
+comet = {t = 0}
+
+function comet:new()
+    local obj = {x=rnd(45)+5, y=rnd(50), base = self}
+    setmetatable(obj, {__index = self})
+     add(comets,obj)
+end
+
+
+function comet:draw()
+    if (self.t == 0) psfx(54,0,8,48)
+    self.t += 1
+    local start = min(self.t,10)
+    local width = min(start,85-self.t)
+    sspr(80-start*8,51,width*8,24,self.x-start*8+80,self.y)
+    --spr(133-start,self.x-start*8+80,self.y,width,3)
+    if (self.t == 84) del(comets,self)
+end
+
+
+spinning_star = {c = {10,5,13,15,15,1,1}}
+
+function spinning_star:new(x,y)
+    local obj = {x=x, y=y, base = self}
+    setmetatable(obj, {__index = self})
+     add(spinning_stars,obj)
+end
+
+function spinning_star:draw()
+    self.y -= 4
+
+    for i = 1,7 do
+        pset(self.x,self.y+6*i,self.c[i])
+    end
+
+    if (self.y < -32) del(spinning_stars,self)
+end

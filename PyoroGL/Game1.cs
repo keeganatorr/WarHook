@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 using System.Timers;
 
 namespace MonogameTest
@@ -164,6 +165,10 @@ namespace MonogameTest
         float dissappearcounter = 0;
         bool triggerdisappear = false;
         int falsebeans = 0;
+
+        // Score popups: a small "+points" text that briefly appears where a
+        // bean was caught, then fades out (mirrors the pico-8 version).
+        List<ScorePopup> scorePopups = new List<ScorePopup>();
 
 
         int max_amount_of_blocks = 20;
@@ -447,7 +452,30 @@ namespace MonogameTest
             rightblockcheck = false;
             blockcheck = false;
         }
-       
+
+        // Add points to the running score and spawn a short-lived "+pts" popup
+        // at the given native (240x160) position, mirroring the pico-8 version.
+        void addScore(float x, float y, int pts)
+        {
+            score += pts;
+            scorePopups.Add(new ScorePopup(x, y, pts));
+        }
+
+        // Update active score popups: drift upward slightly and expire by timer.
+        // Called near the end of Update so popups animate while the game runs.
+        void updateScorePopups()
+        {
+            for (int i = scorePopups.Count - 1; i >= 0; i--)
+            {
+                scorePopups[i].timer -= 1f;
+                scorePopups[i].y -= 0.25f; // drift up a touch
+                if (scorePopups[i].timer <= 0)
+                {
+                    scorePopups.RemoveAt(i);
+                }
+            }
+        }
+
         void random_number_main()
         {
             randnummain = (0x6D * randnummain) + 0x3FD;
@@ -1106,26 +1134,26 @@ namespace MonogameTest
                                                                 {
                                                                     if (bean_y[i] >= 115)
                                                                     {
-                                                                            score += 10;
+                                                                            addScore(bean_x[i], bean_y[i], 10);
                                                                     }
                                                                     else
                                                                     {
-                                                                        score += 50;
+                                                                        addScore(bean_x[i], bean_y[i], 50);
                                                                     }
                                                                 }
                                                                 else
                                                                 {
-                                                                    score += 100;
+                                                                    addScore(bean_x[i], bean_y[i], 100);
                                                                 }
                                                             }
                                                             else
                                                             {
-                                                                score += 300;
+                                                                addScore(bean_x[i], bean_y[i], 300);
                                                             }
                                                         }
                                                         else
                                                         {
-                                                            score += 1000;
+                                                            addScore(bean_x[i], bean_y[i], 1000);
                                                         }
                                                         if (bean_type[i] == 1)
                                                         {
@@ -1143,7 +1171,7 @@ namespace MonogameTest
                                                                 if (bean_active[j] == true)
                                                                 {
                                                                     bean_active[j] = false;
-                                                                    score += 50;
+                                                                    addScore(bean_x[j], bean_y[j], 50);
                                                                 }
                                                             }
                                                             for (int j = 0; j < rainbowbeantotal; j++)
@@ -1497,6 +1525,7 @@ namespace MonogameTest
 
             }
             //test = ((((int)x << 8 + bigspeed) - 0x28) >> 3);
+            updateScorePopups();
             base.Update(gameTime);
         }
 
@@ -1613,6 +1642,16 @@ namespace MonogameTest
             //spriteBatch.DrawString(arial, string.Format("smlspeed: 0x{0:X2}\nbigspeed: 0x{1:X2}", smallspeed, bigspeed), new Vector2(150, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format(" rightblockcount {0} \n leftblockcount {1} \n rightblocktorecover {2} \n leftblocktorecover {3}", rightblockcount, leftblockcount, rightblocktorecover, leftblocktorecover), new Vector2(50, 10), Color.White);
+
+            // Score popups: draw "+pts" where a bean was just caught, fading out.
+            foreach (ScorePopup p in scorePopups)
+            {
+                Color c = Color.White;
+                // Fade toward the end of its lifetime in the native colour space.
+                float alpha = MathHelper.Clamp(p.timer / 30f, 0f, 1f);
+                c *= alpha;
+                spriteBatch.DrawString(smallfont, "+" + p.points, new Vector2(p.x, p.y), c);
+            }
             
             //cursor highlight (native coords, offset-aware)
             int hoverNativeX = mouseState.X - rect.X;
@@ -1637,6 +1676,27 @@ namespace MonogameTest
             spriteBatch.End();
 
             base.Draw(gameTime);
+        }
+
+        // A short-lived "+points" indicator shown where a bean was caught.
+        class ScorePopup
+        {
+            public float x, y;
+            public int points;
+            public float timer; // remaining lifetime (frames)
+
+            public ScorePopup(float x, float y, int points)
+            {
+                this.x = x;
+                this.y = y;
+                this.points = points;
+                // Longer display time for bigger scores, mirroring the pico-8 version.
+                if (points >= 1000) timer = 108;
+                else if (points >= 300) timer = 84;
+                else if (points >= 100) timer = 60;
+                else if (points >= 50) timer = 42;
+                else timer = 30;
+            }
         }
     }
 }

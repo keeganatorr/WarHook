@@ -1,3 +1,2 @@
-PyoroGL/bin
-PyoroGL/obj
-PyoroGL/Assets
+PyoroGL/bin/*
+PyoroGL/obj/*

@@ -42,7 +42,7 @@ automatically by .NET at runtime.
 - **Up / Down** (or **W / S**) — select a menu item
 - **Enter / Space** — confirm a menu selection
 - **Esc** — pause / resume gameplay, or return from Options
-- **Left / Right** in Options — adjust beam width or toggle fullscreen
+- **Left / Right** in Options — toggle fullscreen
 - **F2** — toggle mouse floor editing (off by default)
 - **Mouse click**, with editing enabled — left removes blocks, right restores; hover highlights the block
 - **[ / ]** — decrease / increase tractor-beam width (1–20 native pixels)

@@ -92,24 +92,17 @@ namespace MonogameTest
             }
             else if (screen == MenuScreen.Options)
             {
-                optionsSelection = (optionsSelection + move + 3) % 3;
+                optionsSelection = (optionsSelection + move + 2) % 2;
                 int adjust = 0;
                 if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) adjust--;
                 if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) adjust++;
-                if (optionsSelection == 0)
-                {
-                    if (pressed(Keys.OemOpenBrackets)) adjust--;
-                    if (pressed(Keys.OemCloseBrackets)) adjust++;
-                    if (accept) adjust++;
-                    BeamWidth += adjust;
-                }
-                else if (optionsSelection == 1 && (accept || adjust != 0))
+                if (optionsSelection == 0 && (accept || adjust != 0))
                 {
                     graphics.HardwareModeSwitch = false;
                     graphics.ToggleFullScreen();
                     computeIntegerScale();
                 }
-                else if (optionsSelection == 2 && accept)
+                else if (optionsSelection == 1 && accept)
                     screen = optionsParent;
             }
             return true;
@@ -216,9 +209,8 @@ namespace MonogameTest
 
         void drawOptions(int left, int top)
         {
-            drawMenuItem("BEAM WIDTH: " + BeamWidth, optionsSelection == 0, left, top);
-            drawMenuItem("FULLSCREEN: " + (graphics.IsFullScreen ? "ON" : "OFF"), optionsSelection == 1, left, top + 18);
-            drawMenuItem("BACK", optionsSelection == 2, left, top + 36);
+            drawMenuItem("FULLSCREEN: " + (graphics.IsFullScreen ? "ON" : "OFF"), optionsSelection == 0, left, top);
+            drawMenuItem("BACK", optionsSelection == 1, left, top + 18);
         }
 
         void drawMenuItem(string label, bool selected, int left, int top, bool bracketsVisible = true)

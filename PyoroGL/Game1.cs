@@ -1306,9 +1306,8 @@ namespace MonogameTest
                         bean_active[i] = false;
                         blocks[blocktocheckagainstbean] = false;
                         bean_y[i] = -20;
-                        // Centre the explosion on the destroyed floor block.
-                        spawnExplosion(PLAYFIELD_LEFT + blocktocheckagainstbean * BLOCK_SIZE + BLOCK_SIZE / 2f,
-                            BLOCK_FLOOR_Y + BLOCK_SIZE / 2f);
+                        // Place the burst at the mortar impact on the top of the brick.
+                        spawnExplosion(bean_x[i] + current_bean_sprite[i].Width / 2f, BLOCK_FLOOR_Y);
                     }
                     if (bean_y[i] > NATIVE_HEIGHT + 20)
                     {

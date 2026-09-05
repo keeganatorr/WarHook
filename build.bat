@@ -19,12 +19,17 @@ dotnet publish PyoroGL\PyoroGL.csproj ^
     --self-contained true ^
     -p:PublishSingleFile=true ^
     -p:IncludeNativeLibrariesForSelfExtract=true ^
+    -p:PublishTrimmed=true ^
+    -p:TrimMode=partial ^
     -o dist\%RID%
 if errorlevel 1 goto :fail
 
 echo ==^> Copying runtime assets
 if exist dist\%RID%\Assets rmdir /s /q dist\%RID%\Assets
 xcopy /e /i /y PyoroGL\Assets dist\%RID%\Assets >nul
+if exist dist\%RID%\Content rmdir /s /q dist\%RID%\Content
+xcopy /e /i /y PyoroGL\Content dist\%RID%\Content >nul
+for /r dist\%RID%\Content %%f in (*.spritefont *.mgcb *.png) do if exist "%%f" del "%%f"
 rem Keep only what the game loads at runtime.
 for %%f in (backdropwithstars.png background.png screen.png screenshot.png sprite0_0.png reference.png select.png tonguesprite.png tongueparts_0.png tonguecollision.png) do (
     if exist dist\%RID%\Assets\%%f del dist\%RID%\Assets\%%f

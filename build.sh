@@ -28,13 +28,19 @@ dotnet publish PyoroGL/PyoroGL.csproj \
     --self-contained true \
     -p:PublishSingleFile=true \
     -p:IncludeNativeLibrariesForSelfExtract=true \
+    -p:PublishTrimmed=true \
+    -p:TrimMode=partial \
     -o "dist/$RID"
 
-# The single-file bundle can't carry the loose Assets/ folder, so copy it next
-# to the executable (the game loads PNGs from <exe dir>/Assets at runtime).
+# The single-file bundle can't carry loose files, so copy the runtime Assets/
+# folder and the compiled Content (XNB) next to the executable.
 echo "==> Copying runtime assets"
 rm -rf "dist/$RID/Assets"
 cp -r PyoroGL/Assets "dist/$RID/Assets"
+rm -rf "dist/$RID/Content"
+cp -r PyoroGL/Content "dist/$RID/Content"
+find "dist/$RID/Content" -type f ! -name "*.xnb" -delete
+find "dist/$RID/Content" -type d -empty -delete
 
 # Keep only what the game actually loads at runtime.
 pushd "dist/$RID/Assets" > /dev/null

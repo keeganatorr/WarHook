@@ -633,9 +633,9 @@ namespace MonogameTest
         }
 
         // Return the sprite region in scores.png for a given score-popup value.
-        // The sheet lays out the values as: 10, 50, 100, 300, 1000 (x-offsets
-        // and widths measured from the asset). Returns null via a zero-width
-        // sentinel if the value has no sprite.
+        // The sheet contains 10, 50, 100, three 300 variants, then two 1000
+        // variants. Use the first variant of each value; an empty rectangle
+        // indicates that the value has no sprite.
         Rectangle ScorePopupSpriteRegion(int points)
         {
             switch (points)
@@ -644,7 +644,7 @@ namespace MonogameTest
                 case 50:  return new Rectangle(12, 0, 7, 7);
                 case 100: return new Rectangle(23, 0, 9, 7);
                 case 300: return new Rectangle(36, 0, 11, 7);
-                case 1000:return new Rectangle(51, 0, 11, 7);
+                case 1000:return new Rectangle(81, 0, 13, 7);
                 default:  return new Rectangle(0, 0, 0, 0); // not found
             }
         }

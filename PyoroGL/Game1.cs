@@ -15,11 +15,51 @@ namespace MonogameTest
         SpriteBatch spriteBatch;
         RenderTarget2D _nativeRenderTarget;
 
+        const int NATIVE_WIDTH = 240;
+        const int NATIVE_HEIGHT = 160;
+
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             Window.AllowUserResizing = true;
+        }
+
+        // Compute the largest integer scale factor that fits the current window,
+        // preserving the 240x160 aspect ratio. Also center the render target
+        // destination and fill leftover space with the border colour.
+        void computeIntegerScale()
+        {
+            int winW = Window.ClientBounds.Width;
+            int winH = Window.ClientBounds.Height;
+
+            // Guard against degenerate sizes.
+            if (winW < 1 || winH < 1)
+            {
+                gameSize = 1;
+                rect = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
+                return;
+            }
+
+            // Largest integer multiplier where both dimensions still fit,
+            // keeping the 240:160 (3:2) aspect ratio.
+            int s = Math.Min(winW / NATIVE_WIDTH, winH / NATIVE_HEIGHT);
+            if (s < 1) s = 1;
+            gameSize = s;
+
+            int dstW = NATIVE_WIDTH * s;
+            int dstH = NATIVE_HEIGHT * s;
+            int offX = (winW - dstW) / 2;
+            int offY = (winH - dstH) / 2;
+            rect = new Rectangle(offX, offY, dstW, dstH);
+        }
+
+        void Window_ClientSizeChanged(object sender, EventArgs e)
+        {
+            // Recompute the integer scale and centered destination rectangle so
+            // the scaled game always snaps to an even multiplier with the
+            // remaining window area filled by the clear colour.
+            computeIntegerScale();
         }
 
         int targetFPS = 60;
@@ -439,10 +479,13 @@ namespace MonogameTest
         {
             // TODO: Add your initialization logic here
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, 240, 160);
+            Window.ClientSizeChanged += Window_ClientSizeChanged;
+
+            // Start the window at 4x scale (960x640).
             graphics.PreferredBackBufferWidth = 960; // 960
             graphics.PreferredBackBufferHeight = 640; // 640
-            rect = new Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
             graphics.ApplyChanges();
+            computeIntegerScale();
             x = 100;
             y = 128;
             tongueoffsetX = 2; // 1
@@ -1328,7 +1371,10 @@ namespace MonogameTest
                 if (mouseState.LeftButton == ButtonState.Pressed)
                 {
                     // Do whatever you want here
-                    int click = ((mouseState.X / gameSize - 40) / 8);
+                    // Map mouse to native 240x160 coords relative to the
+                    // centered scaled rect, then to a block column.
+                    int nativeX = mouseState.X - rect.X;
+                    int click = ((nativeX / gameSize - 40) / 8);
                     if (click > 19) click = 19;
                     if (click < 0) click = 0;
                     blocks[click] = false;
@@ -1336,7 +1382,8 @@ namespace MonogameTest
                 if (mouseState.RightButton == ButtonState.Pressed)
                 {
                     // Do whatever you want here
-                    int click = ((mouseState.X / gameSize - 40) / 8);
+                    int nativeX = mouseState.X - rect.X;
+                    int click = ((nativeX / gameSize - 40) / 8);
                     if (click > 19) click = 19;
                     if (click < 0) click = 0;
                     blocks[click] = true;
@@ -1567,14 +1614,22 @@ namespace MonogameTest
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format(" rightblockcount {0} \n leftblockcount {1} \n rightblocktorecover {2} \n leftblocktorecover {3}", rightblockcount, leftblockcount, rightblocktorecover, leftblocktorecover), new Vector2(50, 10), Color.White);
             
-            spriteBatch.Draw(select, new Vector2((float)System.Math.Floor(((decimal)mouseState.X/gameSize)/8)*8, (float)System.Math.Floor(((decimal)mouseState.Y / gameSize)/8)*8), Color.Purple);
+            //cursor highlight (native coords, offset-aware)
+            int hoverNativeX = mouseState.X - rect.X;
+            int hoverNativeY = mouseState.Y - rect.Y;
+            if (hoverNativeX >= 0 && hoverNativeY >= 0 && hoverNativeX < NATIVE_WIDTH && hoverNativeY < NATIVE_HEIGHT)
+            {
+                spriteBatch.Draw(select, new Vector2((float)System.Math.Floor(((decimal)hoverNativeX / gameSize) / 8) * 8, (float)System.Math.Floor(((decimal)hoverNativeY / gameSize) / 8) * 8), Color.Purple);
+            }
             spriteBatch.End();
 
             // SET RENDERTARGET TO NOTHING
             GraphicsDevice.SetRenderTarget(null);
-            GraphicsDevice.Clear(Color.Beige);
+            // Clear the whole window as the border colour; the scaled game is
+            // drawn centered by "rect" and any leftover space shows this fill.
+            GraphicsDevice.Clear(new Color(0x21, 0x21, 0x4a)); // #21214a border
 
-            // DRAW _nativeRenderTarget TO SCREEN
+            // DRAW _nativeRenderTarget TO SCREEN at the integer scale
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             
             spriteBatch.Draw(_nativeRenderTarget, rect, Color.White);

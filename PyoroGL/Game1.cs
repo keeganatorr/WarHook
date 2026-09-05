@@ -2026,7 +2026,10 @@ namespace MonogameTest
 
             if(gameover)
             {
-                spriteBatch.Draw(gameoversprite, new Vector2((NATIVE_WIDTH - gameoversprite.Width) / 2, NATIVE_HEIGHT / 2), Color.White);
+                // Bitmap-font "GAME OVER" centred in the playfield.
+                string gameOverText = "GAME OVER";
+                float goWidth = MeasureStringBitmap(gameOverText).X;
+                DrawStringBitmap(spriteBatch, gameOverText, new Vector2((NATIVE_WIDTH - goWidth) / 2f, NATIVE_HEIGHT / 2), Color.White);
                 // Small centred hint below the game-over text.
                 string retry = "Press R to Retry";
                 float retryWidth = MeasureStringBitmap(retry).X;

@@ -16,7 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Content/**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Copy only compiled XNB assets to output; keep spritefont/mgcb sources
+         out of the runtime Content folder. -->
+    <None Include="Content/**/*.xnb" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -1,2 +1,5 @@
-PyoroGL/bin/*
-PyoroGL/obj/*
+PyoroGL/bin
+PyoroGL/obj
+PyoroGL/Content/obj/*
+PyoroGL/Content/.mgstats
+PyoroGL/Content

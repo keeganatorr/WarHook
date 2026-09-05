@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Timers;
 
 namespace MonogameTest
@@ -18,6 +19,7 @@ namespace MonogameTest
 
         const int NATIVE_WIDTH = 240;
         const int NATIVE_HEIGHT = 160;
+        const int BLOCK_FLOOR_Y = 144;
 
         public Game1()
         {
@@ -104,6 +106,7 @@ namespace MonogameTest
         private Texture2D heightmap;
 
         private Texture2D gameoversprite;
+        private Texture2D scoresSprite;
 
         //Timer t1sec = new Timer(1000);
         int blockamount = 20;
@@ -169,6 +172,26 @@ namespace MonogameTest
         // Score popups: a small "+points" text that briefly appears where a
         // bean was caught, then fades out (mirrors the pico-8 version).
         List<ScorePopup> scorePopups = new List<ScorePopup>();
+
+        // A 3-frame 16x16 explosion plays where a block or bean disappears
+        // (mirrors the pico-8 smoke/burst effect on destruction).
+        List<Explosion> explosions = new List<Explosion>();
+        private Texture2D explosionSprite;
+
+        // An angel descends to a missing block column and rebuilds it on
+        // landing (mirrors the pico-8 angel effect when a white seed/rainbow
+        // bean restores floor blocks). angel.png is 32x16 = 2 frames of 16x16.
+        List<Angel> angels = new List<Angel>();
+        private Texture2D angelSprite;
+
+        // Screenshot counter for Tab-key PNG saves.
+        int screenshotCount = 0;
+
+        // When a rainbow bean is grabbed, other beans disappear one by one
+        // (lowest first) instead of all at once. This queue holds the bean
+        // indices still waiting to be cleared, and the timer paces them.
+        List<int> rainbowClearQueue = new List<int>();
+        int rainbowClearTimer = 0;
 
 
         int max_amount_of_blocks = 20;
@@ -397,7 +420,7 @@ namespace MonogameTest
                     if ((rightblockcount < leftblockcount)) // set to && rightblcok true?
                     {
                         //RIGHT BLOCK
-                        blocks[rightblocktorecover] = true;
+                        spawnAngel(rightblocktorecover);
                         rightblockcount = 0;
                         leftblockcount = 0;
                         rightblocktorecover = 0;
@@ -409,7 +432,7 @@ namespace MonogameTest
                     else if (rightblockcount >= leftblockcount)
                     {
                         //LEFT BLOCK
-                        blocks[leftblocktorecover] = true;
+                        spawnAngel(leftblocktorecover);
                         rightblockcount = 0;
                         leftblockcount = 0;
                         rightblocktorecover = 0;
@@ -422,7 +445,7 @@ namespace MonogameTest
                 if (rightblockcheck && !leftblockcheck)
                 {
                         //RIGHT BLOCK
-                        blocks[rightblocktorecover] = true;
+                        spawnAngel(rightblocktorecover);
                         rightblockcount = 0;
                         leftblockcount = 0;
                         rightblocktorecover = 0;
@@ -434,7 +457,7 @@ namespace MonogameTest
                 if (!rightblockcheck && leftblockcheck)
                 {
                     //RIGHT BLOCK
-                    blocks[leftblocktorecover] = true;
+                    spawnAngel(leftblocktorecover);
                     rightblockcount = 0;
                     leftblockcount = 0;
                     rightblocktorecover = 0;
@@ -451,6 +474,128 @@ namespace MonogameTest
             leftblockcheck = false;
             rightblockcheck = false;
             blockcheck = false;
+        }
+
+        // Play a 3-frame 16x16 explosion animation at a native (240x160) position.
+        // Mirrors the pico-8 smoke/burst used when a block or bean disappears.
+        void spawnExplosion(float x, float y)
+        {
+            // Only start one explosion per position at a time.
+            if (!explosions.Exists(e => e.x == x && e.y == y))
+                explosions.Add(new Explosion(x, y));
+        }
+
+        // Advance all active explosions through their 3-frame animation.
+        void updateExplosions()
+        {
+            for (int i = explosions.Count - 1; i >= 0; i--)
+            {
+                explosions[i].timer++;
+                if (explosions[i].timer >= explosions[i].frameDuration * 3)
+                    explosions.RemoveAt(i);
+            }
+        }
+
+        // Clear queued beans one by one (lowest first) after a rainbow bean is
+        // grabbed. One bean clears every few frames.
+        void updateRainbowClear()
+        {
+            if (rainbowClearQueue.Count == 0) return;
+
+            rainbowClearTimer++;
+            if (rainbowClearTimer < 6) return; // pace: one bean per 6 frames
+            rainbowClearTimer = 0;
+
+            int j = rainbowClearQueue[0];
+            rainbowClearQueue.RemoveAt(0);
+            if (j >= 0 && j < max_amount_of_beans && bean_active[j])
+            {
+                bean_active[j] = false;
+                addScore(bean_x[j], bean_y[j], 50);
+                // Explosion where the bean disappears.
+                spawnExplosion(bean_x[j], bean_y[j]);
+            }
+        }
+
+        // Render active explosions centred on their position.
+        void drawExplosions(SpriteBatch batch)
+        {
+            foreach (Explosion e in explosions)
+            {
+                int frame = (int)(e.timer / e.frameDuration);
+                if (frame > 2) frame = 2;
+                // explosion.png is 48x16 = 3 frames of 16x16 in a row.
+                Rectangle src = new Rectangle(frame * 16, 0, 16, 16);
+                // Centre the 16x16 sprite on the given position.
+                float dx = e.x - 8;
+                float dy = e.y - 8;
+                batch.Draw(explosionSprite, new Vector2(dx, dy), src, Color.White);
+            }
+        }
+
+        // Spawn an angel that descends to the given block column and rebuilds
+        // it on landing (mirrors pico-8 one_angel). One angel per tile.
+        void spawnAngel(int column)
+        {
+            if (column < 0 || column >= blockamount) return;
+            if (angels.Exists(a => a.column == column)) return;
+            angels.Add(new Angel(column));
+        }
+
+        // Advance angels: accelerate downward, place the block on reaching the floor
+// row, then keep decelerating until the angel flies back up off-screen
+// (mirrors pico-8: block placed at y>=100, angel removed at y<-9).
+        void updateAngels()
+        {
+            for (int i = angels.Count - 1; i >= 0; i--)
+            {
+                Angel a = angels[i];
+                a.speed -= a.acceleration;
+                a.y += a.speed;
+                a.timer += 1f;
+
+                // Place the block once the angel's carried tile (drawn at
+                // y+16) reaches the floor row, so it doesn't overshoot.
+                if (!a.blockPlaced && a.y + 16 >= BLOCK_FLOOR_Y)
+                {
+                    if (a.column >= 0 && a.column < blockamount)
+                        blocks[a.column] = true;
+                    a.blockPlaced = true;
+                    // Reverse direction immediately so the angel flies back up
+                    // instead of continuing to descend past the floor.
+                    a.speed = -a.speed;
+                }
+
+                // Remove once the angel has flown back up off-screen.
+                if (a.y < -9)
+                {
+                    angels.RemoveAt(i);
+                }
+            }
+        }
+
+        // Render angels: 2-frame 16x16 animation (angel.png is 32x16). When the
+        // angel is falling fast enough it carries a block tile below it,
+        // mirroring pico-8's sspr(44,12,6,6) carried tile.
+        void drawAngels(SpriteBatch batch)
+        {
+            foreach (Angel a in angels)
+            {
+                int frame = ((int)a.timer / 4) % 2; // alternate every 4 ticks
+                Rectangle src = new Rectangle(frame * 16, 0, 16, 16);
+                int blockx = 40 + a.column * 8 - 4; // centre on 8px block
+                float dx = blockx;
+                // Round to whole pixels so the pixel-art sprite stays crisp
+                // (no sub-pixel smoothing while the angel moves).
+                float dy = (float)System.Math.Round(a.y);
+                batch.Draw(angelSprite, new Vector2(dx, dy), src, Color.White);
+
+                // Carried block tile below the angel once it is moving down.
+                if (a.speed > 0)
+                {
+                    batch.Draw(block, new Vector2(40 + a.column * 8, (float)System.Math.Round(a.y + 16)), Color.White);
+                }
+            }
         }
 
         // Add points to the running score and spawn a short-lived "+pts" popup
@@ -480,6 +625,23 @@ namespace MonogameTest
         {
             randnummain = (0x6D * randnummain) + 0x3FD;
             randnummain = (randnummain & 0x0000FFFF);
+        }
+
+        // Return the sprite region in scores.png for a given score-popup value.
+        // The sheet lays out the values as: 10, 50, 100, 300, 1000 (x-offsets
+        // and widths measured from the asset). Returns null via a zero-width
+        // sentinel if the value has no sprite.
+        Rectangle ScorePopupSpriteRegion(int points)
+        {
+            switch (points)
+            {
+                case 10:  return new Rectangle(3, 0, 5, 7);
+                case 50:  return new Rectangle(12, 0, 7, 7);
+                case 100: return new Rectangle(23, 0, 9, 7);
+                case 300: return new Rectangle(36, 0, 11, 7);
+                case 1000:return new Rectangle(51, 0, 11, 7);
+                default:  return new Rectangle(0, 0, 0, 0); // not found
+            }
         }
         /*void time_max_rand(int tmptorand)
         {
@@ -617,6 +779,8 @@ namespace MonogameTest
             frame = Content.Load<Texture2D>("frame");
             block = Content.Load<Texture2D>("block");
             collisionblock = Content.Load<Texture2D>("collisionblock");
+            explosionSprite = Content.Load<Texture2D>("explosion");
+            angelSprite = Content.Load<Texture2D>("angel");
             tongue = Content.Load<Texture2D>("tonguepart");
             tonguespriteright = Content.Load<Texture2D>("tonguespriteright");
             tonguespriteleft = Content.Load<Texture2D>("tonguespriteleft");
@@ -624,6 +788,7 @@ namespace MonogameTest
             tonguecollision = Content.Load<Texture2D>("tonguecollision");
             select = Content.Load<Texture2D>("select");
             gameoversprite = Content.Load<Texture2D>("gameoversprite");
+            scoresSprite = Content.Load<Texture2D>("scores");
             // game frame is (start x=40,y=8 . end x=199, y=151) (width = 160 height = 144 , 20x18 8px blocks)
             // TODO: use this.Content to load your game content here
         }
@@ -862,6 +1027,8 @@ namespace MonogameTest
                         bean_active[i] = false;
                         blocks[blocktocheckagainstbean] = false;
                         bean_y[i] = -20;
+                        // Explosion where the block disappears.
+                        spawnExplosion(40 + blocktocheckagainstbean * 8, 144);
                     }
                     if (bean_y[i] > 180)
                     {
@@ -1166,14 +1333,17 @@ namespace MonogameTest
                                                         }
                                                         if (bean_type[i] == 2)
                                                         {
+                                                            // Queue the other active beans to disappear one by one,
+                                                            // lowest first (highest y first).
+                                                            rainbowClearQueue.Clear();
                                                             for (int j = 0; j < max_amount_of_beans; j++)
                                                             {
                                                                 if (bean_active[j] == true)
-                                                                {
-                                                                    bean_active[j] = false;
-                                                                    addScore(bean_x[j], bean_y[j], 50);
-                                                                }
+                                                                    rainbowClearQueue.Add(j);
                                                             }
+                                                            // Sort descending by y so the lowest bean clears first.
+                                                            rainbowClearQueue.Sort((a, b) => bean_y[b].CompareTo(bean_y[a]));
+                                                            rainbowClearTimer = 0;
                                                             for (int j = 0; j < rainbowbeantotal; j++)
                                                             {
                                                                 block_recovery();
@@ -1361,6 +1531,30 @@ namespace MonogameTest
                 {
                     bigspeed -= 0x100;
                 }
+                // Press Q to manually trigger an angel that restores the
+                // nearest missing block to Pyoro (mirrors pico-8 one_angel).
+                if (Keyboard.GetState().IsKeyDown(Keys.Q))
+                {
+                    int pyoroCol = (int)System.Math.Ceiling((x - 40) / 8);
+                    if (pyoroCol < 0) pyoroCol = 0;
+                    if (pyoroCol > blockamount - 1) pyoroCol = blockamount - 1;
+                    // Search outward from Pyoro for the nearest missing block.
+                    for (int d = 0; d < blockamount; d++)
+                    {
+                        int right = pyoroCol + d;
+                        int left = pyoroCol - d;
+                        if (right < blockamount && !blocks[right])
+                        {
+                            spawnAngel(right);
+                            break;
+                        }
+                        if (left >= 0 && !blocks[left])
+                        {
+                            spawnAngel(left);
+                            break;
+                        }
+                    }
+                }
                 if(bigspeed<0x100)
                 {
                     bigspeed = 0x100;
@@ -1436,7 +1630,7 @@ namespace MonogameTest
 
 
 
-                if (Keyboard.GetState().IsKeyDown(Keys.Space) && gameover) /// RESTART GAME ///
+                if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover) /// RESTART GAME ///
                 {
                     x = 100;
                     y = 128;
@@ -1526,6 +1720,9 @@ namespace MonogameTest
             }
             //test = ((((int)x << 8 + bigspeed) - 0x28) >> 3);
             updateScorePopups();
+            updateExplosions();
+            updateAngels();
+            updateRainbowClear();
             base.Update(gameTime);
         }
 
@@ -1589,6 +1786,9 @@ namespace MonogameTest
                 }
 
             }
+            // Angels descending to restore blocks (drawn behind existing blocks)
+            drawAngels(spriteBatch);
+
             for (int i = 0; i < blockamount; i++)
             {
                 int blockx = 40 + (i * 8);
@@ -1599,6 +1799,8 @@ namespace MonogameTest
                     spriteBatch.Draw(block, new Vector2(blockx, blocky), Color.White);
                 }
             }
+            // Explosions draw ON TOP of the blocks they mark.
+            drawExplosions(spriteBatch);
             //}
             spriteBatch.Draw(pyoro, new Vector2((float)System.Math.Round((decimal)x), (float)System.Math.Round((decimal)y)), Color.White);
             //spriteBatch.Draw(collisionblock, new Vector2((float)System.Math.Round((decimal)x), y), Color.White);
@@ -1628,6 +1830,10 @@ namespace MonogameTest
             if(gameover)
             {
                 spriteBatch.Draw(gameoversprite, new Vector2(120-35, 80), Color.White);
+                // Small centred hint below the game-over text.
+                string retry = "Press R to Retry";
+                Vector2 retrySize = smallfont.MeasureString(retry);
+                spriteBatch.DrawString(smallfont, retry, new Vector2(120 - retrySize.X / 2f, 92), Color.White);
             }
             
 
@@ -1637,20 +1843,29 @@ namespace MonogameTest
                 spriteBatch.Draw(tonguecollision, new Vector2((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)), (float)(tongueY - (tonguecount + (2 * speed)))), Color.White);
             }*/
             spriteBatch.Draw(frame, new Vector2(0, 0), Color.White);
-            spriteBatch.DrawString(arial, string.Format("score: {0}", score), new Vector2(50, 10), Color.White);
+            // Draw the "SCORE" label sprite, then the numeric value beside it.
+            spriteBatch.Draw(scoresSprite, new Vector2(50, 10), Color.White);
+            spriteBatch.DrawString(arial, string.Format("{0}", score), new Vector2(50 + scoresSprite.Width + 2, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("tonguecollide {0}\nrecall {1}\ntonguecount {2}\n{3}", tonguecollide, recall, tonguecount,dissappearcounter), new Vector2(0, 0), Color.White);
             //spriteBatch.DrawString(arial, string.Format("smlspeed: 0x{0:X2}\nbigspeed: 0x{1:X2}", smallspeed, bigspeed), new Vector2(150, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format(" rightblockcount {0} \n leftblockcount {1} \n rightblocktorecover {2} \n leftblocktorecover {3}", rightblockcount, leftblockcount, rightblocktorecover, leftblocktorecover), new Vector2(50, 10), Color.White);
 
-            // Score popups: draw "+pts" where a bean was just caught, fading out.
+            // Score popups: draw the "+pts" sprite where a bean was just caught,
+            // fading out. The sprite regions come from scores.png.
             foreach (ScorePopup p in scorePopups)
             {
                 Color c = Color.White;
                 // Fade toward the end of its lifetime in the native colour space.
                 float alpha = MathHelper.Clamp(p.timer / 30f, 0f, 1f);
                 c *= alpha;
-                spriteBatch.DrawString(smallfont, "+" + p.points, new Vector2(p.x, p.y), c);
+
+                // Look up the sprite region for this point value.
+                Rectangle src = ScorePopupSpriteRegion(p.points);
+                if (src.Width > 0)
+                {
+                    spriteBatch.Draw(scoresSprite, new Vector2(p.x, p.y), src, c);
+                }
             }
             
             //cursor highlight (native coords, offset-aware)
@@ -1675,7 +1890,43 @@ namespace MonogameTest
             //spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: {2:0.00}", x, y, speed), new Vector2(40, 50), Color.White);
             spriteBatch.End();
 
+            // Press Tab to save the current framebuffer as a PNG.
+            if (Keyboard.GetState().IsKeyDown(Keys.Tab))
+            {
+                SaveScreenshot();
+            }
+
             base.Draw(gameTime);
+        }
+
+        // Capture the current backbuffer and write it to a PNG file.
+        void SaveScreenshot()
+        {
+            try
+            {
+                int w = GraphicsDevice.PresentationParameters.BackBufferWidth;
+                int h = GraphicsDevice.PresentationParameters.BackBufferHeight;
+                Color[] pixels = new Color[w * h];
+                GraphicsDevice.GetBackBufferData(pixels);
+
+                Texture2D tex = new Texture2D(GraphicsDevice, w, h);
+                tex.SetData(pixels);
+
+                string dir = Path.Combine(AppContext.BaseDirectory, "screenshots");
+                Directory.CreateDirectory(dir);
+                string file = Path.Combine(dir, "screenshot_" + screenshotCount + ".png");
+                using (System.IO.FileStream fs = new System.IO.FileStream(file, System.IO.FileMode.Create))
+                {
+                    tex.SaveAsPng(fs, w, h);
+                }
+                tex.Dispose();
+                screenshotCount++;
+            }
+            catch (Exception ex)
+            {
+                // Don't crash the game if a screenshot fails.
+                System.Diagnostics.Debug.WriteLine("Screenshot failed: " + ex.Message);
+            }
         }
 
         // A short-lived "+points" indicator shown where a bean was caught.
@@ -1696,6 +1947,50 @@ namespace MonogameTest
                 else if (points >= 100) timer = 60;
                 else if (points >= 50) timer = 42;
                 else timer = 30;
+            }
+        }
+
+        // A short-lived explosion that plays the 3-frame 16x16 animation at a
+        // native position. The explosion.png spritesheet holds the 3 frames
+        // side-by-side (48x16), mirroring the pico-8 spritesheet burst effect.
+        class Explosion
+        {
+            public float x, y;      // native (240x160) centre position
+            public int timer;           // elapsed frames
+            public int frameDuration;   // frames per sprite frame
+
+            public Explosion(float x, float y)
+            {
+                this.x = x;
+                this.y = y;
+                this.timer = 0;
+                this.frameDuration = 6; // 3 frames * 6 = 18 total frames (0.3s at 60fps)
+            }
+        }
+
+        // An angel that descends to a missing block column and rebuilds the
+        // block when it lands (mirrors the pico-8 angel effect).
+        class Angel
+        {
+            public int column;
+            public float y;
+            public float speed;
+            public float acceleration;
+            public float timer;         // used for 2-frame animation
+            public bool blockPlaced;    // whether the block has been restored
+
+            // Mirrors pico-8: starts above screen with spd=5.4, acc=0x0.218.
+            // The pico-8 floor is at y=100, but this game's floor is at
+            // BLOCK_FLOOR_Y=144, so the initial speed is raised to 6.5 so the
+            // angel actually reaches the bottom row.
+            public Angel(int column)
+            {
+                this.column = column;
+                this.y = -8;
+                this.speed = 6.5f;
+                this.acceleration = 0.13f; // 0x0.218
+                this.timer = 0;
+                this.blockPlaced = false;
             }
         }
     }

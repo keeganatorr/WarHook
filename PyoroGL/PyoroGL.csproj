@@ -54,7 +54,7 @@
          output Assets/ folder. Copied on EVERY build so edits always propagate
          when pressing F5. -->
     <None Update="Assets/beam-audio.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
-    <None Update="Assets/explosion-new.png;Assets/parachute.png;Assets/mainmenu.png;Assets/title.png;Assets/tank-pixelart.png;Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png;Assets/font8x8_atlas.png;Assets/frame_panel.png;Assets/block_atlas.png"
+    <None Update="Assets/explosion-new.png;Assets/parachute.png;Assets/mainmenu.png;Assets/title.png;Assets/tank-pixelart.png;Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png;Assets/font8x8_atlas.png;Assets/frame_panel.png;Assets/block_atlas.png;Assets/menu.ogg;Assets/gameplay.ogg"
           CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
 

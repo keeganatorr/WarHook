@@ -1,11 +1,18 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework.Audio;
 
 namespace MonogameTest
 {
+    // Trim-safe JSON contract for beam-audio.json (source generated at build).
+    [JsonSerializable(typeof(BeamAudio.Settings))]
+    internal sealed partial class BeamAudioJsonContext : JsonSerializerContext
+    {
+    }
+
     // PCM is generated off the game thread; only audio-device operations run on it.
     sealed class BeamAudio : IDisposable
     {
@@ -75,7 +82,8 @@ namespace MonogameTest
             pending = Task.Run(() =>
             {
                 var config = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path),
-                    new JsonSerializerOptions { ReadCommentHandling=JsonCommentHandling.Skip, AllowTrailingCommas=true })
+                    new BeamAudioJsonContext(
+                        new JsonSerializerOptions { ReadCommentHandling=JsonCommentHandling.Skip, AllowTrailingCommas=true }).Settings)
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };

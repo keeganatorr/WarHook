@@ -45,7 +45,7 @@ find "dist/$RID/Content" -type d -empty -delete
 
 # Keep only what the game actually loads at runtime.
 pushd "dist/$RID/Assets" > /dev/null
-keep="framewide.png newbackdrop.png score.png highscore.png font8x8_atlas.png block_atlas.png tank-pixelart.png mortars-pixelart-cleaned.png explosion-new.png parachute.png mainmenu.png title.png"
+keep="framewide.png newbackdrop.png score.png highscore.png font8x8_atlas.png block_atlas.png tank-pixelart.png mortars-pixelart-cleaned.png explosion-new.png parachute.png mainmenu.png title.png menu.ogg gameplay.ogg"
 for f in *.png *.psd; do
     [ -e "$f" ] || continue
     skip=0

@@ -140,6 +140,7 @@ namespace MonogameTest
             set { beamWidth = Math.Clamp(value, 1, 20); }
         }
         private Texture2D select;
+        MusicTracks music;
         private Texture2D[] mortarFrames;
         private Texture2D bean_centre;
         private Texture2D bean_left;
@@ -741,6 +742,8 @@ namespace MonogameTest
             foreach (string candidate in new[] { "Assets/beam-audio.json", "PyoroGL/Assets/beam-audio.json" })
                 if (System.IO.File.Exists(candidate)) { audioSettings = System.IO.Path.GetFullPath(candidate); break; }
             beamAudio = new BeamAudio(audioSettings);
+            music = new MusicTracks(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets"));
+            music.Request(MusicTracks.Track.Menu);
             mainMenuBackground = loadPng("mainmenu");
             mainMenuTitle = loadPng("title");
             playfieldRasterizer = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };
@@ -1133,6 +1136,9 @@ namespace MonogameTest
                 bool audioPaused = screen == MenuScreen.Playing || screen == MenuScreen.Pause || (screen == MenuScreen.Options && optionsParent == MenuScreen.Pause);
                 if (!audioPaused) beamAudio?.StopBeamVoices();
                 beamAudio?.Update(false, false, false, audioPaused, gameTime.ElapsedGameTime.TotalSeconds);
+                music?.Update(gameTime.ElapsedGameTime.TotalSeconds);
+                // Gameplay music keeps playing even while paused; the track
+                // itself swaps on menu transitions (in GameMenus).
                 previousBeamKeys = beamKeys;
                 previousDebugKeys = beamKeys;
                 base.Update(gameTime);
@@ -1897,6 +1903,7 @@ namespace MonogameTest
             updateRainbowClear();
             if (pyorodead || gameover) beamAudio?.Stop();
             beamAudio?.Update(tonguecount > 0 && !pyorodead && !gameover, recall, tonguecollide, false, gameTime.ElapsedGameTime.TotalSeconds);
+            music?.Update(gameTime.ElapsedGameTime.TotalSeconds);
             base.Update(gameTime);
         }
 

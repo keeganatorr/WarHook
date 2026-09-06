@@ -148,6 +148,9 @@ namespace MonogameTest
                     screen = transitionTarget;
                     paused = false;
                     mainSelection = 0;
+                    // Swap music at the screen-change point so each track fades
+                    // out fully before the next fades in.
+                    music?.Request(screen == MenuScreen.Playing ? MusicTracks.Track.Gameplay : MusicTracks.Track.Menu);
                     transition = MenuTransition.FadeIn;
                 }
                 else

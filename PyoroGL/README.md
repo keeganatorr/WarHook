@@ -67,3 +67,12 @@ Saves use the OS local application-data folder: typically
 `~/.local/share/Warhook/highscores.json` on Linux (or under `XDG_DATA_HOME`
 when set), and `%LOCALAPPDATA%/Warhook/highscores.json` on Windows.
 Each mode starts with the existing 10,000-point high-score target.
+
+The main menu's **Scores: Game A** and **Scores: Game B** options open separate
+top-ten leaderboards. Left/Right switches tables; Escape returns to the menu.
+
+After game over, the leaderboard scrolls up. Qualifying scores can be saved with
+three initials: type letters, or use Left/Right to select a character and Up/Down
+to change it, then press Enter to save. Escape skips entry. Afterward, R opens
+the retry picker and Escape returns to the main menu. Controller D-pad and A/B
+also work. Old personal-best saves migrate as `OLD` entries.

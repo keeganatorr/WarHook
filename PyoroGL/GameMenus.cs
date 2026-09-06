@@ -7,7 +7,7 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options }
+        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options, Scores }
         enum MenuTransition { None, StartBlink, FadeOut, FadeIn }
         MenuScreen screen = MenuScreen.Main;
         MenuScreen optionsParent = MenuScreen.Main;
@@ -39,7 +39,7 @@ namespace MonogameTest
         KeyboardState previousMenuKeys;
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
-        static readonly string[] mainItems = { "START", "OPTIONS", "EXIT" };
+        static readonly string[] mainItems = { "START", "OPTIONS", "SCORES: GAME A", "SCORES: GAME B", "EXIT" };
         static readonly string[] pauseItems = { "RESUME", "RESTART", "OPTIONS", "MAIN MENU", "EXIT" };
 
         // True means menus own this update: no movement, spawns, or effect timers advance.
@@ -60,12 +60,22 @@ namespace MonogameTest
                 advanceTransition(time.ElapsedGameTime.TotalSeconds);
                 return true;
             }
+            if (screen == MenuScreen.Scores)
+            {
+                updateScores(time, pressed, padPressed);
+                return true;
+            }
             if (screen == MenuScreen.Playing)
             {
                 if (gameover)
                 {
                     // Handle overlay input but let the game keep running in
                     // the background (explosions, popups, effects still tick).
+                    if (!retryMusicVisible)
+                    {
+                        openScores(gameB, true);
+                        return true;
+                    }
                     UpdateGameoverOverlay(pressed, accept, padPressed);
                     return false;
                 }
@@ -118,6 +128,7 @@ namespace MonogameTest
                 {
                     if (mainSelection == 0) { modeSelection = 0; screen = MenuScreen.ModeSelect; }
                     else if (mainSelection == 1) openOptions(MenuScreen.Main);
+                    else if (mainSelection == 2 || mainSelection == 3) openScores(mainSelection == 3, false);
                     else Exit();
                 }
             }
@@ -326,13 +337,19 @@ namespace MonogameTest
 
         bool usesTitleScene()
         {
-            return screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
+            return screen == MenuScreen.Scores || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
                 || (screen == MenuScreen.Options && optionsParent == MenuScreen.Main);
         }
 
         void drawTitleScene()
         {
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
+            if (screen == MenuScreen.Scores)
+            {
+                drawScores();
+                spriteBatch.End();
+                return;
+            }
             spriteBatch.Draw(mainMenuBackground, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.White);
             spriteBatch.Draw(mainMenuTitle, new Rectangle(10, 6, 176, 59), Color.White);
             if (screen == MenuScreen.Options)
@@ -358,9 +375,9 @@ namespace MonogameTest
             }
             else
             {
-                spriteBatch.Draw(beamPixel, new Rectangle(12, 74, 108, 64), Color.Black * 0.7f);
+                spriteBatch.Draw(beamPixel, new Rectangle(12, 72, 172, 70), Color.Black * 0.7f);
                 for (int i = 0; i < mainItems.Length; i++)
-                    drawMenuItem(mainItems[i], i == mainSelection, 20, 82 + i * 18,
+                    drawMenuItem(mainItems[i], i == mainSelection, 20, 76 + i * 13,
                         i != 0 || startBracketsVisible());
             }
             DrawStringBitmap(spriteBatch, "UP/DOWN  ENTER SELECT", new Vector2(14, 148), new Color(240, 218, 160));
@@ -429,6 +446,8 @@ namespace MonogameTest
 
         void resetGame()
         {
+            retryMusicVisible = false;
+            enteringInitials = false;
             gameB = selectedGame == 1;
             highScore = highScores.Get(gameB);
             muzzleFlashFrames = 0;

@@ -10,6 +10,7 @@ namespace MonogameTest
         bool scoresAfterGame, scoresGameB, enteringInitials;
         double scoreScrollTime;
         int initialCursor;
+        int completedScore;
         char[] scoreInitials = { 'A', 'A', 'A' };
         string savedScoreId;
         const string InitialAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -18,8 +19,9 @@ namespace MonogameTest
         {
             scoresGameB = modeB;
             scoresAfterGame = afterGame;
+            if (afterGame) completedScore = score;
             scoreScrollTime = afterGame ? 0 : 2;
-            enteringInitials = afterGame && highScores.Qualifies(modeB, score);
+            enteringInitials = afterGame && highScores.Qualifies(modeB, completedScore);
             initialCursor = 0;
             savedScoreId = null;
             screen = MenuScreen.Scores;
@@ -56,7 +58,7 @@ namespace MonogameTest
                 if (pressed(Keys.Back)) initialCursor = (initialCursor + 2) % 3;
                 if (pressed(Keys.Enter) || padPressed(Buttons.A))
                 {
-                    savedScoreId = highScores.Submit(scoresGameB, new string(scoreInitials), score);
+                    savedScoreId = highScores.Submit(scoresGameB, new string(scoreInitials), completedScore);
                     enteringInitials = false;
                     beamAudio?.PlayMenuConfirm();
                 }
@@ -75,7 +77,10 @@ namespace MonogameTest
 
         void drawScores()
         {
-            spriteBatch.Draw(mainMenuBackground, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.White * .25f);
+            if (scoresAfterGame)
+                spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.Black * .7f);
+            else
+                spriteBatch.Draw(mainMenuBackground, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.White * .25f);
             DrawStringBitmap(spriteBatch, scoresAfterGame ? "GAME OVER" : "HIGH SCORES",
                 new Vector2(scoresAfterGame ? 108 : 100, 8), new Color(255, 225, 145));
             font6.Draw(spriteBatch, scoresGameB ? "GAME B  TOP 10" : "GAME A  TOP 10",
@@ -97,7 +102,7 @@ namespace MonogameTest
 
             if (scoresAfterGame)
             {
-                font6.Draw(spriteBatch, "YOUR SCORE " + score.ToString("D6"), new Vector2(93, 122), new Color(255, 225, 145));
+                font6.Draw(spriteBatch, "YOUR SCORE " + completedScore.ToString("D6"), new Vector2(93, 122), new Color(255, 225, 145));
                 if (scoreScrollTime < 2) return;
                 if (enteringInitials)
                 {
@@ -107,7 +112,7 @@ namespace MonogameTest
                         font6.Draw(spriteBatch, scoreInitials[i].ToString(), new Vector2(145 + i * 12, 134), new Color(255, 225, 145));
                         if (i == initialCursor) spriteBatch.Draw(beamPixel, new Rectangle(145 + i * 12, 141, 5, 1), Color.White);
                     }
-                    font6.Draw(spriteBatch, "ARROWS OR TYPE  ENTER SAVE  ESC SKIP", new Vector2(42, 150), Color.White);
+                    font6.Draw(spriteBatch, "ARROWS OR TYPE  ENTER SAVE  ESC SKIP", new Vector2(42, 146), Color.White);
                 }
                 else
                     font6.Draw(spriteBatch, "R RETRY   ESC MAIN MENU", new Vector2(78, 148), Color.White);

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "mNaTmmj+mpUojvNhLWsOH1yR+dvwHtydigGSnAnmlLDrzVPhqTf9PIeALGnzOCBbxS4cThfHHnIMU8Ga5URAgw==",
+  "dgSpecHash": "3vxzEDgwxoOXrlCnY/QDG5hQMpPXXgws8L5FaMazZl0CFWkZqYXI4YsT0sYiQtC+Ri7D5a1LYqMM4Q0BILiz9w==",
   "success": true,
   "projectFilePath": "/home/keegan/Repos/pyoro/PyoroGL/PyoroGL.csproj",
   "expectedPackageFiles": [
@@ -11,10 +11,10 @@
     "/home/keegan/.nuget/packages/nvorbis/0.10.4/nvorbis.0.10.4.nupkg.sha512",
     "/home/keegan/.nuget/packages/system.memory/4.5.3/system.memory.4.5.3.nupkg.sha512",
     "/home/keegan/.nuget/packages/system.valuetuple/4.5.0/system.valuetuple.4.5.0.nupkg.sha512",
-    "/home/keegan/.nuget/packages/microsoft.netcore.app.runtime.linux-x64/8.0.30/microsoft.netcore.app.runtime.linux-x64.8.0.30.nupkg.sha512",
+    "/home/keegan/.nuget/packages/microsoft.netcore.app.runtime.win-x64/8.0.30/microsoft.netcore.app.runtime.win-x64.8.0.30.nupkg.sha512",
     "/home/keegan/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.30/microsoft.aspnetcore.app.ref.8.0.30.nupkg.sha512",
-    "/home/keegan/.nuget/packages/microsoft.aspnetcore.app.runtime.linux-x64/8.0.30/microsoft.aspnetcore.app.runtime.linux-x64.8.0.30.nupkg.sha512",
-    "/home/keegan/.nuget/packages/microsoft.netcore.app.host.linux-x64/8.0.30/microsoft.netcore.app.host.linux-x64.8.0.30.nupkg.sha512"
+    "/home/keegan/.nuget/packages/microsoft.aspnetcore.app.runtime.win-x64/8.0.30/microsoft.aspnetcore.app.runtime.win-x64.8.0.30.nupkg.sha512",
+    "/home/keegan/.nuget/packages/microsoft.netcore.app.host.win-x64/8.0.30/microsoft.netcore.app.host.win-x64.8.0.30.nupkg.sha512"
   ],
   "logs": []
 }

@@ -63,7 +63,7 @@ namespace MonogameTest
             if (screen == MenuScreen.Scores)
             {
                 updateScores(time, pressed, padPressed);
-                return true;
+                return !(scoresAfterGame && screen == MenuScreen.Scores && transition == MenuTransition.None);
             }
             if (screen == MenuScreen.Playing)
             {
@@ -74,7 +74,7 @@ namespace MonogameTest
                     if (!retryMusicVisible)
                     {
                         openScores(gameB, true);
-                        return true;
+                        return false;
                     }
                     UpdateGameoverOverlay(pressed, accept, padPressed);
                     return false;
@@ -337,7 +337,7 @@ namespace MonogameTest
 
         bool usesTitleScene()
         {
-            return screen == MenuScreen.Scores || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
+            return (screen == MenuScreen.Scores && !scoresAfterGame) || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
                 || (screen == MenuScreen.Options && optionsParent == MenuScreen.Main);
         }
 

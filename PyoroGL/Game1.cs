@@ -634,6 +634,8 @@ namespace MonogameTest
         // at the given native (288x162) position, mirroring the pico-8 version.
         void addScore(float x, float y, int pts)
         {
+            // Background effects continue after game over, but the result is final.
+            if (gameover) return;
             score += pts;
             highScore = highScores.Record(gameB, score);
             scorePopups.Add(new ScorePopup(x, y, pts));
@@ -1152,6 +1154,7 @@ namespace MonogameTest
                 base.Update(gameTime);
                 return;
             }
+            KeyboardState gameplayKeys = screen == MenuScreen.Scores ? new KeyboardState() : beamKeys;
             if (beamKeys.IsKeyDown(Keys.OemOpenBrackets) && previousBeamKeys.IsKeyUp(Keys.OemOpenBrackets)) BeamWidth--;
             if (beamKeys.IsKeyDown(Keys.OemCloseBrackets) && previousBeamKeys.IsKeyUp(Keys.OemCloseBrackets)) BeamWidth++;
             previousBeamKeys = beamKeys;
@@ -1360,7 +1363,7 @@ namespace MonogameTest
                 //float tempspeed = bigspeed;
                 speed = (float)bigspeed / 256;
                 bool tankMoving = false;
-                if (Keyboard.GetState().IsKeyDown(Keys.Left) && !pyorodead)// && x > PLAYFIELD_LEFT)
+                if (gameplayKeys.IsKeyDown(Keys.Left) && !pyorodead)// && x > PLAYFIELD_LEFT)
                 {
                     tankMoving = true;
                     if (spaceheld == 0)
@@ -1400,7 +1403,7 @@ namespace MonogameTest
                         facingright = -1;
                     }
                 }
-                if (Keyboard.GetState().IsKeyDown(Keys.Right) && !pyorodead)// && x < 184)
+                if (gameplayKeys.IsKeyDown(Keys.Right) && !pyorodead)// && x < 184)
                 {
                     tankMoving = true;
                     if (spaceheld == 0)
@@ -1483,7 +1486,7 @@ namespace MonogameTest
                     updateGameBShot(beamKeys);
                 else
                 {
-                if (!Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
+                if (!gameplayKeys.IsKeyDown(Keys.X) && !pyorodead) // !gameplayKeys.IsKeyDown(Keys.Left) && !gameplayKeys.IsKeyDown(Keys.Right) &&
                 {
 
                     //tonguecount = 0;
@@ -1550,7 +1553,7 @@ namespace MonogameTest
                         }
                     }
                 }
-                if (!Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
+                if (!gameplayKeys.IsKeyDown(Keys.X) && !pyorodead) // !gameplayKeys.IsKeyDown(Keys.Left) && !gameplayKeys.IsKeyDown(Keys.Right) &&
                 {
                     if (spaceheld == 0)
                     {
@@ -1569,7 +1572,7 @@ namespace MonogameTest
                     }
                     
                 }
-                if (Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
+                if (gameplayKeys.IsKeyDown(Keys.X) && !pyorodead) // !gameplayKeys.IsKeyDown(Keys.Left) && !gameplayKeys.IsKeyDown(Keys.Right) &&
                 {
 
                     if (recall == false)
@@ -1832,11 +1835,11 @@ namespace MonogameTest
                 {
                     x = PLAYFIELD_RIGHT - 17;
                 }
-                if (Keyboard.GetState().IsKeyDown(Keys.Add))
+                if (gameplayKeys.IsKeyDown(Keys.Add))
                 {
                     bigspeed += 0x100;
                 }
-                if (Keyboard.GetState().IsKeyDown(Keys.Subtract))
+                if (gameplayKeys.IsKeyDown(Keys.Subtract))
                 {
                     bigspeed -= 0x100;
                 }
@@ -1990,7 +1993,7 @@ namespace MonogameTest
             drawExplosions(spriteBatch);
             drawOverlayExplosions(spriteBatch);
 
-            if(gameover)
+            if(gameover && screen != MenuScreen.Scores)
             {
                 // Bitmap-font "GAME OVER" centred in the playfield.
                 string gameOverText = "GAME OVER";
@@ -2079,6 +2082,7 @@ namespace MonogameTest
                 new Vector2((NATIVE_WIDTH - musicSize.X) / 2f, 11), new Color(240, 218, 160));
 
             drawPauseOverlay();
+            if (screen == MenuScreen.Scores && scoresAfterGame) drawScores();
             spriteBatch.End();
 
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);

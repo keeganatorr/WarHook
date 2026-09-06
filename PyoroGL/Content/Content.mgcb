@@ -23,41 +23,8 @@
 /build:smallfont.spritefont
 #end
 
-#begin explosion.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyEnabled=True
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:explosion.png
 #end
 
-#begin angel.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyEnabled=True
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:angel.png
 #end
 
-#begin scores.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyEnabled=True
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:scores.png
 #end

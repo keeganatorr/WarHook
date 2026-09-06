@@ -88,6 +88,8 @@ namespace MonogameTest
         // Pixel-perfect 8x8 bitmap font atlas (Assets/font8x8_atlas.png):
         // 16 columns of ASCII 32..126, binary alpha, zero anti-aliasing.
         Texture2D fontAtlas;
+        // 6x6 pixel font for score popups and the MUSIC HUD readout.
+        Font6 font6;
         const int FONT_CELL = 8;
         const int FONT_COLS = 16;
         const int FONT_FIRST_CHAR = 32;
@@ -600,6 +602,15 @@ namespace MonogameTest
             scorePopups.Add(new ScorePopup(x, y, pts));
         }
 
+        // Draw a score popup in the 6x6 pixel font (e.g. "+300") drifting up
+        // from where the mortar/bean was picked up, centred on that point.
+        void DrawScorePopup6(SpriteBatch batch, ScorePopup p)
+        {
+            float alpha = MathHelper.Clamp(p.timer / 30f, 0f, 1f);
+            Vector2 size = font6.Measure(p.points.ToString());
+            font6.Draw(batch, p.points.ToString(), new Vector2(p.x , p.y), Color.White * alpha);
+        }
+
         // Update active score popups: drift upward slightly and expire by timer.
         // Called near the end of Update so popups animate while the game runs.
         void updateScorePopups()
@@ -756,6 +767,7 @@ namespace MonogameTest
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
             fontAtlas = loadPng("font8x8_atlas");
+            font6 = new Font6(GraphicsDevice);
             loadPlayerTank();
             pyoro = pyororight;
             loadBackdrop();
@@ -2026,22 +2038,17 @@ namespace MonogameTest
             //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);
             //spriteBatch.DrawString(arial, string.Format(" rightblockcount {0} \n leftblockcount {1} \n rightblocktorecover {2} \n leftblocktorecover {3}", rightblockcount, leftblockcount, rightblocktorecover, leftblocktorecover), new Vector2(50, 10), Color.White);
 
-            // Score popups: draw the "+pts" sprite where a bean was just caught,
-            // fading out. The sprite regions come from scores.png.
+            // Score popups: render "+pts" in the 6x6 pixel font, drifting up
+            // from where the bean was caught and fading out near the end.
             foreach (ScorePopup p in scorePopups)
-            {
-                Color c = Color.White;
-                // Fade toward the end of its lifetime in the native colour space.
-                float alpha = MathHelper.Clamp(p.timer / 30f, 0f, 1f);
-                c *= alpha;
+                DrawScorePopup6(spriteBatch, p);
 
-                // Look up the sprite region for this point value.
-                Rectangle src = ScorePopupSpriteRegion(p.points);
-                if (src.Width > 0)
-                {
-                    spriteBatch.Draw(scoresSprite, new Vector2(p.x, p.y), src, c);
-                }
-            }
+            // Show the selected gameplay music track in the 6x6 font, centred
+            // between the SCORE and HIGH readouts.
+            string musicLabel = "MUSIC: " + gameplayMusic;
+            Vector2 musicSize = font6.Measure(musicLabel);
+            font6.Draw(spriteBatch, musicLabel,
+                new Vector2((NATIVE_WIDTH - musicSize.X) / 2f, 11), new Color(240, 218, 160));
             
             // Align the editor highlight with the floor, including after resizing.
             if (blockEditingEnabled && screen == MenuScreen.Playing && tryGetMouseColumn(out int hoverColumn))

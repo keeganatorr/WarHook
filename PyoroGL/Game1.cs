@@ -2014,14 +2014,10 @@ namespace MonogameTest
                     spriteBatch.Draw(blockAtlas, new Vector2(blockx, blocky), Color.White);
                 }
             }
-            // Explosions draw ON TOP of the blocks they mark.
-            drawExplosions(spriteBatch);
             //}
             // Center the native-size tank over the existing collision box, with treads on the floor.
             spriteBatch.Draw(pyoro, new Vector2((float)Math.Round(x) + (16 - pyoro.Width) / 2,
                 (float)Math.Round(y) + 16 - pyoro.Height), Color.White);
-            // Tank-hit explosions render ON TOP of the tank sprite.
-            drawOverlayExplosions(spriteBatch);
             //spriteBatch.Draw(collisionblock, new Vector2((float)System.Math.Round((decimal)x), y), Color.White);
 
             for (int i = 0; i < max_amount_of_beans; i++)
@@ -2046,6 +2042,10 @@ namespace MonogameTest
                     new Vector2((float)Math.Round(tongueX + tonguecount * facingright) - 8,
                         (float)Math.Round(tongueY - tonguecount) - 8), Color.White);
             }
+
+            // Every explosion draws after the tank and mortars, before the HUD and frame.
+            drawExplosions(spriteBatch);
+            drawOverlayExplosions(spriteBatch);
 
             if(gameover)
             {

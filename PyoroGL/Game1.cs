@@ -798,6 +798,8 @@ namespace MonogameTest
             fontAtlas = loadPng("font8x8_atlas");
             font6 = new Font6(GraphicsDevice);
             loadPlayerTank();
+            yellowTankRight = makeYellowTank(pyororight);
+            yellowTankLeft = makeYellowTank(pyoroleft);
             pyoro = pyororight;
             loadBackdrop();
             scoreLabel = loadPng("score");
@@ -993,7 +995,7 @@ namespace MonogameTest
 
         void drawTractorBeam()
         {
-            if (pyorodead || tonguecount <= 0) return;
+            if (gameB || pyorodead || tonguecount <= 0) return;
             Vector2 start = new Vector2((float)Math.Round(tongueX), (float)Math.Round(tongueY));
             Vector2 end = start + new Vector2(tonguecount * facingright, -tonguecount);
             Vector2 direction = Vector2.Normalize(end - start);
@@ -1151,6 +1153,8 @@ namespace MonogameTest
         {
             beamAudio?.Dispose();
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
+            yellowTankRight.Dispose();
+            yellowTankLeft.Dispose();
             pyororight.Dispose();
             pyoroleft.Dispose();
             explosionSprite.Dispose();
@@ -1186,6 +1190,7 @@ namespace MonogameTest
                 music?.Update(gameTime.ElapsedGameTime.TotalSeconds);
                 // Gameplay music keeps playing even while paused; the track
                 // itself swaps on menu transitions (in GameMenus).
+                previousShotDown = beamKeys.IsKeyDown(Keys.X);
                 previousBeamKeys = beamKeys;
                 previousDebugKeys = beamKeys;
                 base.Update(gameTime);
@@ -1525,6 +1530,10 @@ namespace MonogameTest
                 // Drive the movement loop from actual key state so it always
                 // stops when the tank stops (release, fire, or death).
                 beamAudio?.SetTankMove(tankMoving && !pyorodead);
+                if (gameB)
+                    updateGameBShot(beamKeys);
+                else
+                {
                 if (!Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
                 {
 
@@ -1829,6 +1838,8 @@ namespace MonogameTest
                         }*/
                     }
 
+                }
+
                 //check bean and pyoro collision
                 for (int i = 0; i < max_amount_of_beans; i++)
                 {
@@ -2016,7 +2027,8 @@ namespace MonogameTest
             }
             //}
             // Center the native-size tank over the existing collision box, with treads on the floor.
-            spriteBatch.Draw(pyoro, new Vector2((float)Math.Round(x) + (16 - pyoro.Width) / 2,
+            Texture2D tankSprite = gameB ? (facingright == 1 ? yellowTankRight : yellowTankLeft) : pyoro;
+            spriteBatch.Draw(tankSprite, new Vector2((float)Math.Round(x) + (16 - pyoro.Width) / 2,
                 (float)Math.Round(y) + 16 - pyoro.Height), Color.White);
             //spriteBatch.Draw(collisionblock, new Vector2((float)System.Math.Round((decimal)x), y), Color.White);
 

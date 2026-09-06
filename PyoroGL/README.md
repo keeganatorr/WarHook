@@ -38,7 +38,7 @@ automatically by .NET at runtime.
 ## Controls
 
 - **Left / Right arrows** — move Pyoro
-- **X** — shoot & hold / retract the tongue
+- **X** — Game A: hold/release the tractor beam; Game B: one instant shot per press
 - **Up / Down** (or **W / S**) — select a menu item
 - **Enter / Space** — confirm a menu selection
 - **Esc** — pause / resume gameplay, or return from Options
@@ -53,3 +53,9 @@ the visual thickness (default: 6); this setting scales the glow and claw too.
 The game opens on the main menu. Start blinks the selection brackets twice, then
 fades through black into a fresh round. The pause menu offers Resume, Restart,
 Options, Main Menu, and Exit. Gameplay and queued effects stay frozen while paused.
+
+Select **Game B** on the mode picker to use the yellow tank. Each press of X
+destroys every mortar intersecting the invisible 45-degree line from the barrel
+in the direction the tank faces. Each destroyed mortar explodes and scores
+50 points for a one-hit shot, 100 each for two, 300 each for three, or 1000 each
+for four or more. Shots only destroy mortars on the line.

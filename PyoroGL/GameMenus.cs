@@ -412,6 +412,9 @@ namespace MonogameTest
 
         void resetGame()
         {
+            gameB = selectedGame == 1;
+            previousShotDown = Keyboard.GetState().IsKeyDown(Keys.X);
+            overlayExplosions.Clear();
             beamAudio?.Stop();
             gameoverMusicPlaying = false;
             x = PLAYER_START_X;

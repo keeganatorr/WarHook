@@ -423,7 +423,12 @@ namespace MonogameTest
             rainbowbeantotal = 10;
             max_time = 0xB4;
             time_until_new_bean = tmpmax = tmpspeed = beanspeed = 0;
-            randnum = randnum2 = randnum3 = randnum4 = randnummain = 0;
+            // Fresh independent 16-bit states keep each round's spawn sequence different.
+            randnum = Random.Shared.Next(0x10000);
+            randnum2 = Random.Shared.Next(0x10000);
+            randnum3 = Random.Shared.Next(0x10000);
+            randnum4 = Random.Shared.Next(0x10000);
+            randnummain = Random.Shared.Next(0x10000);
             beantype = currentbeantype = currentbeanx = beanxrandom = 0;
             create_new_bean = false;
             Array.Fill(blocks, true);

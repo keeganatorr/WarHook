@@ -259,7 +259,7 @@ namespace MonogameTest
         ///int score = 0;
         //int beanspeed = 0;
         //int test = 0;
-        Random rnd = new Random(DateTime.Now.Millisecond);
+        Random rnd = new Random();
         Random r = new Random();
         float[] bean_anim_counter;
         

@@ -1928,9 +1928,8 @@ namespace MonogameTest
 
 
 
-                // Retry fades to black, resets mid-fade, then fades back in.
-                if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover && transition == MenuTransition.None)
-                    beginTransition(MenuScreen.Playing, false);
+                // Retry is handled by the game-over overlay (music picker +
+                // Enter/X) in updateMenus; R is no longer a shortcut.
 
 
 
@@ -2019,10 +2018,14 @@ namespace MonogameTest
                 string gameOverText = "GAME OVER";
                 float goWidth = MeasureStringBitmap(gameOverText).X;
                 DrawStringBitmap(spriteBatch, gameOverText, new Vector2((NATIVE_WIDTH - goWidth) / 2f, NATIVE_HEIGHT / 2), Color.White);
-                // Small centred hint below the game-over text.
-                string retry = "Press R to Retry";
+                // Small centred hint below the game-over text: first R, then
+                // the music picker with Enter/X to restart.
+                string retry = retryMusicVisible
+                    ? "MUSIC  [ " + retryMusic + " ]  < >   ENTER = RETRY"
+                    : "Press R to Retry";
                 float retryWidth = MeasureStringBitmap(retry).X;
-                DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
+                DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12),
+                    retryMusicVisible ? new Color(255, 225, 145) : Color.White);
             }
             
             

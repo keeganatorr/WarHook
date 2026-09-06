@@ -21,6 +21,10 @@ namespace MonogameTest
         // mirror the original game (Game A, Music 1). modeSelection is the
         // row cursor (0 = games, 1 = music).
         int selectedGame, selectedMusic = 1, previousGame, previousMusic = 1;
+        // Music track picked on the game-over screen (Enter/X restarts).
+        int retryMusic = 1;
+        // False until the player presses R at game over; then the picker shows.
+        bool retryMusicVisible;
         // Chosen music track for gameplay (1..5), applied on game start.
         public int gameplayMusic = 1;
         // True while the game-over jingle plays instead of gameplay music.
@@ -56,6 +60,13 @@ namespace MonogameTest
             }
             if (screen == MenuScreen.Playing)
             {
+                if (gameover)
+                {
+                    // Handle overlay input but let the game keep running in
+                    // the background (explosions, popups, effects still tick).
+                    UpdateGameoverOverlay(pressed, accept, padPressed);
+                    return false;
+                }
                 if (cancel || padPressed(Buttons.Start))
                 {
                     screen = MenuScreen.Pause;
@@ -172,6 +183,33 @@ namespace MonogameTest
             optionsParent = parent;
             optionsSelection = 0;
             screen = MenuScreen.Options;
+        }
+
+        // Game-over overlay input: stage 1 waits for R, stage 2 is the music
+        // picker with Enter/X to start the retry.
+        void UpdateGameoverOverlay(Func<Keys, bool> pressed, bool accept, Func<Buttons, bool> padPressed)
+        {
+            if (!retryMusicVisible)
+            {
+                if (pressed(Keys.R))
+                {
+                    retryMusicVisible = true;
+                    retryMusic = gameplayMusic; // start from the current track
+                    beamAudio?.PlayMenuBlip();
+                }
+                return;
+            }
+            int previous = retryMusic;
+            if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) retryMusic--;
+            if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) retryMusic++;
+            retryMusic = Math.Clamp(retryMusic, 1, 5);
+            if (retryMusic != previous) beamAudio?.PlayMenuBlip();
+            gameplayMusic = retryMusic;
+            if (accept || pressed(Keys.X) || padPressed(Buttons.A))
+            {
+                retryMusicVisible = false;
+                beginTransition(MenuScreen.Playing, false);
+            }
         }
 
         // Push current volume settings into the audio systems. Music default

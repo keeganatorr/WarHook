@@ -42,6 +42,10 @@ namespace MonogameTest
             {
                 if (arg == "--debug" || arg == "-d")
                     showDebugMenu = true;
+                // --shots: capture promo screenshots automatically (menu,
+                // Game A firing, Game B firing) then exit.
+                if (arg == "--shots")
+                    shotsMode = true;
             }
         }
 
@@ -250,6 +254,12 @@ namespace MonogameTest
 
         // Screenshot counter for Tab-key PNG saves.
         int screenshotCount = 0;
+
+        // Automated promo-screenshot capture (--shots): menu -> Game A firing
+        // -> Game B firing with a mortar explosion, then exit. See UpdateShots.
+        bool shotsMode;
+        int shotStage;
+        double shotTimer;
 
         // When a rainbow bean is grabbed, other beans disappear one by one
         // (lowest first) instead of all at once. This queue holds the bean
@@ -1200,6 +1210,7 @@ namespace MonogameTest
         protected override void Update(GameTime gameTime)
         {
             KeyboardState beamKeys = Keyboard.GetState();
+            if (shotsMode) { UpdateShots(gameTime); }
             if (beamKeys.IsKeyDown(Keys.F3) && previousDebugKeys.IsKeyUp(Keys.F3))
                 beamAudio?.Reload();
             if (updateMenus(gameTime, beamKeys))
@@ -1850,8 +1861,9 @@ namespace MonogameTest
 
                 }
 
-                //check bean and pyoro collision
-                for (int i = 0; i < max_amount_of_beans; i++)
+                //check bean and pyoro collision (skipped in --shots so a stray
+                // mortar can't ruin a capture)
+                for (int i = 0; i < max_amount_of_beans && !shotsMode; i++)
                 {
                     if (x+16 >= bean_x[i] && bean_active[i])
                     {
@@ -2218,6 +2230,87 @@ namespace MonogameTest
             previousTabKeys = tabKeys;
 
             base.Draw(gameTime);
+        }
+
+        void NextShotStage() { shotStage++; shotTimer = 0; }
+
+        // Scripted capture: stage 0 waits on the main menu, then starts Game A
+        // with the beam frozen mid-fire, then Game B firing at a placed mortar
+        // so the explosion is visible. Saves screenshot_0/1/2.png and exits.
+        void UpdateShots(GameTime gameTime)
+        {
+            shotTimer += gameTime.ElapsedGameTime.TotalSeconds;
+            switch (shotStage)
+            {
+                case 0: // main menu
+                    if (shotTimer > 1.2) { SaveScreenshot(); NextShotStage(); }
+                    break;
+                case 1: // pick Game A + Music 1 and start
+                    selectedGame = 0; selectedMusic = 1; gameplayMusic = 1;
+                    beginTransition(MenuScreen.Playing, true);
+                    NextShotStage();
+                    break;
+                case 2: // wait for the start transition to finish
+                    if (transition != MenuTransition.None || screen != MenuScreen.Playing || gameover)
+                    { shotTimer = 0; break; }
+                    if (shotTimer > 0.8)
+                    {
+                        // Freeze the beam mid-fire for the shot.
+                        facingright = 1;
+                        tongueX = x + tongueoffsetX + rightoffset;
+                        tongueY = y + tongueoffsetY;
+                        tonguecount = 34;
+                        spaceheld = 1; recall = false; tonguecollide = false;
+                        NextShotStage();
+                    }
+                    break;
+                case 3: // hold the beam pose (recall logic decays it) and capture
+                    facingright = 1;
+                    tongueX = x + tongueoffsetX + rightoffset;
+                    tongueY = y + tongueoffsetY;
+                    tonguecount = 34;
+                    spaceheld = 1; recall = false; tonguecollide = false;
+                    if (shotTimer > 0.4) { SaveScreenshot(); NextShotStage(); }
+                    break;
+                case 4: // switch to Game B (transition resets the game)
+                    selectedGame = 1;
+                    beginTransition(MenuScreen.Playing, false);
+                    NextShotStage();
+                    break;
+                case 5: // wait until Game B is live
+                    if (transition != MenuTransition.None || screen != MenuScreen.Playing || !gameB || gameover)
+                    { shotTimer = 0; break; }
+                    if (shotTimer > 0.8)
+                    {
+                        facingright = 1;
+                        // Clear other mortars, place one on the 45-degree shot
+                        // path, then fire so the explosion is in frame.
+                        float ox = x + tongueoffsetX + rightoffset;
+                        float oy = y + tongueoffsetY;
+                        for (int i = 0; i < max_amount_of_beans; i++) bean_active[i] = false;
+                        for (int i = 0; i < max_amount_of_beans; i++)
+                        {
+                            if (!bean_active[i])
+                            {
+                                bean_active[i] = true;
+                                bean_x[i] = ox + 26; bean_y[i] = oy - 26;
+                                bean_speed[i] = 0x40; bean_type[i] = 0;
+                                current_bean_sprite[i] = bean_centre;
+                                break;
+                            }
+                        }
+                        fireGameBShot();
+                        NextShotStage();
+                    }
+                    break;
+                case 6: // capture at muzzle flash + explosion peak
+                    if (shotTimer > 0.12) { SaveScreenshot(); NextShotStage(); }
+                    break;
+                default:
+                    shotsMode = false;
+                    Exit();
+                    break;
+            }
         }
 
         KeyboardState previousTabKeys;

@@ -77,7 +77,7 @@ namespace MonogameTest
             public double ExplosionCrackleLevel { get; set; } = 0.35;
             // Parachute drop: a friendly descending "bwoop" with a soft
             // airy whoosh — no menace, reads as a supply drop.
-            public double ParachuteGain { get; set; } = 0.5;
+            public double ParachuteGain { get; set; } = 0.65;
             public double ParachuteSeconds { get; set; } = 0.5;
             public double ParachuteStartHz { get; set; } = 700;
             public double ParachuteEndHz { get; set; } = 180;

@@ -75,6 +75,20 @@ namespace MonogameTest
             public double ExplosionThumpLevel { get; set; } = 0.9;
             public double ExplosionNoiseLevel { get; set; } = 1.0;
             public double ExplosionCrackleLevel { get; set; } = 0.35;
+            // Parachute drop: a friendly descending "bwoop" with a soft
+            // airy whoosh — no menace, reads as a supply drop.
+            public double ParachuteGain { get; set; } = 0.5;
+            public double ParachuteSeconds { get; set; } = 0.5;
+            public double ParachuteStartHz { get; set; } = 700;
+            public double ParachuteEndHz { get; set; } = 180;
+            public double ParachuteWhooshLevel { get; set; } = 0.25;
+            // Tank movement: a low continuous rumble loop played while the
+            // tank drives (treads + engine drone).
+            public double TankMoveGain { get; set; } = 0.45;
+            public double TankMoveSeconds { get; set; } = 0.8;
+            public double TankMoveHz { get; set; } = 42;
+            public double TankMoveRumbleHz { get; set; } = 11;
+            public double TankMoveRumbleLevel { get; set; } = 0.7;
         }
         readonly string path;
         Task<(Settings settings, byte[][] pcm)> pending;
@@ -100,11 +114,13 @@ namespace MonogameTest
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };
-                var pcm = new byte[7][];
+                var pcm = new byte[9][];
                 for (int i=0; i<4; i++) pcm[i] = Generate(config, specs[i]);
                 pcm[4] = GenerateMenuBlip(config);
                 pcm[5] = GenerateConfirm(config);
                 pcm[6] = GenerateExplosion(config);
+                pcm[7] = GenerateParachute(config);
+                pcm[8] = GenerateTankMove(config);
                 return (config, pcm);
             });
         }
@@ -132,6 +148,14 @@ namespace MonogameTest
                 s.ExplosionNoiseLevel < 0 || s.ExplosionNoiseLevel > 2 ||
                 s.ExplosionCrackleLevel < 0 || s.ExplosionCrackleLevel > 2)
                 throw new InvalidDataException("Invalid explosion settings.");
+            if (s.ParachuteSeconds < .05 || s.ParachuteSeconds > 2 || s.ParachuteGain < 0 || s.ParachuteGain > 1 ||
+                s.ParachuteEndHz < 1 || s.ParachuteEndHz > s.ParachuteStartHz || s.ParachuteStartHz > 4000 ||
+                s.ParachuteWhooshLevel < 0 || s.ParachuteWhooshLevel > 2)
+                throw new InvalidDataException("Invalid parachute settings.");
+            if (s.TankMoveSeconds < .2 || s.TankMoveSeconds > 4 || s.TankMoveGain < 0 || s.TankMoveGain > 1 ||
+                s.TankMoveHz < 1 || s.TankMoveHz > 200 || s.TankMoveRumbleHz < 1 || s.TankMoveRumbleHz > 100 ||
+                s.TankMoveRumbleLevel < 0 || s.TankMoveRumbleLevel > 2)
+                throw new InvalidDataException("Invalid tank movement settings.");
         }
         internal static byte[] Generate(Settings s, Voice v)
         {
@@ -265,6 +289,96 @@ namespace MonogameTest
             }
             return pcm;
         }
+        // Parachute drop (index 7): friendly descending tone with an airy
+        // noise whoosh. Mono 16-bit PCM like the rest.
+        internal static byte[] GenerateParachute(Settings s)
+        {
+            int rate=s.SampleRate;
+            int count=(int)(rate*s.ParachuteSeconds);
+            var pcm=new byte[count*2];
+            var random=new Random(4242);
+            double phase=0;
+            double previousNoise=0;
+            for (int i=0;i<count;i++)
+            {
+                double t=(double)i/rate, pos=t/s.ParachuteSeconds;
+                // Tone glides gently down like a soft "bwoop".
+                double hz=s.ParachuteStartHz*Math.Pow(s.ParachuteEndHz/s.ParachuteStartHz, pos);
+                phase+=hz/rate;
+                // Soft sine (no harsh harmonics — friendly).
+                double tone=Math.Sin(2*Math.PI*phase);
+                // Airy whoosh: smoothed noise, swells then fades.
+                double noise=random.NextDouble()*2-1;
+                double whoosh=(noise+previousNoise)*0.5*s.ParachuteWhooshLevel*Math.Sin(Math.PI*pos);
+                previousNoise=noise;
+                // Envelope: quick soft attack, smooth decay.
+                double env=Math.Min(1,t/0.03)*Math.Exp(-2.2*pos);
+                double value=(tone+whoosh)*env;
+                short sample=(short)(Math.Clamp(value,-1,1)*s.ParachuteGain*.9*32767);
+                pcm[i*2]=(byte)(sample & 255); pcm[i*2+1]=(byte)((sample >> 8)&255);
+            }
+            return pcm;
+        }
+        // Tank movement (index 8): low engine drone + tread rumble loop.
+        internal static byte[] GenerateTankMove(Settings s)
+        {
+            int rate=s.SampleRate;
+            int count=(int)(rate*s.TankMoveSeconds);
+            var pcm=new byte[count*2];
+            var random=new Random(8642);
+            double previousNoise=0;
+            double peak=0;
+            var values=new double[count];
+            for (int i=0;i<count;i++)
+            {
+                double t=(double)i/rate, pos=t/s.TankMoveSeconds;
+                // Engine: low sine whose pitch wobbles slowly (idling drone).
+                double hz=s.TankMoveHz*(1+0.08*Math.Sin(2*Math.PI*s.TankMoveRumbleHz*t));
+                double engine=Math.Sin(2*Math.PI*hz*t);
+                // Treads: low-passed noise bumping at the rumble rate.
+                double noise=random.NextDouble()*2-1;
+                double smoothed=(noise+previousNoise)*0.5;
+                previousNoise=noise;
+                double tread=smoothed*s.TankMoveRumbleLevel*(0.6+0.4*Math.Sin(2*Math.PI*s.TankMoveRumbleHz*t));
+                double value=(engine+tread)*0.5;
+                values[i]=value; peak=Math.Max(peak,Math.Abs(value));
+            }
+            // Crossfade the loop ends so it repeats without a click.
+            int fade=(int)(rate*0.05);
+            for (int i=0;i<count;i++)
+            {
+                double value=values[i]/Math.Max(peak,1e-9)*.9;
+                if (i<fade) value=value*(double)i/fade+values[count-1-(fade-1-i)]/Math.Max(peak,1e-9)*.9*(double)(fade-1-i)/fade;
+                short sample=(short)(Math.Clamp(value,-1,1)*s.TankMoveGain*32767);
+                pcm[i*2]=(byte)(sample & 255); pcm[i*2+1]=(byte)((sample >> 8)&255);
+            }
+            return pcm;
+        }
+        // Fire the parachute drop (index 7). Safe to call before audio loads.
+        public void PlayParachute()
+        {
+            if (voices == null || voices.Length < 8 || voices[7] == null) return;
+            var v=voices[7];
+            v.Stop();
+            v.Volume=(float)Math.Clamp(settings.MasterVolume*settings.ParachuteGain*VolumeScale,0,1);
+            v.Play();
+        }
+        // Tank movement loop (index 8). Start/stop from the movement code.
+        public void SetTankMove(bool moving)
+        {
+            if (voices == null || voices.Length < 9 || voices[8] == null) return;
+            var v=voices[8];
+            if (moving)
+            {
+                if (v.State != SoundState.Playing)
+                {
+                    v.IsLooped=true;
+                    v.Volume=(float)Math.Clamp(settings.MasterVolume*settings.TankMoveGain*VolumeScale,0,1);
+                    v.Play();
+                }
+            }
+            else if (v.State == SoundState.Playing) v.Stop();
+        }
         // Fire the menu blip (index 4). Safe to call before audio finishes loading.
         public void PlayMenuBlip()
         {
@@ -295,8 +409,8 @@ namespace MonogameTest
         void PollReload()
         {
             if (pending == null || !pending.IsCompleted) return;
-            var replacements=new SoundEffect[7];
-            var instances=new SoundEffectInstance[7];
+            var replacements=new SoundEffect[9];
+            var instances=new SoundEffectInstance[9];
             try
             {
                 var result=pending.GetAwaiter().GetResult();
@@ -304,7 +418,7 @@ namespace MonogameTest
                 {
                     replacements[i]=new SoundEffect(result.pcm[i],result.settings.SampleRate,AudioChannels.Mono);
                     instances[i]=replacements[i].CreateInstance();
-                    instances[i].IsLooped=i==1 || i==3;
+                    instances[i].IsLooped=i==1 || i==3 || i==8;
                     instances[i].Volume=0;
                 }
                 sounds=replacements; voices=instances; settings=result.settings;

@@ -7,7 +7,7 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        enum MenuScreen { Main, Playing, Pause, Options }
+        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options }
         enum MenuTransition { None, StartBlink, FadeOut, FadeIn }
         MenuScreen screen = MenuScreen.Main;
         MenuScreen optionsParent = MenuScreen.Main;
@@ -16,7 +16,15 @@ namespace MonogameTest
         double transitionTime;
         const double BLINK_INTERVAL = 0.15;
         const double FADE_SECONDS = 0.45;
-        int mainSelection, pauseSelection, optionsSelection;
+        int mainSelection, pauseSelection, optionsSelection, modeSelection;
+        // Mode-select choices: 0 = Game A, 1 = Game B; music 1..5. Defaults
+        // mirror the original game (Game A, Music 1). modeSelection is the
+        // row cursor (0 = games, 1 = music).
+        int selectedGame, selectedMusic = 1, previousGame, previousMusic = 1;
+        // Chosen music track for gameplay (1..5), applied on game start.
+        public int gameplayMusic = 1;
+        // True while the game-over jingle plays instead of gameplay music.
+        bool gameoverMusicPlaying;
         // Volume controls (0..10 steps). Sound defaults to 100%, music to 80%.
         public int soundVolume = 10;
         public int musicVolume = 8;
@@ -78,9 +86,40 @@ namespace MonogameTest
                 mainSelection = (mainSelection + move + mainItems.Length) % mainItems.Length;
                 if (accept)
                 {
-                    if (mainSelection == 0) beginTransition(MenuScreen.Playing, true);
+                    if (mainSelection == 0) { modeSelection = 0; screen = MenuScreen.ModeSelect; }
                     else if (mainSelection == 1) openOptions(MenuScreen.Main);
                     else Exit();
+                }
+            }
+            else if (screen == MenuScreen.ModeSelect)
+            {
+                // modeSelection is just the cursor (row: 0 = games, 1 = music).
+                // Chosen game and music persist independently of the cursor.
+                int previous = modeSelection;
+                if (pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp)) modeSelection = 0;
+                if (pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown)) modeSelection = 1;
+                if (modeSelection == 0) // games row: pick A or B
+                {
+                    if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedGame = 0;
+                    if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedGame = 1;
+                }
+                else // music row: pick 1..5
+                {
+                    if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedMusic--;
+                    if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedMusic++;
+                    selectedMusic = Math.Clamp(selectedMusic, 1, 5);
+                }
+                if (modeSelection != previous ||
+                    selectedGame != previousGame || selectedMusic != previousMusic)
+                    beamAudio?.PlayMenuBlip();
+                previousGame = selectedGame;
+                previousMusic = selectedMusic;
+                gameplayMusic = selectedMusic;
+                if (cancel) screen = MenuScreen.Main;
+                else if (accept)
+                {
+                    gameoverMusicPlaying = false;
+                    beginTransition(MenuScreen.Playing, true);
                 }
             }
             else if (screen == MenuScreen.Pause)
@@ -147,7 +186,25 @@ namespace MonogameTest
         {
             screen = MenuScreen.Playing;
             paused = false;
+            // Returning from pause: restore the normal gameplay track if the
+            // game-over jingle was playing (player recovered somehow).
+            if (gameoverMusicPlaying) SwitchToGameplayMusic();
         }
+
+        void SwitchToGameplayMusic()
+        {
+            gameoverMusicPlaying = false;
+            music?.Request(TrackForGameplay());
+        }
+
+        MusicTracks.Track TrackForGameplay() => gameplayMusic switch
+        {
+            2 => MusicTracks.Track.Gameplay2,
+            3 => MusicTracks.Track.Gameplay3,
+            4 => MusicTracks.Track.Gameplay4,
+            5 => MusicTracks.Track.Gameplay5,
+            _ => MusicTracks.Track.Gameplay1,
+        };
 
         void beginTransition(MenuScreen target, bool blink)
         {
@@ -175,7 +232,7 @@ namespace MonogameTest
                     mainSelection = 0;
                     // Swap music at the screen-change point so each track fades
                     // out fully before the next fades in.
-                    music?.Request(screen == MenuScreen.Playing ? MusicTracks.Track.Gameplay : MusicTracks.Track.Menu);
+                    music?.Request(screen == MenuScreen.Playing ? TrackForGameplay() : MusicTracks.Track.Menu);
                     transition = MenuTransition.FadeIn;
                 }
                 else
@@ -200,7 +257,8 @@ namespace MonogameTest
 
         bool usesTitleScene()
         {
-            return screen == MenuScreen.Main || (screen == MenuScreen.Options && optionsParent == MenuScreen.Main);
+            return screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
+                || (screen == MenuScreen.Options && optionsParent == MenuScreen.Main);
         }
 
         void drawTitleScene()
@@ -213,6 +271,22 @@ namespace MonogameTest
                 spriteBatch.Draw(beamPixel, new Rectangle(12, 70, 244, 70), Color.Black * 0.78f);
                 drawOptions(20, 78);
             }
+            else if (screen == MenuScreen.ModeSelect)
+            {
+                spriteBatch.Draw(beamPixel, new Rectangle(12, 70, 244, 70), Color.Black * 0.78f);
+                DrawStringBitmap(spriteBatch, "SELECT MODE", new Vector2(20, 76), new Color(255, 221, 134));
+                // Top row: Game A / Game B side by side. Brackets always mark
+                // the chosen game; amber marks the chosen item of the row the
+                // cursor is on, so both selections show brackets at once.
+                bool onGames = modeSelection == 0;
+                DrawModeItem("GAME A", selectedGame == 0, onGames && selectedGame == 0, 28, 92);
+                DrawModeItem("GAME B", selectedGame == 1, onGames && selectedGame == 1, 152, 92);
+                DrawStringBitmap(spriteBatch, "MUSIC", new Vector2(20, 110), new Color(240, 218, 160));
+                // Bottom row: Music 1..5. Brackets mark the chosen music.
+                bool onMusic = modeSelection == 1;
+                for (int i = 0; i < 5; i++)
+                    DrawModeItem($"{i + 1}", i + 1 == selectedMusic, onMusic && i + 1 == selectedMusic, 76 + i * 28, 110);
+            }
             else
             {
                 spriteBatch.Draw(beamPixel, new Rectangle(12, 74, 108, 64), Color.Black * 0.7f);
@@ -222,6 +296,15 @@ namespace MonogameTest
             }
             DrawStringBitmap(spriteBatch, "UP/DOWN  ENTER SELECT", new Vector2(14, 148), new Color(240, 218, 160));
             spriteBatch.End();
+        }
+
+        // Draws a mode-select item. Brackets mark the item the cursor row is
+        // on; the currently chosen item of each row stays amber at all times.
+        void DrawModeItem(string label, bool brackets, bool chosen, int left, int top)
+        {
+            Color color = chosen ? new Color(255, 225, 145) : Color.White;
+            string text = brackets ? "[" + label + "]" : " " + label + " ";
+            DrawStringBitmap(spriteBatch, text, new Vector2(left, top), color);
         }
 
         void drawPauseOverlay()
@@ -278,6 +361,7 @@ namespace MonogameTest
         void resetGame()
         {
             beamAudio?.Stop();
+            gameoverMusicPlaying = false;
             x = PLAYER_START_X;
             y = PLAYER_START_Y;
             facingright = 1;

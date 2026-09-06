@@ -12,7 +12,15 @@ namespace MonogameTest
     // by ramping MediaPlayer.Volume on the active track.
     sealed class MusicTracks : IDisposable
     {
-        public enum Track { None, Menu, Gameplay }
+        public enum Track { None, Menu, Gameplay1, Gameplay2, Gameplay3, Gameplay4, Gameplay5, Gameover }
+
+        // File name for each track (index = enum value).
+        static readonly string[] TrackFiles =
+        {
+            null, "menu.ogg", "gameplay1.ogg", "gameplay2.ogg", "gameplay3.ogg",
+            "gameplay4.ogg", "gameplay5.ogg", "gameover.ogg"
+        };
+        static readonly int TrackCount = TrackFiles.Length;
 
         // Fade durations in seconds.
         public double FadeOutSeconds = 1.2;
@@ -39,8 +47,8 @@ namespace MonogameTest
 
         enum State { Loading, Playing, FadingOut, FadingIn, Stopped }
         State state = State.Loading;
-        Task<(Song menu, Song gameplay)> pending;
-        Song menuSong, gameplaySong;
+        Task<Song[]> pending;
+        Song[] songs;
         Track current = Track.None;
         Track requested = Track.None;
         string status = "Loading music";
@@ -50,14 +58,16 @@ namespace MonogameTest
 
         public MusicTracks(string assetsDir)
         {
-            string menuPath = Path.Combine(assetsDir, "menu.ogg");
-            string gamePath = Path.Combine(assetsDir, "gameplay.ogg");
             // Songs are decoded lazily by MediaPlayer; construct off-thread.
             pending = Task.Run(() =>
             {
-                var menu = File.Exists(menuPath) ? Song.FromUri("menu", new Uri(menuPath)) : null;
-                var game = File.Exists(gamePath) ? Song.FromUri("gameplay", new Uri(gamePath)) : null;
-                return (menu, game);
+                var loaded = new Song[TrackCount];
+                for (int i = 1; i < TrackCount; i++)
+                {
+                    string path = Path.Combine(assetsDir, TrackFiles[i]);
+                    if (File.Exists(path)) loaded[i] = Song.FromUri(TrackFiles[i], new Uri(path));
+                }
+                return loaded;
             });
         }
 
@@ -95,9 +105,21 @@ namespace MonogameTest
             if (state == State.Playing) StartTrack(requested, 0);
         }
 
+        // Rapid fade used when the tank is destroyed — much faster than the
+        // normal crossfade so the music cuts out on the death hit.
+        public void StartFastFadeOut()
+        {
+            if (state == State.Loading || current == Track.None) return;
+            requested = Track.None;
+            state = State.FadingOut;
+            fadeTime = 0;
+            FadeOutSeconds = 0.25;
+        }
+
         void StartTrack(Track track, float volume)
         {
-            Song song = track == Track.Menu ? menuSong : track == Track.Gameplay ? gameplaySong : null;
+            int index = (int)track;
+            Song song = index > 0 && index < TrackCount ? songs[index] : null;
             if (song == null) { current = Track.None; return; }
             MediaPlayer.IsRepeating = true;
             MediaPlayer.Volume = volume;
@@ -115,13 +137,13 @@ namespace MonogameTest
                 if (!pending.IsCompleted) return;
                 try
                 {
-                    (menuSong, gameplaySong) = pending.GetAwaiter().GetResult();
+                    songs = pending.GetAwaiter().GetResult();
                     status = "Music loaded";
                 }
                 catch (Exception e)
                 {
                     status = "Music load failed: " + e.Message;
-                    menuSong = gameplaySong = null;
+                    songs = new Song[TrackCount];
                 }
                 state = State.Stopped;
                 // Apply whatever was requested while loading.
@@ -138,6 +160,7 @@ namespace MonogameTest
                     if (fadeTime >= FadeOutSeconds)
                     {
                         MediaPlayer.Stop();
+                        FadeOutSeconds = 1.2; // restore default for future fades
                         if (requested == Track.None) { current = Track.None; state = State.Stopped; }
                         else { StartTrack(requested, 0); state = State.FadingIn; fadeTime = 0; }
                     }
@@ -154,9 +177,8 @@ namespace MonogameTest
         public void Dispose()
         {
             MediaPlayer.Stop();
-            menuSong?.Dispose();
-            gameplaySong?.Dispose();
-            menuSong = gameplaySong = null;
+            if (songs != null) foreach (var s in songs) s?.Dispose();
+            songs = null;
         }
     }
 }

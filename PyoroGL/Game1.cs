@@ -531,6 +531,8 @@ namespace MonogameTest
         {
             if (column < 0 || column >= blockamount) return;
             angels.Add(new Angel(column));
+            // Friendly supply-drop "bwoop" as the parachute appears.
+            beamAudio?.PlayParachute();
         }
 
         // Advance angels: accelerate downward, place the block on reaching the floor
@@ -1364,6 +1366,7 @@ namespace MonogameTest
                 speed = (float)bigspeed / 256;
                 if (Keyboard.GetState().IsKeyDown(Keys.Left) && !pyorodead)// && x > PLAYFIELD_LEFT)
                 {
+                    beamAudio?.SetTankMove(true);
                     if (spaceheld == 0)
                     {
                         pyorosquat++;
@@ -1403,6 +1406,7 @@ namespace MonogameTest
                 }
                 if (Keyboard.GetState().IsKeyDown(Keys.Right) && !pyorodead)// && x < 184)
                 {
+                    beamAudio?.SetTankMove(true);
                     if (spaceheld == 0)
                     {
 
@@ -1564,6 +1568,7 @@ namespace MonogameTest
                 }
                 if (Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
                 {
+                    beamAudio?.SetTankMove(false);
 
                     if (recall == false)
                     {
@@ -1792,7 +1797,16 @@ namespace MonogameTest
                                 if (y <= bean_y[i] + 14 && bean_active[i])
                                 {
                                     bean_active[i] = false;
-                                    pyorodead = true;
+                                    if (!pyorodead)
+                                    {
+                                        // Tank hit: explosion sprite + boom, kill the
+                                        // tank-movement loop, and cut the music fast.
+                                        pyorodead = true;
+                                        beamAudio?.SetTankMove(false);
+                                        beamAudio?.PlayExplosion();
+                                        spawnExplosion(x + 8, y + 8);
+                                        music?.StartFastFadeOut();
+                                    }
                                 }
                             }
                         }
@@ -1887,7 +1901,13 @@ namespace MonogameTest
                     }
                     if(y > NATIVE_HEIGHT)
                     {
-                        gameover = true;
+                        if (!gameover)
+                        {
+                            gameover = true;
+                            // Fade from gameplay music into the game-over jingle.
+                            gameoverMusicPlaying = true;
+                            music?.Request(MusicTracks.Track.Gameover);
+                        }
                     }
                 }
 

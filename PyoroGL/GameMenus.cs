@@ -430,6 +430,7 @@ namespace MonogameTest
         void resetGame()
         {
             gameB = selectedGame == 1;
+            highScore = highScores.Get(gameB);
             muzzleFlashFrames = 0;
             previousShotDown = Keyboard.GetState().IsKeyDown(Keys.X);
             overlayExplosions.Clear();

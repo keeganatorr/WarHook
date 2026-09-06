@@ -78,14 +78,29 @@ namespace MonogameTest
             }
 
             int points = shotHits.Count >= 4 ? 1000 : shotHits.Count == 3 ? 300 : shotHits.Count == 2 ? 100 : 50;
+            bool hitRainbow = false;
             foreach (int i in shotHits)
             {
                 bean_active[i] = false;
+                rainbowClearQueue.Remove(i);
                 float centerX = bean_x[i] + current_bean_sprite[i].Width / 2f;
                 float centerY = bean_y[i] + current_bean_sprite[i].Height / 2f;
                 addScore(centerX, centerY, points);
                 spawnExplosion(centerX, centerY);
+                // Shooting special mortars retains their block-recovery reward.
+                // Use the shared queue so multiple hits reserve distinct gaps.
+                if (bean_type[i] == 1)
+                    block_recovery();
+                else if (bean_type[i] == 2)
+                {
+                    hitRainbow = true;
+                    for (int block = 0; block < rainbowbeantotal; block++)
+                        requestBlockRecovery(true);
+                }
             }
+            // All direct hits receive their combo points before the remaining
+            // mortars enter Game A's paced, 50-point rainbow explosion wave.
+            if (hitRainbow) queueRainbowClear();
         }
 
         // Intersect a finite, zero-width ray with the mortar's sprite bounds.

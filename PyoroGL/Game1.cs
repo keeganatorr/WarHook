@@ -35,6 +35,7 @@ namespace MonogameTest
             graphics.SynchronizeWithVerticalRetrace = true;
             Content.RootDirectory = "Content";
             Window.AllowUserResizing = true;
+            Exiting += (sender, args) => highScores.Flush();
             // Allow starting with the debug menu enabled: run with "--debug".
             string[] args = Environment.GetCommandLineArgs();
             foreach (string arg in args)
@@ -200,6 +201,9 @@ namespace MonogameTest
         int time_until_new_bean = 0x0;
         int score = 0;
         int highScore = 10000;
+        readonly HighScoreStore highScores = new HighScoreStore(System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Warhook", "highscores.json"));
         
         int tmpspeed = 0x0;
         int randnum2 = 0x0;
@@ -506,6 +510,17 @@ namespace MonogameTest
             beamAudio?.PlayExplosion();
         }
 
+        // Shared rainbow burst: append living mortars without restarting an active wave.
+        void queueRainbowClear()
+        {
+            bool wasClearing = rainbowClearQueue.Count > 0;
+            for (int i = 0; i < max_amount_of_beans; i++)
+                if (bean_active[i] && !rainbowClearQueue.Contains(i))
+                    rainbowClearQueue.Add(i);
+            rainbowClearQueue.Sort((a, b) => bean_y[b].CompareTo(bean_y[a]));
+            if (!wasClearing) rainbowClearTimer = 0;
+        }
+
         // Clear queued beans one by one (lowest first) after a rainbow bean is
         // grabbed. One bean clears every few frames.
         void updateRainbowClear()
@@ -627,7 +642,7 @@ namespace MonogameTest
         void addScore(float x, float y, int pts)
         {
             score += pts;
-            highScore = Math.Max(highScore, score);
+            highScore = highScores.Record(gameB, score);
             scorePopups.Add(new ScorePopup(x, y, pts));
         }
 
@@ -701,13 +716,15 @@ namespace MonogameTest
         /// </summary>
         protected override void Initialize()
         {
+            highScore = highScores.Get(gameB);
             // TODO: Add your initialization logic here
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
-            // Start the 16:9 window at 4x scale (1152x648).
-            graphics.PreferredBackBufferWidth = NATIVE_WIDTH * gameSize;
-            graphics.PreferredBackBufferHeight = NATIVE_HEIGHT * gameSize;
+            // Half each monitor dimension gives one-quarter of its screen area.
+            DisplayMode monitor = GraphicsDevice.Adapter.CurrentDisplayMode;
+            graphics.PreferredBackBufferWidth = Math.Max(NATIVE_WIDTH, monitor.Width / 2);
+            graphics.PreferredBackBufferHeight = Math.Max(NATIVE_HEIGHT, monitor.Height / 2);
             graphics.ApplyChanges();
             computeIntegerScale();
             x = PLAYER_START_X;
@@ -1152,6 +1169,7 @@ namespace MonogameTest
         /// </summary>
         protected override void UnloadContent()
         {
+            highScores.Flush();
             beamAudio?.Dispose();
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             muzzleFlashSprite.Dispose();
@@ -1689,17 +1707,7 @@ namespace MonogameTest
                                                         }
                                                         if (bean_type[i] == 2)
                                                         {
-                                                            // Queue the other active beans to disappear one by one,
-                                                            // lowest first (highest y first).
-                                                            bool wasClearing = rainbowClearQueue.Count > 0;
-                                                            for (int j = 0; j < max_amount_of_beans; j++)
-                                                            {
-                                                                if (bean_active[j] && !rainbowClearQueue.Contains(j))
-                                                                    rainbowClearQueue.Add(j);
-                                                            }
-                                                            // Sort descending by y so the lowest bean clears first.
-                                                            rainbowClearQueue.Sort((a, b) => bean_y[b].CompareTo(bean_y[a]));
-                                                            if (!wasClearing) rainbowClearTimer = 0;
+                                                            queueRainbowClear();
                                                             for (int j = 0; j < rainbowbeantotal; j++)
                                                             {
                                                                 requestBlockRecovery(true);

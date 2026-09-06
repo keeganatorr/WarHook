@@ -60,3 +60,10 @@ destroys every mortar intersecting the invisible 45-degree line from the barrel
 in the direction the tank faces. Each destroyed mortar explodes and scores
 50 points for a one-hit shot, 100 each for two, 300 each for three, or 1000 each
 for four or more. Shots only destroy mortars on the line.
+
+Game A and Game B keep separate persistent high scores. New records save
+automatically in the background and pending writes finish when the game exits.
+Saves use the OS local application-data folder: typically
+`~/.local/share/Warhook/highscores.json` on Linux (or under `XDG_DATA_HOME`
+when set), and `%LOCALAPPDATA%/Warhook/highscores.json` on Windows.
+Each mode starts with the existing 10,000-point high-score target.

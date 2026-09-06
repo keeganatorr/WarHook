@@ -470,7 +470,10 @@ namespace MonogameTest
         {
             // Only start one explosion per position at a time.
             if (!explosions.Exists(e => e.x == x && e.y == y))
+            {
                 explosions.Add(new Explosion(x, y));
+                beamAudio?.PlayExplosion();
+            }
         }
 
         // Advance all active explosions through their 3-frame animation.
@@ -744,6 +747,7 @@ namespace MonogameTest
             beamAudio = new BeamAudio(audioSettings);
             music = new MusicTracks(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets"));
             music.Request(MusicTracks.Track.Menu);
+            ApplyVolumes();
             mainMenuBackground = loadPng("mainmenu");
             mainMenuTitle = loadPng("title");
             playfieldRasterizer = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };

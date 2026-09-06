@@ -17,6 +17,11 @@ namespace MonogameTest
         const double BLINK_INTERVAL = 0.15;
         const double FADE_SECONDS = 0.45;
         int mainSelection, pauseSelection, optionsSelection;
+        // Volume controls (0..10 steps). Sound defaults to 100%, music to 80%.
+        public int soundVolume = 10;
+        public int musicVolume = 8;
+        const int VolumeSteps = 10;
+        static readonly string[] optionsItems = { "FULLSCREEN", "SOUND", "MUSIC", "BACK" };
         KeyboardState previousMenuKeys;
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
@@ -95,7 +100,7 @@ namespace MonogameTest
             }
             else if (screen == MenuScreen.Options)
             {
-                optionsSelection = (optionsSelection + move + 2) % 2;
+                optionsSelection = (optionsSelection + move + optionsItems.Length) % optionsItems.Length;
                 int adjust = 0;
                 if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) adjust--;
                 if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) adjust++;
@@ -105,7 +110,19 @@ namespace MonogameTest
                     graphics.ToggleFullScreen();
                     computeIntegerScale();
                 }
-                else if (optionsSelection == 1 && accept)
+                else if (optionsSelection == 1 && adjust != 0)
+                {
+                    soundVolume = Math.Clamp(soundVolume + adjust, 0, VolumeSteps);
+                    ApplyVolumes();
+                    beamAudio?.PlayMenuBlip();
+                }
+                else if (optionsSelection == 2 && adjust != 0)
+                {
+                    musicVolume = Math.Clamp(musicVolume + adjust, 0, VolumeSteps);
+                    ApplyVolumes();
+                    beamAudio?.PlayMenuBlip();
+                }
+                else if (optionsSelection == 3 && accept)
                     screen = optionsParent;
             }
             return true;
@@ -116,6 +133,14 @@ namespace MonogameTest
             optionsParent = parent;
             optionsSelection = 0;
             screen = MenuScreen.Options;
+        }
+
+        // Push current volume settings into the audio systems. Music default
+        // is 80% (musicVolume=8), sound effects 100% (soundVolume=10).
+        void ApplyVolumes()
+        {
+            if (music != null) music.Volume = (float)musicVolume / VolumeSteps;
+            if (beamAudio != null) beamAudio.VolumeScale = (float)soundVolume / VolumeSteps;
         }
 
         void resumeGame()
@@ -216,7 +241,22 @@ namespace MonogameTest
         void drawOptions(int left, int top)
         {
             drawMenuItem("FULLSCREEN: " + (graphics.IsFullScreen ? "ON" : "OFF"), optionsSelection == 0, left, top);
-            drawMenuItem("BACK", optionsSelection == 1, left, top + 18);
+            drawMenuItem("SOUND", optionsSelection == 1, left, top + 18);
+            drawMenuItem("MUSIC", optionsSelection == 2, left, top + 36);
+            drawMenuItem("BACK", optionsSelection == 3, left, top + 54);
+            // Sliders share one right-aligned edge, independent of the labels.
+            DrawVolumeBar(NATIVE_WIDTH - 20, top + 18, soundVolume);
+            DrawVolumeBar(NATIVE_WIDTH - 20, top + 36, musicVolume);
+        }
+
+        // Draws a volume slider like [||||||||--]  80% at bitmap-font scale,
+        // with the percentage padded so every row is the same width.
+        void DrawVolumeBar(int rightEdge, int top, int value)
+        {
+            Color color = new Color(255, 225, 145);
+            string text = "[" + new string('|', value) + new string('-', VolumeSteps - value) + "] "
+                + (value * 10).ToString().PadLeft(4) + "%";
+            DrawStringBitmap(spriteBatch, text, new Vector2(rightEdge - text.Length * FONT_CELL, top), color);
         }
 
         void drawMenuItem(string label, bool selected, int left, int top, bool bracketsVisible = true)

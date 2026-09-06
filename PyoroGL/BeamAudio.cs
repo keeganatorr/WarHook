@@ -65,6 +65,16 @@ namespace MonogameTest
             public double ConfirmSweepSeconds { get; set; } = 0.07;
             public double ConfirmHoldSeconds { get; set; } = 0.09;
             public double ConfirmTailSeconds { get; set; } = 0.08;
+            // Synth explosion: filtered noise burst with a downward pitch
+            // sweep and a sub-bass thump, like a retro console boom.
+            public double ExplosionGain { get; set; } = 0.7;
+            public double ExplosionSeconds { get; set; } = 0.35;
+            public double ExplosionStartHz { get; set; } = 900;   // noise band top
+            public double ExplosionEndHz { get; set; } = 60;     // noise band bottom
+            public double ExplosionThumpHz { get; set; } = 55;   // sub thump pitch
+            public double ExplosionThumpLevel { get; set; } = 0.9;
+            public double ExplosionNoiseLevel { get; set; } = 1.0;
+            public double ExplosionCrackleLevel { get; set; } = 0.35;
         }
         readonly string path;
         Task<(Settings settings, byte[][] pcm)> pending;
@@ -74,6 +84,9 @@ namespace MonogameTest
         bool wasActive, wasCaught, suspended;
         static readonly int[] LoopIndices = { 1, 3 };
         Voice[] specs;
+        // User sound-effect volume (0..1) from the options menu, multiplied
+        // into every voice's playback volume on top of MasterVolume.
+        public float VolumeScale { get; set; } = 1f;
         public string Status { get; private set; } = "Loading";
         public BeamAudio(string path) { this.path = path; Reload(); }
         public void Reload()
@@ -87,10 +100,11 @@ namespace MonogameTest
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };
-                var pcm = new byte[6][];
+                var pcm = new byte[7][];
                 for (int i=0; i<4; i++) pcm[i] = Generate(config, specs[i]);
                 pcm[4] = GenerateMenuBlip(config);
                 pcm[5] = GenerateConfirm(config);
+                pcm[6] = GenerateExplosion(config);
                 return (config, pcm);
             });
         }
@@ -111,6 +125,13 @@ namespace MonogameTest
                     v.StartHz < 1 || v.StartHz > 5000 || Math.Abs(v.SweepOctaves)>5 ||
                     v.Attack < 0 || v.Release < 0 || v.PullRise < 0 || v.RampDecay < 0 || v.RampDecay>10)
                     throw new InvalidDataException("Invalid phase duration, gain, frequency, sweep, or envelope.");
+            if (s.ExplosionSeconds < .05 || s.ExplosionSeconds > 3 || s.ExplosionGain < 0 || s.ExplosionGain > 1 ||
+                s.ExplosionEndHz < 1 || s.ExplosionEndHz > s.ExplosionStartHz || s.ExplosionStartHz > 8000 ||
+                s.ExplosionThumpHz < 1 || s.ExplosionThumpHz > 500 ||
+                s.ExplosionThumpLevel < 0 || s.ExplosionThumpLevel > 2 ||
+                s.ExplosionNoiseLevel < 0 || s.ExplosionNoiseLevel > 2 ||
+                s.ExplosionCrackleLevel < 0 || s.ExplosionCrackleLevel > 2)
+                throw new InvalidDataException("Invalid explosion settings.");
         }
         internal static byte[] Generate(Settings s, Voice v)
         {
@@ -210,13 +231,56 @@ namespace MonogameTest
             }
             return pcm;
         }
+        // Synth explosion (index 6): a burst of noise whose band sweeps down
+        // from ExplosionStartHz to ExplosionEndHz, layered over a decaying sub
+        // thump and a crackle tail. Mono 16-bit PCM like the rest.
+        internal static byte[] GenerateExplosion(Settings s)
+        {
+            int rate=s.SampleRate;
+            int count=(int)(rate*s.ExplosionSeconds);
+            var pcm=new byte[count*2];
+            var random=new Random(9176);
+            double phase=0;
+            double previousNoise=0;
+            for (int i=0;i<count;i++)
+            {
+                double t=(double)i/rate, pos=t/s.ExplosionSeconds;
+                // Noise band centre sweeps down exponentially over the burst.
+                double hz=s.ExplosionStartHz*Math.Pow(s.ExplosionEndHz/s.ExplosionStartHz, Math.Min(1, pos*1.6));
+                // Ring-modulated noise reads as a pitched boom rather than hiss.
+                double noise=random.NextDouble()*2-1;
+                double boom=noise*Math.Sin(2*Math.PI*hz*t);
+                // Crackle: differentiated noise, harsher early in the burst.
+                double crackle=(noise-previousNoise)*s.ExplosionCrackleLevel*(1-pos);
+                previousNoise=noise;
+                // Sub thump: exponential pitch drop, fast decay.
+                double thumpHz=s.ExplosionThumpHz*(1+2.5*Math.Exp(-t*30));
+                phase+=thumpHz/rate;
+                double thump=Math.Sin(2*Math.PI*phase)*Math.Exp(-t*9)*s.ExplosionThumpLevel;
+                // Envelope: instant attack, exponential decay over the burst.
+                double env=Math.Exp(-3.5*pos);
+                double value=(boom*s.ExplosionNoiseLevel+crackle)*env+thump*env;
+                short sample=(short)(Math.Clamp(value,-1,1)*s.ExplosionGain*.9*32767);
+                pcm[i*2]=(byte)(sample & 255); pcm[i*2+1]=(byte)((sample >> 8)&255);
+            }
+            return pcm;
+        }
         // Fire the menu blip (index 4). Safe to call before audio finishes loading.
         public void PlayMenuBlip()
         {
             if (voices == null || voices.Length < 6 || voices[4] == null) return;
             var v=voices[4];
             v.Stop();
-            v.Volume=(float)Math.Clamp(settings.MenuGain,0,1);
+            v.Volume=(float)Math.Clamp(settings.MenuGain*VolumeScale,0,1);
+            v.Play();
+        }
+        // Fire the synth explosion (index 6). Safe to call before audio loads.
+        public void PlayExplosion()
+        {
+            if (voices == null || voices.Length < 7 || voices[6] == null) return;
+            var v=voices[6];
+            v.Stop();
+            v.Volume=(float)Math.Clamp(settings.MasterVolume*settings.ExplosionGain*VolumeScale,0,1);
             v.Play();
         }
         // Fire the confirm "ba-LEAP" (index 5). Safe to call before audio loads.
@@ -225,18 +289,18 @@ namespace MonogameTest
             if (voices == null || voices.Length < 6 || voices[5] == null) return;
             var v=voices[5];
             v.Stop();
-            v.Volume=(float)Math.Clamp(settings.ConfirmGain,0,1);
+            v.Volume=(float)Math.Clamp(settings.ConfirmGain*VolumeScale,0,1);
             v.Play();
         }
         void PollReload()
         {
             if (pending == null || !pending.IsCompleted) return;
-            var replacements=new SoundEffect[6];
-            var instances=new SoundEffectInstance[6];
+            var replacements=new SoundEffect[7];
+            var instances=new SoundEffectInstance[7];
             try
             {
                 var result=pending.GetAwaiter().GetResult();
-                for (int i=0;i<6;i++)
+                for (int i=0;i<replacements.Length;i++)
                 {
                     replacements[i]=new SoundEffect(result.pcm[i],result.settings.SampleRate,AudioChannels.Mono);
                     instances[i]=replacements[i].CreateInstance();
@@ -263,24 +327,24 @@ namespace MonogameTest
             if (voices == null) return;
             if (paused)
             {
-                if (!suspended) foreach (var v in voices) if (v.State==SoundState.Playing) v.Pause();
+                if (!suspended) foreach (var v in voices) if (v!=null && v.State==SoundState.Playing) v.Pause();
                 suspended=true; return;
             }
             if (suspended)
             {
-                foreach (var v in voices) if (v.State==SoundState.Paused) v.Resume();
+                foreach (var v in voices) if (v!=null && v.State==SoundState.Paused) v.Resume();
                 suspended=false;
             }
             void pulse(int index)
             {
-                voices[index].Stop(); voices[index].Volume=(float)(settings.MasterVolume*specs[index].Gain); voices[index].Play();
+                voices[index].Stop(); voices[index].Volume=(float)(settings.MasterVolume*specs[index].Gain*VolumeScale); voices[index].Play();
             }
             if (active && !wasActive) pulse(0);
             if (active && caught && !wasCaught) pulse(2);
             int desiredLoop=active ? (returning ? 3 : 1) : -1;
             foreach (int i in LoopIndices)
             {
-                float target=i==desiredLoop ? (float)(settings.MasterVolume*specs[i].Gain) : 0;
+                float target=i==desiredLoop ? (float)(settings.MasterVolume*specs[i].Gain*VolumeScale) : 0;
                 float step=(float)(seconds/settings.TransitionSeconds);
                 voices[i].Volume=Math.Clamp(voices[i].Volume+Math.Clamp(target-voices[i].Volume,-step,step),0,1);
                 if (target>0 && voices[i].State==SoundState.Stopped) voices[i].Play();
@@ -290,7 +354,7 @@ namespace MonogameTest
         }
         public void Stop()
         {
-            if (voices != null) foreach (var voice in voices) { voice.Stop(); voice.Volume=0; }
+            if (voices != null) foreach (var voice in voices) { if (voice==null) continue; voice.Stop(); voice.Volume=0; }
             wasActive=wasCaught=suspended=false;
         }
         // Stop only the beam voices (0..3), leaving the menu blip (4) alone so

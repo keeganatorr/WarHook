@@ -20,6 +20,11 @@ namespace MonogameTest
 
         const float TargetVolume = 0.6f;
 
+        // User music volume (0..1) from the options menu, scaled on top of
+        // TargetVolume everywhere it is applied.
+        public float Volume { get; set; } = 0.8f;
+        float EffectiveTarget => TargetVolume * Volume;
+
         enum State { Loading, Playing, FadingOut, FadingIn, Stopped }
         State state = State.Loading;
         Task<(Song menu, Song gameplay)> pending;
@@ -54,7 +59,7 @@ namespace MonogameTest
             {
                 // First track: start at full volume. (StartTrack(track, 0)
                 // would leave it inaudible because Playing has no fade ramp.)
-                StartTrack(track, TargetVolume);
+                StartTrack(track, EffectiveTarget);
                 state = State.Playing;
                 return;
             }
@@ -116,7 +121,7 @@ namespace MonogameTest
             {
                 case State.FadingOut:
                     fadeTime += seconds;
-                    float outLevel = MathHelper.Clamp(1 - (float)(fadeTime / FadeOutSeconds), 0, 1) * TargetVolume;
+                    float outLevel = MathHelper.Clamp(1 - (float)(fadeTime / FadeOutSeconds), 0, 1) * EffectiveTarget;
                     MediaPlayer.Volume = outLevel;
                     if (fadeTime >= FadeOutSeconds)
                     {
@@ -127,9 +132,9 @@ namespace MonogameTest
                     break;
                 case State.FadingIn:
                     fadeTime += seconds;
-                    float inLevel = MathHelper.Clamp((float)(fadeTime / FadeInSeconds), 0, 1) * TargetVolume;
+                    float inLevel = MathHelper.Clamp((float)(fadeTime / FadeInSeconds), 0, 1) * EffectiveTarget;
                     MediaPlayer.Volume = inLevel;
-                    if (fadeTime >= FadeInSeconds) { MediaPlayer.Volume = TargetVolume; state = State.Playing; }
+                    if (fadeTime >= FadeInSeconds) { MediaPlayer.Volume = EffectiveTarget; state = State.Playing; }
                     break;
             }
         }

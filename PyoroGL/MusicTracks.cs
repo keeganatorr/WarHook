@@ -22,8 +22,20 @@ namespace MonogameTest
 
         // User music volume (0..1) from the options menu, scaled on top of
         // TargetVolume everywhere it is applied.
-        public float Volume { get; set; } = 0.8f;
-        float EffectiveTarget => TargetVolume * Volume;
+        float volume = 0.8f;
+        public float Volume
+        {
+            get => volume;
+            set
+            {
+                volume = MathHelper.Clamp(value, 0, 1);
+                // Re-apply immediately so the slider affects the track that is
+                // already playing, not just future starts/fades.
+                if (state == State.Playing)
+                    MediaPlayer.Volume = EffectiveTarget;
+            }
+        }
+        float EffectiveTarget => TargetVolume * volume;
 
         enum State { Loading, Playing, FadingOut, FadingIn, Stopped }
         State state = State.Loading;

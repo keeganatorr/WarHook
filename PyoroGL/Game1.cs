@@ -485,13 +485,13 @@ namespace MonogameTest
 
         // Play a 3-frame 16x16 explosion animation at a native (288x162) position.
         // Mirrors the pico-8 smoke/burst used when a block or bean disappears.
-        void spawnExplosion(float x, float y)
+        void spawnExplosion(float x, float y, bool playSound = true)
         {
             // Only start one explosion per position at a time.
             if (!explosions.Exists(e => e.x == x && e.y == y))
             {
                 explosions.Add(new Explosion(x, y));
-                beamAudio?.PlayExplosion();
+                if (playSound) beamAudio?.PlayExplosion();
             }
         }
 

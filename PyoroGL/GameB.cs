@@ -61,7 +61,6 @@ namespace MonogameTest
         void fireGameBShot()
         {
             muzzleFlashFrames = 6;
-            beamAudio?.PlayGameBShot();
             // Same barrel tip and 45-degree direction as the tractor beam.
             float originX = (float)Math.Round(x + tongueoffsetX + (facingright == 1 ? rightoffset : 0));
             float originY = (float)Math.Round(y + tongueoffsetY);
@@ -77,6 +76,7 @@ namespace MonogameTest
                     shotHits.Add(i);
             }
 
+            beamAudio?.PlayGameBShot(shotHits.Count > 0);
             int points = shotHits.Count >= 4 ? 1000 : shotHits.Count == 3 ? 300 : shotHits.Count == 2 ? 100 : 50;
             bool hitRainbow = false;
             foreach (int i in shotHits)
@@ -86,7 +86,8 @@ namespace MonogameTest
                 float centerX = bean_x[i] + current_bean_sprite[i].Width / 2f;
                 float centerY = bean_y[i] + current_bean_sprite[i].Height / 2f;
                 addScore(centerX, centerY, points);
-                spawnExplosion(centerX, centerY);
+                // Direct-hit audio is already mixed with the muzzle flash.
+                spawnExplosion(centerX, centerY, false);
                 // Shooting special mortars retains their block-recovery reward.
                 // Use the shared queue so multiple hits reserve distinct gaps.
                 if (bean_type[i] == 1)

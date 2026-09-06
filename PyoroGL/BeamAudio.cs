@@ -117,7 +117,7 @@ namespace MonogameTest
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };
-                var pcm = new byte[10][];
+                var pcm = new byte[11][];
                 for (int i=0; i<4; i++) pcm[i] = Generate(config, specs[i]);
                 pcm[4] = GenerateMenuBlip(config);
                 pcm[5] = GenerateConfirm(config);
@@ -125,6 +125,7 @@ namespace MonogameTest
                 pcm[7] = GenerateParachute(config);
                 pcm[8] = GenerateTankMove(config);
                 pcm[9] = GenerateGameBShot(config);
+                pcm[10] = MixGameBHit(config, pcm[9], pcm[6]);
                 return (config, pcm);
             });
         }
@@ -380,12 +381,33 @@ namespace MonogameTest
             return pcm;
         }
 
-        public void PlayGameBShot()
+        // A single buffer starts the muzzle crack and impact on the same sample.
+        // Give the brief shot transient room, then bring up the explosion tail.
+        internal static byte[] MixGameBHit(Settings s, byte[] shot, byte[] explosion)
         {
-            if (voices == null || voices.Length < 10) return;
-            var voice = voices[9];
+            var pcm = new byte[Math.Max(shot.Length, explosion.Length)];
+            for (int i = 0; i < pcm.Length; i += 2)
+            {
+                double t = (double)(i / 2) / s.SampleRate;
+                double muzzle = i < shot.Length ? (short)(shot[i] | shot[i + 1] << 8) / 32768.0 : 0;
+                double impact = i < explosion.Length ? (short)(explosion[i] | explosion[i + 1] << 8) / 32768.0 : 0;
+                double impactLevel = .22 + .78 * Math.Clamp((t - .025) / .085, 0, 1);
+                short sample = (short)(Math.Clamp(muzzle * s.GameBShotGain +
+                    impact * s.ExplosionGain * impactLevel, -1, 1) * 32767);
+                pcm[i] = (byte)(sample & 255);
+                pcm[i + 1] = (byte)((sample >> 8) & 255);
+            }
+            return pcm;
+        }
+
+        public void PlayGameBShot(bool directHit = false)
+        {
+            if (voices == null || voices.Length < 11) return;
+            var voice = voices[directHit ? 10 : 9];
             voice.Stop();
-            voice.Volume = (float)Math.Clamp(settings.MasterVolume * settings.GameBShotGain * VolumeScale, 0, 1);
+            // The direct-hit buffer already contains both per-effect gains.
+            voice.Volume = (float)Math.Clamp(settings.MasterVolume *
+                (directHit ? 1 : settings.GameBShotGain) * VolumeScale, 0, 1);
             voice.Play();
         }
 
@@ -444,8 +466,8 @@ namespace MonogameTest
         void PollReload()
         {
             if (pending == null || !pending.IsCompleted) return;
-            var replacements=new SoundEffect[10];
-            var instances=new SoundEffectInstance[10];
+            var replacements=new SoundEffect[11];
+            var instances=new SoundEffectInstance[11];
             try
             {
                 var result=pending.GetAwaiter().GetResult();

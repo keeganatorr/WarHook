@@ -380,7 +380,12 @@ namespace MonogameTest
                     drawMenuItem(mainItems[i], i == mainSelection, 20, 76 + i * 13,
                         i != 0 || startBracketsVisible());
             }
-            DrawStringBitmap(spriteBatch, "UP/DOWN  ENTER SELECT", new Vector2(14, 148), new Color(240, 218, 160));
+            string hint = screen == MenuScreen.ModeSelect
+                ? "LEFT/RIGHT MOVE   X FIRE"
+                : "UP/DOWN  ENTER/X SELECT";
+            spriteBatch.Draw(beamPixel, new Rectangle(10, 144, hint.Length * FONT_CELL + 8, FONT_CELL + 8),
+                Color.Black * 0.7f);
+            DrawStringBitmap(spriteBatch, hint, new Vector2(14, 148), new Color(240, 218, 160));
             spriteBatch.End();
         }
 

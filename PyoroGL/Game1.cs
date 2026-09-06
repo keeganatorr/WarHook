@@ -173,7 +173,7 @@ namespace MonogameTest
         float tongueX, tongueY;
         int facingright = 1;
         int tongueoffsetX, tongueoffsetY;
-        int rightoffset = 13;
+        int rightoffset = 14; // 14: one pixel right of the barrel tip
         int spaceheld = 0;
         float tonguecount = 0;
         bool recall = false;

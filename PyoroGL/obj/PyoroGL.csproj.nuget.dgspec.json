@@ -8,7 +8,7 @@
       "version": "1.0.0",
       "restore": {
         "projectUniqueName": "/home/keegan/Repos/pyoro/PyoroGL/PyoroGL.csproj",
-        "projectName": "MonogameTest",
+        "projectName": "WarHook",
         "projectPath": "/home/keegan/Repos/pyoro/PyoroGL/PyoroGL.csproj",
         "packagesPath": "/home/keegan/.nuget/packages/",
         "outputPath": "/home/keegan/Repos/pyoro/PyoroGL/obj/",

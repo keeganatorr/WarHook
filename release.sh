@@ -18,7 +18,7 @@ VER="${2:-1.0}"
 
 # 2. Clean each dist: remove PDBs and stray screenshots.
 for RID in linux-x64 win-x64; do
-    rm -f "dist/$RID/MonogameTest.pdb"
+    rm -f "dist/$RID/WarHook.pdb"
     rm -rf "dist/$RID/screenshots"
 done
 
@@ -28,11 +28,11 @@ for RID in linux-x64 win-x64; do
 $NAME $VER ($RID)
 
 Run:
-  linux-x64:  chmod +x MonogameTest && ./MonogameTest
-  win-x64:    run MonogameTest.exe
+  linux-x64:  chmod +x WarHook && ./WarHook
+  win-x64:    run WarHook.exe
 
 Files:
-  MonogameTest    the game (single-file, self-contained — no install needed)
+  WarHook    the game (single-file, self-contained — no install needed)
   Assets/         runtime art + audio (menu/gameplay/gameover music, sprites)
   Content/        compiled spritefont data
 

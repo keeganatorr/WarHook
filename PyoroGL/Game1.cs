@@ -36,12 +36,9 @@ namespace MonogameTest
             Content.RootDirectory = "Content";
             Window.AllowUserResizing = true;
             Exiting += (sender, args) => highScores.Flush();
-            // Allow starting with the debug menu enabled: run with "--debug".
             string[] args = Environment.GetCommandLineArgs();
             foreach (string arg in args)
             {
-                if (arg == "--debug" || arg == "-d")
-                    showDebugMenu = true;
                 // --shots: capture promo screenshots automatically (menu,
                 // Game A firing, Game B firing) then exit.
                 if (arg == "--shots")
@@ -89,8 +86,7 @@ namespace MonogameTest
         int targetFPS = 60;
 
         SpriteFont arial;
-        SpriteFont smallfont;
-        // Pixel-perfect 8x8 bitmap font atlas (Assets/font8x8_atlas.png):
+        SpriteFont smallfont;        // Pixel-perfect 8x8 bitmap font atlas (Assets/font8x8_atlas.png):
         // 16 columns of ASCII 32..126, binary alpha, zero anti-aliasing.
         Texture2D fontAtlas;
         // 6x6 pixel font for score popups and the MUSIC HUD readout.
@@ -113,20 +109,11 @@ namespace MonogameTest
         private Texture2D pyorodeadleft;
         private Texture2D pyorodeadright;
         private Texture2D frame;
-        private Texture2D block;
         // 4-variant 8x8 brick-face atlas (Assets/block_atlas.png) for floor blocks.
         private Texture2D blockAtlas;
-        private Texture2D collisionblock;
-        private Texture2D beamPixel;
         private int beamWidth = 3;
         private KeyboardState previousBeamKeys;
-        // Start with the debug menu open when "--debug" is passed on the
-        // command line (or START_DEBUG_MENU is set to true below).
-        private const bool START_DEBUG_MENU = false;
-        private bool showDebugMenu = START_DEBUG_MENU;
-        private KeyboardState previousDebugKeys;
         private BeamAudio beamAudio;
-        private bool blockEditingEnabled = false;
 
         // Continuous camo plasma at native pixel resolution, scaled without smoothing.
         const int CAMO_WIDTH = 96;
@@ -146,7 +133,6 @@ namespace MonogameTest
             get { return beamWidth; }
             set { beamWidth = Math.Clamp(value, 1, 20); }
         }
-        private Texture2D select;
         MusicTracks music;
         private Texture2D[] mortarFrames;
         private Texture2D bean_centre;
@@ -162,11 +148,8 @@ namespace MonogameTest
         private Texture2D temp_bean_sprite;
         private Texture2D background;
         private Rectangle backgroundSource;
-        private Texture2D scoreLabel;
-        private Texture2D highScoreLabel;
+        private Texture2D beamPixel;
 
-        private Texture2D gameoversprite;
-        private Texture2D scoresSprite;
 
         //Timer t1sec = new Timer(1000);
         int blockamount = BLOCK_COUNT;
@@ -830,8 +813,6 @@ namespace MonogameTest
             yellowTankLeft = makeYellowTank(pyoroleft);
             pyoro = pyororight;
             loadBackdrop();
-            scoreLabel = loadPng("score");
-            highScoreLabel = loadPng("highscore");
             loadMortarFrames();
             temp_bean_sprite = bean_centre;
             for (int i = 0; i < max_amount_of_beans; i++)
@@ -840,17 +821,12 @@ namespace MonogameTest
             }
             frame = loadPng("framewide");
             prepareFrameSlices();
-            block = Content.Load<Texture2D>("block");
             blockAtlas = loadPng("block_atlas");
-            collisionblock = Content.Load<Texture2D>("collisionblock");
             explosionSprite = loadEffectSheet("explosion-new", 3);
             angelSprite = loadEffectSheet("parachute", 2);
             beamPixel = new Texture2D(GraphicsDevice, 1, 1);
             beamPixel.SetData(new[] { Color.White });
             borderCamo = new Texture2D(GraphicsDevice, CAMO_WIDTH, CAMO_HEIGHT);
-            select = Content.Load<Texture2D>("select");
-            gameoversprite = Content.Load<Texture2D>("gameoversprite");
-            scoresSprite = Content.Load<Texture2D>("scores");
             // The widescreen playfield uses BLOCK_COUNT eight-pixel floor columns.
             // TODO: use this.Content to load your game content here
         }
@@ -1072,52 +1048,6 @@ namespace MonogameTest
                 new Vector2(width, width), SpriteEffects.None, 0f);
         }
 
-        // Draw an on-screen debug overlay showing live game-state values. Held
-        // open with F1; content updates every frame.
-        void drawDebugMenu(SpriteBatch batch)
-        {
-            int panelX = 8, panelY = 8, panelW = NATIVE_WIDTH - 16;
-            // Semi-transparent backdrop.
-            batch.Draw(beamPixel, new Rectangle(panelX, panelY, panelW, 118),
-                new Color(0, 0, 0, 180));
-
-            string[] lines = new string[]
-            {
-                "=== DEBUG (F1 to close) ===",
-                $"BeamWidth (tractor):  {BeamWidth}   ([ / ] adjust)",
-                $"Score:                {score}",
-                $"HighScore:            {highScore}",
-                $"Paused:               {paused}",
-                $"GameOver:             {gameover}",
-                $"Pyoro x: {x:0.0}   y: {y:0.0}",
-                $"Active beans:         {countActiveBeans()}",
-                $"Blocks present:       {countActiveBlocks()}"
-            };
-
-            int ty = panelY + 6;
-            foreach (string line in lines)
-            {
-                DrawStringBitmap(batch, line, new Vector2(panelX + 6, ty), Color.White);
-                ty += 11;
-            }
-        }
-
-        int countActiveBeans()
-        {
-            int n = 0;
-            for (int i = 0; i < max_amount_of_beans; i++)
-                if (bean_active[i]) n++;
-            return n;
-        }
-
-        int countActiveBlocks()
-        {
-            int n = 0;
-            for (int i = 0; i < blockamount; i++)
-                if (blocks[i]) n++;
-            return n;
-        }
-
         void prepareFrameSlices()
         {
             // Nine-slice the supplied frame. The new frame sprite has a
@@ -1195,8 +1125,6 @@ namespace MonogameTest
             beamPixel.Dispose();
             background.Dispose();
             frame.Dispose();
-            scoreLabel.Dispose();
-            highScoreLabel.Dispose();
             playfieldRasterizer.Dispose();
             _nativeRenderTarget.Dispose();
             spriteBatch.Dispose();
@@ -1211,8 +1139,6 @@ namespace MonogameTest
         {
             KeyboardState beamKeys = Keyboard.GetState();
             if (shotsMode) { UpdateShots(gameTime); }
-            if (beamKeys.IsKeyDown(Keys.F3) && previousDebugKeys.IsKeyUp(Keys.F3))
-                beamAudio?.Reload();
             if (updateMenus(gameTime, beamKeys))
             {
                 bool audioPaused = screen == MenuScreen.Playing || screen == MenuScreen.Pause || (screen == MenuScreen.Options && optionsParent == MenuScreen.Pause);
@@ -1223,20 +1149,12 @@ namespace MonogameTest
                 // itself swaps on menu transitions (in GameMenus).
                 previousShotDown = beamKeys.IsKeyDown(Keys.X);
                 previousBeamKeys = beamKeys;
-                previousDebugKeys = beamKeys;
                 base.Update(gameTime);
                 return;
             }
             if (beamKeys.IsKeyDown(Keys.OemOpenBrackets) && previousBeamKeys.IsKeyUp(Keys.OemOpenBrackets)) BeamWidth--;
             if (beamKeys.IsKeyDown(Keys.OemCloseBrackets) && previousBeamKeys.IsKeyUp(Keys.OemCloseBrackets)) BeamWidth++;
             previousBeamKeys = beamKeys;
-
-            // Toggle the debug menu with F1.
-            if (beamKeys.IsKeyDown(Keys.F1) && previousDebugKeys.IsKeyUp(Keys.F1))
-                showDebugMenu = !showDebugMenu;
-            if (beamKeys.IsKeyDown(Keys.F2) && previousDebugKeys.IsKeyUp(Keys.F2))
-                blockEditingEnabled = !blockEditingEnabled;
-            previousDebugKeys = beamKeys;
             //rand_number = (109 * rand_number) + 1021; // rand_number = (0x6D * rand_number) + 0x3FD;
             /*rand_number = ((0x6D * rand_number) + 0x3FD);
             rand_number = ((rand_number & 0x0000FFFF));
@@ -1922,12 +1840,6 @@ namespace MonogameTest
                 {
                     bigspeed -= 0x100;
                 }
-                // Press Q to manually trigger an angel that restores the
-                // nearest missing block to Pyoro (mirrors pico-8 one_angel).
-                if (Keyboard.GetState().IsKeyDown(Keys.Q))
-                {
-                    block_recovery();
-                }
                 if(bigspeed<0x100)
                 {
                     bigspeed = 0x100;
@@ -1963,11 +1875,6 @@ namespace MonogameTest
                 }
                 mouseState = Mouse.GetState();
                 updates = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-                if (blockEditingEnabled && tryGetMouseColumn(out int click))
-                {
-                    if (mouseState.LeftButton == ButtonState.Pressed) blocks[click] = false;
-                    if (mouseState.RightButton == ButtonState.Pressed) blocks[click] = true;
-                }
 
                 if(pyorodead)
                 {
@@ -2170,15 +2077,8 @@ namespace MonogameTest
             Vector2 musicSize = font6.Measure(musicLabel);
             font6.Draw(spriteBatch, musicLabel,
                 new Vector2((NATIVE_WIDTH - musicSize.X) / 2f, 11), new Color(240, 218, 160));
-            
-            // Align the editor highlight with the floor, including after resizing.
-            if (blockEditingEnabled && screen == MenuScreen.Playing && tryGetMouseColumn(out int hoverColumn))
-                spriteBatch.Draw(select, new Vector2(PLAYFIELD_LEFT + hoverColumn * BLOCK_SIZE, BLOCK_FLOOR_Y), Color.Purple);
 
             drawPauseOverlay();
-            // Keep overlays within the same clip, then draw the frame in a separate pass.
-            if (showDebugMenu && screen == MenuScreen.Playing)
-                drawDebugMenu(spriteBatch);
             spriteBatch.End();
 
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);

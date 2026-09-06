@@ -5,7 +5,7 @@ rem Usage:
 rem   build.bat            (win-x64)
 rem   build.bat linux-x64  (cross-compile, usually unnecessary)
 rem
-rem Output: dist\win-x64\MonogameTest.exe + the Assets folder it loads at runtime.
+rem Output: dist\win-x64\WarHook.exe + the Assets folder it loads at runtime.
 setlocal
 cd /d "%~dp0"
 

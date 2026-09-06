@@ -7,7 +7,7 @@
 #                           # runtime pack, which NuGet fetches automatically)
 #   ./build.sh linux-x64
 #
-# Output: dist/<rid>/MonogameTest[.exe] + the Assets/ folder it loads at runtime.
+# Output: dist/<rid>/WarHook[.exe] + the Assets/ folder it loads at runtime.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -45,7 +45,7 @@ find "dist/$RID/Content" -type d -empty -delete
 
 # Keep only what the game actually loads at runtime.
 pushd "dist/$RID/Assets" > /dev/null
-keep="framewide.png newbackdrop.png score.png highscore.png font8x8_atlas.png block_atlas.png tank-pixelart.png mortars-pixelart-cleaned.png explosion-new.png parachute.png mainmenu.png title.png menu.ogg gameplay1.ogg gameplay2.ogg gameplay3.ogg gameplay4.ogg gameplay5.ogg gameover.ogg"
+keep="framewide.png newbackdrop.png font8x8_atlas.png block_atlas.png tank-pixelart.png mortars-pixelart-cleaned.png explosion-new.png parachute.png mainmenu.png title.png menu.ogg gameplay1.ogg gameplay2.ogg gameplay3.ogg gameplay4.ogg gameplay5.ogg gameover.ogg"
 for f in *.png *.psd; do
     [ -e "$f" ] || continue
     skip=0

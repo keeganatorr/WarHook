@@ -7,7 +7,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <RootNamespace>MonogameTest</RootNamespace>
-    <AssemblyName>MonogameTest</AssemblyName>
+    <AssemblyName>WarHook</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Stay architecture-neutral so a RuntimeIdentifier (win-x64/linux-x64)
          can never conflict with an inherited x86 PlatformTarget. -->

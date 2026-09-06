@@ -76,6 +76,23 @@ namespace MonogameTest
                     paused = true;
                     return true;
                 }
+                if (!pyorodead)
+                {
+                    for (int track = 1; track <= 5; track++)
+                    {
+                        if (pressed((Keys)((int)Keys.D1 + track - 1)) ||
+                            pressed((Keys)((int)Keys.NumPad1 + track - 1)))
+                        {
+                            selectedMusic = previousMusic = retryMusic = track;
+                            if (gameplayMusic != track)
+                            {
+                                gameplayMusic = track;
+                                SwitchToGameplayMusic();
+                            }
+                            break;
+                        }
+                    }
+                }
                 return false;
             }
             if (screen == MenuScreen.Pause && (cancel || padPressed(Buttons.Start)))
@@ -413,6 +430,7 @@ namespace MonogameTest
         void resetGame()
         {
             gameB = selectedGame == 1;
+            muzzleFlashFrames = 0;
             previousShotDown = Keyboard.GetState().IsKeyDown(Keys.X);
             overlayExplosions.Clear();
             beamAudio?.Stop();

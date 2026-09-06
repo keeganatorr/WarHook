@@ -1,5 +1,7 @@
 {
   "MasterVolume": 0.65,
+  "GameBShotGain": 0.75,
+  "GameBShotSeconds": 0.11,
   "SampleRate": 44100,
   "SubHz": 45,
   "SubLevel": 0.4,

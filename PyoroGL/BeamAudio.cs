@@ -84,6 +84,9 @@ namespace MonogameTest
             public double ParachuteWhooshLevel { get; set; } = 0.25;
             // Tank movement: a low continuous rumble loop played while the
             // tank drives (treads + engine drone).
+            // Game B muzzle: a sharp noise crack over a short downward thump.
+            public double GameBShotGain { get; set; } = 0.75;
+            public double GameBShotSeconds { get; set; } = 0.11;
             public double TankMoveGain { get; set; } = 0.45;
             public double TankMoveSeconds { get; set; } = 0.8;
             public double TankMoveHz { get; set; } = 42;
@@ -114,13 +117,14 @@ namespace MonogameTest
                     ?? throw new InvalidDataException("Empty beam audio settings.");
                 Validate(config);
                 var specs = new[] { config.Fire, config.Extending, config.Catch, config.Returning };
-                var pcm = new byte[9][];
+                var pcm = new byte[10][];
                 for (int i=0; i<4; i++) pcm[i] = Generate(config, specs[i]);
                 pcm[4] = GenerateMenuBlip(config);
                 pcm[5] = GenerateConfirm(config);
                 pcm[6] = GenerateExplosion(config);
                 pcm[7] = GenerateParachute(config);
                 pcm[8] = GenerateTankMove(config);
+                pcm[9] = GenerateGameBShot(config);
                 return (config, pcm);
             });
         }
@@ -152,6 +156,8 @@ namespace MonogameTest
                 s.ParachuteEndHz < 1 || s.ParachuteEndHz > s.ParachuteStartHz || s.ParachuteStartHz > 4000 ||
                 s.ParachuteWhooshLevel < 0 || s.ParachuteWhooshLevel > 2)
                 throw new InvalidDataException("Invalid parachute settings.");
+            if (s.GameBShotSeconds < .03 || s.GameBShotSeconds > .5 || s.GameBShotGain < 0 || s.GameBShotGain > 1)
+                throw new InvalidDataException("Invalid Game B shot settings.");
             if (s.TankMoveSeconds < .2 || s.TankMoveSeconds > 4 || s.TankMoveGain < 0 || s.TankMoveGain > 1 ||
                 s.TankMoveHz < 1 || s.TankMoveHz > 200 || s.TankMoveRumbleHz < 1 || s.TankMoveRumbleHz > 100 ||
                 s.TankMoveRumbleLevel < 0 || s.TankMoveRumbleLevel > 2)
@@ -354,6 +360,35 @@ namespace MonogameTest
             }
             return pcm;
         }
+        internal static byte[] GenerateGameBShot(Settings s)
+        {
+            int count = (int)(s.SampleRate * s.GameBShotSeconds);
+            var pcm = new byte[count * 2];
+            var random = new Random(7319);
+            double phase = 0;
+            for (int i = 0; i < count; i++)
+            {
+                double t = (double)i / s.SampleRate, pos = (double)i / (count - 1);
+                phase += (110 + 700 * Math.Exp(-t * 85)) / s.SampleRate;
+                double crack = (random.NextDouble() * 2 - 1) * Math.Exp(-t * 100);
+                double body = Math.Sin(2 * Math.PI * phase) * Math.Exp(-t * 38);
+                double envelope = Math.Min(1, t / .001) * Math.Pow(1 - pos, 2);
+                short sample = (short)((.55 * crack + .4 * body) * envelope * 32767);
+                pcm[i * 2] = (byte)(sample & 255);
+                pcm[i * 2 + 1] = (byte)((sample >> 8) & 255);
+            }
+            return pcm;
+        }
+
+        public void PlayGameBShot()
+        {
+            if (voices == null || voices.Length < 10) return;
+            var voice = voices[9];
+            voice.Stop();
+            voice.Volume = (float)Math.Clamp(settings.MasterVolume * settings.GameBShotGain * VolumeScale, 0, 1);
+            voice.Play();
+        }
+
         // Fire the parachute drop (index 7). Safe to call before audio loads.
         public void PlayParachute()
         {
@@ -409,8 +444,8 @@ namespace MonogameTest
         void PollReload()
         {
             if (pending == null || !pending.IsCompleted) return;
-            var replacements=new SoundEffect[9];
-            var instances=new SoundEffectInstance[9];
+            var replacements=new SoundEffect[10];
+            var instances=new SoundEffectInstance[10];
             try
             {
                 var result=pending.GetAwaiter().GetResult();

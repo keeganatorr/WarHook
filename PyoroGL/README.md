@@ -41,6 +41,7 @@ automatically by .NET at runtime.
 - **X** — Game A: hold/release the tractor beam; Game B: one instant shot per press
 - **Up / Down** (or **W / S**) — select a menu item
 - **Enter / Space** — confirm a menu selection
+- **1–5** (number row or numpad) — switch gameplay music tracks
 - **Esc** — pause / resume gameplay, or return from Options
 - **Left / Right** in Options — toggle fullscreen
 - **F2** — toggle mouse floor editing (off by default)

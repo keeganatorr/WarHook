@@ -798,6 +798,7 @@ namespace MonogameTest
             fontAtlas = loadPng("font8x8_atlas");
             font6 = new Font6(GraphicsDevice);
             loadPlayerTank();
+            loadMuzzleFlash();
             yellowTankRight = makeYellowTank(pyororight);
             yellowTankLeft = makeYellowTank(pyoroleft);
             pyoro = pyororight;
@@ -1153,6 +1154,7 @@ namespace MonogameTest
         {
             beamAudio?.Dispose();
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
+            muzzleFlashSprite.Dispose();
             yellowTankRight.Dispose();
             yellowTankLeft.Dispose();
             pyororight.Dispose();
@@ -2054,6 +2056,8 @@ namespace MonogameTest
                     new Vector2((float)Math.Round(tongueX + tonguecount * facingright) - 8,
                         (float)Math.Round(tongueY - tonguecount) - 8), Color.White);
             }
+
+            drawMuzzleFlash();
 
             // Every explosion draws after the tank and mortars, before the HUD and frame.
             drawExplosions(spriteBatch);

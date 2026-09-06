@@ -10,11 +10,48 @@ namespace MonogameTest
     {
         bool gameB;
         bool previousShotDown;
+        int muzzleFlashFrames;
+        Texture2D muzzleFlashSprite;
+
+        void loadMuzzleFlash()
+        {
+            // Two tiny pixel-art frames: hot ignition, then an orange afterglow.
+            string[][] frames = {
+                new[] { "...o...", "..oyo..", ".oywyo.", "oywwwyo", ".oywyo.", "..oyo..", "...o..." },
+                new[] { ".......", ".......", "...o...", "..oyo..", "...o...", ".......", "......." }
+            };
+            Color[] pixels = new Color[14 * 7];
+            for (int frame = 0; frame < frames.Length; frame++)
+                for (int row = 0; row < 7; row++)
+                    for (int col = 0; col < 7; col++)
+                        pixels[row * 14 + frame * 7 + col] = frames[frame][row][col] switch
+                        {
+                            'o' => new Color(255, 126, 24),
+                            'y' => new Color(255, 222, 64),
+                            'w' => new Color(255, 255, 223),
+                            _ => Color.Transparent
+                        };
+            muzzleFlashSprite = new Texture2D(GraphicsDevice, 14, 7);
+            muzzleFlashSprite.SetData(pixels);
+        }
+
+        void drawMuzzleFlash()
+        {
+            if (!gameB || muzzleFlashFrames <= 0 || pyorodead) return;
+            // Follow the barrel, two pixels forward along its 45-degree aim.
+            float tipX = (float)Math.Round(x + tongueoffsetX + (facingright == 1 ? rightoffset : 0));
+            float tipY = (float)Math.Round(y + tongueoffsetY);
+            int frame = muzzleFlashFrames > 3 ? 0 : 1;
+            spriteBatch.Draw(muzzleFlashSprite,
+                new Vector2(tipX + facingright * 2 - 3, tipY - 2 - 3),
+                new Rectangle(frame * 7, 0, 7, 7), Color.White);
+        }
         Texture2D yellowTankRight, yellowTankLeft;
         readonly List<int> shotHits = new List<int>();
 
         void updateGameBShot(KeyboardState keys)
         {
+            if (muzzleFlashFrames > 0) muzzleFlashFrames--;
             bool down = keys.IsKeyDown(Keys.X);
             if (down && !previousShotDown && !pyorodead && !gameover)
                 fireGameBShot();
@@ -23,6 +60,8 @@ namespace MonogameTest
 
         void fireGameBShot()
         {
+            muzzleFlashFrames = 6;
+            beamAudio?.PlayGameBShot();
             // Same barrel tip and 45-degree direction as the tractor beam.
             float originX = (float)Math.Round(x + tongueoffsetX + (facingright == 1 ? rightoffset : 0));
             float originY = (float)Math.Round(y + tongueoffsetY);

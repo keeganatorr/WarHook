@@ -23,6 +23,8 @@ namespace MonogameTest
         int selectedGame, selectedMusic = 1, previousGame, previousMusic = 1;
         // Music track picked on the game-over screen (Enter/X restarts).
         int retryMusic = 1;
+        // Cursor row on the game-over picker: 0 = game, 1 = music.
+        int retryRow;
         // False until the player presses R at game over; then the picker shows.
         bool retryMusicVisible;
         // Chosen music track for gameplay (1..5), applied on game start.
@@ -185,8 +187,8 @@ namespace MonogameTest
             screen = MenuScreen.Options;
         }
 
-        // Game-over overlay input: stage 1 waits for R, stage 2 is the music
-        // picker with Enter/X to start the retry.
+        // Game-over overlay input: stage 1 waits for R, stage 2 lets you pick
+        // Game A/B (row 0) and music 1-5 (row 1) with Up/Down, then Enter/X.
         void UpdateGameoverOverlay(Func<Keys, bool> pressed, bool accept, Func<Buttons, bool> padPressed)
         {
             if (!retryMusicVisible)
@@ -195,16 +197,28 @@ namespace MonogameTest
                 {
                     retryMusicVisible = true;
                     retryMusic = gameplayMusic; // start from the current track
+                    retryRow = 0;               // cursor starts on the game row
                     beamAudio?.PlayMenuBlip();
                 }
                 return;
             }
-            int previous = retryMusic;
-            if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) retryMusic--;
-            if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) retryMusic++;
-            retryMusic = Math.Clamp(retryMusic, 1, 5);
-            if (retryMusic != previous) beamAudio?.PlayMenuBlip();
-            gameplayMusic = retryMusic;
+            int prevRow = retryRow, prevMusic = retryMusic, prevGame = selectedGame;
+            if (pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp)) retryRow = 0;
+            if (pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown)) retryRow = 1;
+            if (retryRow == 0)
+            {
+                if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedGame = 0;
+                if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedGame = 1;
+            }
+            else
+            {
+                if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) retryMusic--;
+                if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) retryMusic++;
+                retryMusic = Math.Clamp(retryMusic, 1, 5);
+                gameplayMusic = retryMusic;
+            }
+            if (retryRow != prevRow || retryMusic != prevMusic || selectedGame != prevGame)
+                beamAudio?.PlayMenuBlip();
             if (accept || pressed(Keys.X) || padPressed(Buttons.A))
             {
                 retryMusicVisible = false;

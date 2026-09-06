@@ -231,6 +231,9 @@ namespace MonogameTest
         // A 3-frame 16x16 explosion plays where a block or bean disappears
         // (mirrors the pico-8 smoke/burst effect on destruction).
         List<Explosion> explosions = new List<Explosion>();
+        // Tank-hit explosions are drawn in a second pass AFTER the tank sprite
+        // so the blast renders above the tank at the point of collision.
+        List<Explosion> overlayExplosions = new List<Explosion>();
         private Texture2D explosionSprite;
 
         // An angel descends to a missing block column and rebuilds it on
@@ -487,6 +490,20 @@ namespace MonogameTest
                 if (explosions[i].timer >= explosions[i].frameDuration * 3)
                     explosions.RemoveAt(i);
             }
+            for (int i = overlayExplosions.Count - 1; i >= 0; i--)
+            {
+                overlayExplosions[i].timer++;
+                if (overlayExplosions[i].timer >= overlayExplosions[i].frameDuration * 3)
+                    overlayExplosions.RemoveAt(i);
+            }
+        }
+
+        // Spawn a tank-hit explosion that draws ABOVE the tank sprite at the
+        // point of collision (midpoint between tank centre and mortar centre).
+        void spawnTankExplosion(float hitX, float hitY)
+        {
+            overlayExplosions.Add(new Explosion(hitX, hitY));
+            beamAudio?.PlayExplosion();
         }
 
         // Clear queued beans one by one (lowest first) after a rainbow bean is
@@ -524,6 +541,18 @@ namespace MonogameTest
                 float dx = e.x - 8;
                 float dy = e.y - 8;
                 batch.Draw(explosionSprite, new Vector2(dx, dy), src, Color.White);
+            }
+        }
+
+        // Second-pass explosion draw for tank hits (above the tank sprite).
+        void drawOverlayExplosions(SpriteBatch batch)
+        {
+            foreach (Explosion e in overlayExplosions)
+            {
+                int frame = (int)(e.timer / e.frameDuration);
+                if (frame > 2) frame = 2;
+                Rectangle src = new Rectangle(frame * 16, 0, 16, 16);
+                batch.Draw(explosionSprite, new Vector2(e.x - 8, e.y - 8), src, Color.White);
             }
         }
 
@@ -1818,8 +1847,12 @@ namespace MonogameTest
                                         // tank-movement loop, and cut the music fast.
                                         pyorodead = true;
                                         beamAudio?.SetTankMove(false);
-                                        beamAudio?.PlayExplosion();
-                                        spawnExplosion(x + 8, y + 8);
+                                        // Blast centred on the actual collision point
+                                        // (midpoint of the overlapping tank/mortar
+                                        // boxes) and drawn above the tank.
+                                        float hitX = (x + 8 + bean_x[i] + 8) / 2f;
+                                        float hitY = (y + 8 + bean_y[i] + 8) / 2f;
+                                        spawnTankExplosion(hitX, hitY);
                                         music?.StartFastFadeOut();
                                     }
                                 }
@@ -1987,6 +2020,8 @@ namespace MonogameTest
             // Center the native-size tank over the existing collision box, with treads on the floor.
             spriteBatch.Draw(pyoro, new Vector2((float)Math.Round(x) + (16 - pyoro.Width) / 2,
                 (float)Math.Round(y) + 16 - pyoro.Height), Color.White);
+            // Tank-hit explosions render ON TOP of the tank sprite.
+            drawOverlayExplosions(spriteBatch);
             //spriteBatch.Draw(collisionblock, new Vector2((float)System.Math.Round((decimal)x), y), Color.White);
 
             for (int i = 0; i < max_amount_of_beans; i++)
@@ -2019,13 +2054,60 @@ namespace MonogameTest
                 float goWidth = MeasureStringBitmap(gameOverText).X;
                 DrawStringBitmap(spriteBatch, gameOverText, new Vector2((NATIVE_WIDTH - goWidth) / 2f, NATIVE_HEIGHT / 2), Color.White);
                 // Small centred hint below the game-over text: first R, then
-                // the music picker with Enter/X to restart.
-                string retry = retryMusicVisible
-                    ? "MUSIC  [ " + retryMusic + " ]  < >   ENTER = RETRY"
-                    : "Press R to Retry";
-                float retryWidth = MeasureStringBitmap(retry).X;
-                DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12),
-                    retryMusicVisible ? new Color(255, 225, 145) : Color.White);
+                // the picker with Game A/B on one row and Music 1-5 below.
+                if (retryMusicVisible)
+                {
+                    var amber = new Color(255, 225, 145);
+                    var white = Color.White;
+                    // Draw each picker item separately so only the highlighted
+                    // one is amber; everything else is white.
+
+                    // Game row.
+                    string gameLeft, gameMid, gameRight;
+                    Color gameLeftC, gameMidC, gameRightC;
+                    if (selectedGame == 0)
+                    {
+                        gameLeft = "[GAME A]"; gameLeftC = retryRow == 0 ? amber : white;
+                        gameMid = "    "; gameMidC = white;
+                        gameRight = "GAME B"; gameRightC = retryRow == 0 ? white : white;
+                    }
+                    else
+                    {
+                        gameLeft = "GAME A"; gameLeftC = white;
+                        gameMid = "    "; gameMidC = white;
+                        gameRight = "[GAME B]"; gameRightC = retryRow == 0 ? amber : white;
+                    }
+                    string gameAll = gameLeft + gameMid + gameRight;
+                    float gx = (NATIVE_WIDTH - MeasureStringBitmap(gameAll).X) / 2f;
+                    DrawStringBitmap(spriteBatch, gameLeft, new Vector2(gx, NATIVE_HEIGHT / 2 + 12), gameLeftC);
+                    DrawStringBitmap(spriteBatch, gameMid, new Vector2(gx + gameLeft.Length * FONT_CELL, NATIVE_HEIGHT / 2 + 12), gameMidC);
+                    DrawStringBitmap(spriteBatch, gameRight, new Vector2(gx + (gameLeft.Length + gameMid.Length) * FONT_CELL, NATIVE_HEIGHT / 2 + 12), gameRightC);
+
+                    // Music row: "MUSIC" label then one item per track.
+                    string label = "MUSIC";
+                    int items = 5;
+                    string numbers = "";
+                    for (int i = 1; i <= items; i++)
+                        numbers += i == retryMusic ? " [ ] " : "     ";
+                    float mx = (NATIVE_WIDTH - MeasureStringBitmap(label + numbers).X) / 2f;
+                    float cursorX = mx + label.Length * FONT_CELL;
+                    DrawStringBitmap(spriteBatch, label, new Vector2(mx, NATIVE_HEIGHT / 2 + 24), white);
+                    for (int i = 1; i <= items; i++)
+                    {
+                        string item = i == retryMusic ? $"[{i}]" : $"{i}";
+                        // Slot width is 5 chars; centre the item inside it.
+                        float slotX = cursorX + (i - 1) * 5 * FONT_CELL;
+                        float itemX = slotX + (5 - item.Length) * FONT_CELL / 2f;
+                        DrawStringBitmap(spriteBatch, item, new Vector2(itemX, NATIVE_HEIGHT / 2 + 24),
+                            retryRow == 1 && i == retryMusic ? amber : white);
+                    }
+                }
+                else
+                {
+                    string retry = "Press R to Retry";
+                    float retryWidth = MeasureStringBitmap(retry).X;
+                    DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
+                }
             }
             
             

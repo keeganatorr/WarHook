@@ -373,6 +373,9 @@ namespace MonogameTest
             tonguecount = 0;
             spaceheld = 0;
             recall = tonguecollide = pyorodead = gameover = paused = false;
+            // Retrying: restart the selected gameplay track (the game-over
+            // jingle may have replaced it, or it may have faded out entirely).
+            SwitchToGameplayMusic();
             caughtbean = pyorosquat = blocktocheck = 0;
             speed = 1;
             smallspeed = 0xFF;

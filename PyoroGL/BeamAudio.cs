@@ -478,6 +478,15 @@ namespace MonogameTest
             if (voices == null) return;
             for (int i=0;i<4 && i<voices.Length;i++) { voices[i].Stop(); voices[i].Volume=0; }
             wasActive=wasCaught=suspended=false;
+        }
+        // Stop the beam voices plus the tank movement loop, but leave one-shot
+        // effects (explosion, parachute, menu sounds) playing to completion.
+        public void StopTankAndBeamVoices()
+        {
+            if (voices == null) return;
+            for (int i=0;i<4 && i<voices.Length;i++) { voices[i].Stop(); voices[i].Volume=0; }
+            if (voices.Length > 8) voices[8].Stop();
+            wasActive=wasCaught=suspended=false;
         }        void DisposeVoices()
         {
             Stop();

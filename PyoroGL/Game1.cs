@@ -1364,9 +1364,10 @@ namespace MonogameTest
                 bean_animation();
                 //float tempspeed = bigspeed;
                 speed = (float)bigspeed / 256;
+                bool tankMoving = false;
                 if (Keyboard.GetState().IsKeyDown(Keys.Left) && !pyorodead)// && x > PLAYFIELD_LEFT)
                 {
-                    beamAudio?.SetTankMove(true);
+                    tankMoving = true;
                     if (spaceheld == 0)
                     {
                         pyorosquat++;
@@ -1406,7 +1407,7 @@ namespace MonogameTest
                 }
                 if (Keyboard.GetState().IsKeyDown(Keys.Right) && !pyorodead)// && x < 184)
                 {
-                    beamAudio?.SetTankMove(true);
+                    tankMoving = true;
                     if (spaceheld == 0)
                     {
 
@@ -1480,6 +1481,9 @@ namespace MonogameTest
 
                     }
                 }
+                // Drive the movement loop from actual key state so it always
+                // stops when the tank stops (release, fire, or death).
+                beamAudio?.SetTankMove(tankMoving && !pyorodead);
                 if (!Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
                 {
 
@@ -1568,7 +1572,6 @@ namespace MonogameTest
                 }
                 if (Keyboard.GetState().IsKeyDown(Keys.X) && !pyorodead) // !Keyboard.GetState().IsKeyDown(Keys.Left) && !Keyboard.GetState().IsKeyDown(Keys.Right) && 
                 {
-                    beamAudio?.SetTankMove(false);
 
                     if (recall == false)
                     {
@@ -1925,7 +1928,9 @@ namespace MonogameTest
             updateAngelQueue();
             updateAngels();
             updateRainbowClear();
-            if (pyorodead || gameover) beamAudio?.Stop();
+            // On death/game over silence the beam and tank voices but leave
+            // one-shot effects (explosion) alone so they can finish playing.
+            if (pyorodead || gameover) beamAudio?.StopTankAndBeamVoices();
             beamAudio?.Update(tonguecount > 0 && !pyorodead && !gameover, recall, tonguecollide, false, gameTime.ElapsedGameTime.TotalSeconds);
             music?.Update(gameTime.ElapsedGameTime.TotalSeconds);
             base.Update(gameTime);

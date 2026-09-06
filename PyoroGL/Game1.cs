@@ -1916,8 +1916,9 @@ namespace MonogameTest
 
 
 
-                if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover)
-                    resetGame();
+                // Retry fades to black, resets mid-fade, then fades back in.
+                if (Keyboard.GetState().IsKeyDown(Keys.R) && gameover && transition == MenuTransition.None)
+                    beginTransition(MenuScreen.Playing, false);
 
 
 

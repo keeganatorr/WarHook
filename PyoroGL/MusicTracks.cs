@@ -113,7 +113,7 @@ namespace MonogameTest
             requested = Track.None;
             state = State.FadingOut;
             fadeTime = 0;
-            FadeOutSeconds = 0.25;
+            FadeOutSeconds = 0.45;
         }
 
         void StartTrack(Track track, float volume)

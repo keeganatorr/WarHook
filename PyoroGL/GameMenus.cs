@@ -51,7 +51,7 @@ namespace MonogameTest
             bool pressed(Keys key) => keys.IsKeyDown(key) && oldKeys.IsKeyUp(key);
             bool padPressed(Buttons button) => pad.IsButtonDown(button) && oldPad.IsButtonUp(button);
             bool cancel = pressed(Keys.Escape) || padPressed(Buttons.B) || padPressed(Buttons.Back);
-            bool accept = pressed(Keys.Enter) || pressed(Keys.Space) || padPressed(Buttons.A);
+            bool accept = pressed(Keys.Enter) || pressed(Keys.Space) || pressed(Keys.X) || padPressed(Buttons.A);
 
             if (transition != MenuTransition.None)
             {

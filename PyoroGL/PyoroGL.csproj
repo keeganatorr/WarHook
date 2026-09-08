@@ -54,6 +54,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Embed the leaderboard config at compile time so no plaintext key
+         file ships in release outputs. Written by setup-leaderboards.sh;
+         git-ignored. -->
+    <EmbeddedResource Include="supabase.json" Condition="Exists('supabase.json')" LogicalName="supabase.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Raw PNGs loaded at runtime via Texture2D.FromStream (loadPng) from the
          output Assets/ folder. Copied on EVERY build so edits always propagate
          when pressing F5. -->

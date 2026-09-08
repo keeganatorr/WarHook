@@ -16,6 +16,10 @@ namespace MonogameTest
     // the web backend (browser localStorage) must run on the main thread.
     sealed class HighScoreStore
     {
+        // Optional hook: notified with (gameB, initials, score) whenever a
+        // score is saved. Game1 wires it to the online leaderboard service.
+        public static Action<bool, string, int> OnlineSubmitHook;
+
         interface SaveBackend
         {
             bool SyncWrites { get; }
@@ -153,6 +157,8 @@ namespace MonogameTest
                 scores[mode] = Math.Max(scores[mode], score);
                 dirty = true;
                 ScheduleWrite();
+                try { OnlineSubmitHook?.Invoke(gameB, entry.Initials, score); }
+                catch { /* Online submission must never block saving. */ }
                 return entry.Id;
             }
         }

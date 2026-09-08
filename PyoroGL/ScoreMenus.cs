@@ -7,7 +7,7 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        bool scoresAfterGame, scoresGameB, enteringInitials;
+        bool scoresAfterGame, scoresGameB, enteringInitials, scoresOnline;
         double scoreScrollTime;
         int initialCursor;
         int completedScore;
@@ -35,6 +35,14 @@ namespace MonogameTest
             {
                 if (pressed(Keys.Left) || pressed(Keys.Right) || padPressed(Buttons.DPadLeft) || padPressed(Buttons.DPadRight))
                     scoresGameB = !scoresGameB;
+                bool toggleOnline = pressed(Keys.Up) || pressed(Keys.Down) || padPressed(Buttons.DPadUp) || padPressed(Buttons.DPadDown);
+                if (toggleOnline && OnlineScores.Enabled)
+                {
+                    scoresOnline = !scoresOnline;
+                    beamAudio?.PlayMenuBlip();
+                }
+                if (scoresOnline && OnlineScores.ShouldFetch(scoresGameB))
+                    OnlineScores.BeginFetch(scoresGameB);
                 if (back || pressed(Keys.Enter) || padPressed(Buttons.A)) screen = MenuScreen.Main;
                 return;
             }
@@ -83,19 +91,51 @@ namespace MonogameTest
                 spriteBatch.Draw(mainMenuBackground, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.White * .25f);
             DrawStringBitmap(spriteBatch, scoresAfterGame ? "GAME OVER" : "HIGH SCORES",
                 new Vector2(scoresAfterGame ? 108 : 100, 8), new Color(255, 225, 145));
-            font6.Draw(spriteBatch, scoresGameB ? "GAME B  TOP 10" : "GAME A  TOP 10",
-                new Vector2(105, 22), Color.White);
+            string header = (scoresGameB ? "GAME B" : "GAME A") + (scoresOnline ? " ONLINE TOP 10" : " LOCAL TOP 10");
+            font6.Draw(spriteBatch, header, new Vector2((NATIVE_WIDTH - header.Length * Font6.Cell) / 2, 22), Color.White);
 
             // The ranked list rises from below the screen and settles below its heading.
             int offset = (int)Math.Round(130 * Math.Pow(1 - Math.Clamp((scoreScrollTime - .35) / 1.65, 0, 1), 2));
-            var entries = highScores.Entries(scoresGameB);
+            var entries = scoresOnline ? null : highScores.Entries(scoresGameB);
+            var online = scoresOnline ? OnlineScores.GetSnapshot(scoresGameB) : null;
+            if (scoresOnline && online != null && online.Status == OnlineScores.Status.Loading)
+            {
+                // Animate the ellipsis while the leaderboard loads.
+                int dots = 1 + (int)(scoreScrollTime * 3) % 3;
+                string statusText = "LOADING" + new string('.', dots);
+                font6.Draw(spriteBatch, statusText,
+                    new Vector2((NATIVE_WIDTH - statusText.Length * Font6.Cell) / 2, 32), new Color(255, 225, 145));
+            }
+            else if (scoresOnline && online != null && online.Status == OnlineScores.Status.Failed)
+            {
+                const string statusText = "CONNECTION FAILED";
+                font6.Draw(spriteBatch, statusText,
+                    new Vector2((NATIVE_WIDTH - statusText.Length * Font6.Cell) / 2, 32), new Color(255, 225, 145));
+            }
             for (int i = 0; i < 10; i++)
             {
                 int rowY = 35 + i * 8 + offset;
                 if (rowY > 113) continue;
-                string initials = i < entries.Length ? entries[i].Initials : "...";
-                string points = i < entries.Length ? entries[i].Score.ToString("D6") : "000000";
-                Color color = i < entries.Length && entries[i].Id == savedScoreId ? new Color(255, 225, 145) : Color.White;
+                string initials = "...";
+                string points = "000000";
+                Color color = Color.White;
+                if (entries != null)
+                {
+                    if (i < entries.Length)
+                    {
+                        initials = entries[i].Initials;
+                        points = entries[i].Score.ToString("D6");
+                        if (entries[i].Id == savedScoreId) color = new Color(255, 225, 145);
+                    }
+                }
+                else if (online != null && online.Status == OnlineScores.Status.Loaded)
+                {
+                    if (i < online.Entries.Length)
+                    {
+                        initials = online.Entries[i].Initials;
+                        points = online.Entries[i].Score.ToString("D6");
+                    }
+                }
                 font6.Draw(spriteBatch, (i + 1).ToString("D2") + "   " + initials + "   " + points,
                     new Vector2(87, rowY), color);
             }
@@ -118,7 +158,12 @@ namespace MonogameTest
                     font6.Draw(spriteBatch, "R RETRY   ESC MAIN MENU", new Vector2(78, 148), Color.White);
             }
             else
-                font6.Draw(spriteBatch, "LEFT RIGHT MODE   ESC BACK", new Vector2(69, 148), Color.White);
+            {
+                string hint = OnlineScores.Enabled
+                    ? "LEFT RIGHT MODE  UP DOWN ONLINE  ESC BACK"
+                    : "LEFT RIGHT MODE   ESC BACK";
+                font6.Draw(spriteBatch, hint, new Vector2((NATIVE_WIDTH - hint.Length * Font6.Cell) / 2, 148), Color.White);
+            }
         }
     }
 }

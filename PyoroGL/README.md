@@ -70,6 +70,38 @@ Each mode starts with the existing 10,000-point high-score target.
 
 The main menu's **Scores: Game A** and **Scores: Game B** options open separate
 top-ten leaderboards. Left/Right switches tables; Escape returns to the menu.
+If online leaderboards are configured, Up/Down switches between the local
+(save-file) and global (online) tables.
+
+## Online leaderboards (Supabase)
+
+Global top-ten tables are powered by a Supabase project. The feature is
+disabled until configured; the game then falls back to local scores when the
+connection fails.
+
+1. Create a project at supabase.com.
+2. Create a personal access token at
+   https://supabase.com/dashboard/account/tokens.
+3. Run `./setup-leaderboards.sh` from the repository root. It prompts for the
+   project URL, the anon/publishable key, and the access token; applies
+   `supabase/schema.sql` through the Supabase Management API; verifies the
+   deployment; and writes `PyoroGL/supabase.json`. That file is git-ignored
+   and embedded into both binaries at compile time, so no plaintext key file
+   ships in the itch.io ZIP or the desktop folder. Add `--build` to rebuild
+   the web and win-x64 artifacts immediately.
+
+The server-side schema (already applied by the script) keeps writes inside a
+`submit_score` RPC that validates mode, initials, and score range, and
+rate-limits one submission per client IP every 5 seconds. The anon key is
+public by design (like a Firebase web key): it grants no admin access, and a
+determined user can extract it from a shipped build — expect that, and rely
+on the server-side validation and rate limiting against abuse. The
+service_role key, database password, and access token never touch the repo or
+any release. The setup script refuses a service_role key if you paste one by
+mistake.
+
+Qualifying game-over scores are submitted automatically when initials are
+saved.
 
 After game over, the leaderboard scrolls up. Qualifying scores can be saved with
 three initials: type letters, or use Left/Right to select a character and Up/Down

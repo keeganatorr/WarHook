@@ -806,6 +806,8 @@ namespace MonogameTest
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
             beamAudio = new BeamAudio(GameAssets.BeamAudioConfigPath());
+            OnlineScores.Initialize();
+            HighScoreStore.OnlineSubmitHook = OnlineScores.QueueSubmit;
             music = new MusicTracks(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets"));
             music.Request(MusicTracks.Track.Menu);
             ApplyVolumes();

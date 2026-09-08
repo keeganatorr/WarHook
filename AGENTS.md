@@ -71,3 +71,10 @@ from reading the code or `git log`.
   textures. Web-only resized copies of the 2172px title/explosion sheets and
   uncompressed KNI-compatible SpriteFont XNBs live under `WarHookWeb/wwwroot`;
   do not substitute the desktop compressed XNBs.
+- Online leaderboards are plain Supabase REST calls (no SDK, shared
+  `PyoroGL/OnlineScores.cs`). Config: `PyoroGL/supabase.json` is git-ignored
+  and embedded into both binaries at compile time (desktop csproj + web csproj
+  EmbeddedResource) so no plaintext key file ships; created by
+  `setup-leaderboards.sh`, which also applies `supabase/schema.sql` via the
+  Management API and refuses service_role keys. Missing config = feature
+  disabled. The anon key is public by design; the RPC validates submissions.

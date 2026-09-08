@@ -42,6 +42,13 @@
     <Compile Include="..\PyoroGL\BeamAudio.cs" Link="BeamAudio.cs" />
     <Compile Include="..\PyoroGL\Font6.cs" Link="Font6.cs" />
     <Compile Include="..\PyoroGL\GameAssets.cs" Link="GameAssets.cs" />
+    <Compile Include="..\PyoroGL\OnlineScores.cs" Link="OnlineScores.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Leaderboard config embedded at compile time from the same file the
+         desktop build uses (written by setup-leaderboards.sh; git-ignored). -->
+    <EmbeddedResource Include="..\PyoroGL\supabase.json" Condition="Exists('..\PyoroGL\supabase.json')" LogicalName="supabase.json" />
   </ItemGroup>
 
   <!-- Loose runtime assets (PNGs loaded via Texture2D.FromStream, OGG music,

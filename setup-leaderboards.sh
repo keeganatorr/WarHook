@@ -52,17 +52,38 @@ if [[ -z "$ANON_KEY" ]]; then
 fi
 if [[ -z "$ACCESS_TOKEN" ]]; then
     echo "Create a personal access token at https://supabase.com/dashboard/account/tokens"
-    read -r -s -p "Supabase access token (input hidden): " ACCESS_TOKEN
-    echo
+    read -r -p "Supabase access token: " ACCESS_TOKEN
 fi
 
-# Accept either a full project URL or just the ref.
+# Accept either a full project URL or just the ref. Tolerate paste mistakes
+# by picking the last https://... token whose ref looks valid (20 chars).
+URL="$(python3 -c "
+import re
+from urllib.parse import urlparse
+raw = '''$URL'''
+tokens = re.findall(r'https://[A-Za-z0-9.-]+', raw) or [raw.strip()]
+best = None
+for token in tokens:
+    url = token.rstrip('/').rstrip('):,;')
+    if not url.startswith('https://'):
+        url = 'https://' + url
+    host = urlparse(url).hostname or ''
+    ref = host.split('.')[0]
+    if re.fullmatch(r'[a-z0-9]{20}', ref):
+        best = url.rstrip('/') if '.' in host else f'https://{ref}.supabase.co'
+print(best if best else tokens[0].rstrip('/'))")"
 if [[ "$URL" == https://* ]]; then
     URL="${URL%/}"
 else
     URL="https://${URL%.supabase.co}.supabase.co"
 fi
 REF="$(python3 -c "from urllib.parse import urlparse; print(urlparse('$URL').hostname.split('.')[0])")"
+if ! [[ "$REF" =~ ^[a-z0-9]{20}$ ]]; then
+    echo "ERROR: '$REF' (from '$URL') does not look like a Supabase project ref" >&2
+    echo "(refs are 20 lowercase letters/digits, e.g. ugocarmmfddicqgeyeyh)." >&2
+    echo "Paste the project URL from Supabase Dashboard -> Project Settings -> General." >&2
+    exit 1
+fi
 
 # The anon key is public by design, but a service_role key must NEVER ship.
 ROLE="$(python3 -c "
@@ -91,7 +112,7 @@ HTTP_CODE="$(curl -s -o /tmp/wh-schema-resp.json -w '%{http_code}' \
     -H "api-key: $ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     -d "$BODY")"
-if [[ "$HTTP_CODE" != "200" ]]; then
+if [[ "$HTTP_CODE" != 2* ]]; then
     echo "ERROR: schema application failed (HTTP $HTTP_CODE):" >&2
     head -c 800 /tmp/wh-schema-resp.json >&2; echo >&2
     exit 1
@@ -102,10 +123,11 @@ echo "==> Verifying leaderboards with the anon key"
 VERIFY="$(curl -s -w '\n%{http_code}' \
     "$URL/rest/v1/rpc/top_scores?p_mode=game_a" \
     -H "api-key: $ANON_KEY" \
+    -H "apikey: $ANON_KEY" \
     -H "Authorization: Bearer $ANON_KEY")"
 VERIFY_CODE="${VERIFY##*$'\n'}"
 VERIFY_BODY="${VERIFY%$'\n'*}"
-if [[ "$VERIFY_CODE" != "200" || "$VERIFY_BODY" != "[]" ]]; then
+if [[ "$VERIFY_CODE" != 2* || "$VERIFY_BODY" != "[]" ]]; then
     echo "ERROR: leaderboard verification failed (HTTP $VERIFY_CODE):" >&2
     echo "$VERIFY_BODY" | head -c 400 >&2; echo >&2
     exit 1
@@ -137,4 +159,6 @@ Security notes:
     in the repo or shipped in a release.
   - Abuse is mitigated server-side: submit_score validates mode, initials,
     and score range, and rate-limits one submission per IP every 5 seconds.
+  - You can revoke the access token now (Dashboard -> Account -> Access
+    tokens); it is only needed when re-running this script.
 EOF

@@ -716,10 +716,20 @@ namespace MonogameTest
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
-            // Half each monitor dimension gives one-quarter of its screen area.
-            DisplayMode monitor = GraphicsDevice.Adapter.CurrentDisplayMode;
-            graphics.PreferredBackBufferWidth = Math.Max(NATIVE_WIDTH, monitor.Width / 2);
-            graphics.PreferredBackBufferHeight = Math.Max(NATIVE_HEIGHT, monitor.Height / 2);
+            if (GameAssets.IsWeb)
+            {
+                // The Blazor host sizes the canvas before Game1 starts. Do not
+                // use the desktop monitor/2 heuristic inside an itch.io iframe.
+                graphics.PreferredBackBufferWidth = Math.Max(NATIVE_WIDTH, Window.ClientBounds.Width);
+                graphics.PreferredBackBufferHeight = Math.Max(NATIVE_HEIGHT, Window.ClientBounds.Height);
+            }
+            else
+            {
+                // Half each monitor dimension gives one-quarter of its screen area.
+                DisplayMode monitor = GraphicsDevice.Adapter.CurrentDisplayMode;
+                graphics.PreferredBackBufferWidth = Math.Max(NATIVE_WIDTH, monitor.Width / 2);
+                graphics.PreferredBackBufferHeight = Math.Max(NATIVE_HEIGHT, monitor.Height / 2);
+            }
             graphics.ApplyChanges();
             computeIntegerScale();
             x = PLAYER_START_X;
@@ -795,10 +805,7 @@ namespace MonogameTest
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            string audioSettings = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "beam-audio.json");
-            foreach (string candidate in new[] { "Assets/beam-audio.json", "PyoroGL/Assets/beam-audio.json" })
-                if (System.IO.File.Exists(candidate)) { audioSettings = System.IO.Path.GetFullPath(candidate); break; }
-            beamAudio = new BeamAudio(audioSettings);
+            beamAudio = new BeamAudio(GameAssets.BeamAudioConfigPath());
             music = new MusicTracks(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets"));
             music.Request(MusicTracks.Track.Menu);
             ApplyVolumes();
@@ -835,7 +842,7 @@ namespace MonogameTest
 
         Texture2D loadPng(string name)
         {
-            using (Stream stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Assets", name + ".png")))
+            using (Stream stream = GameAssets.Open(name + ".png"))
             {
                 Texture2D texture = Texture2D.FromStream(GraphicsDevice, stream);
                 Color[] pixels = new Color[texture.Width * texture.Height];
@@ -2225,6 +2232,7 @@ namespace MonogameTest
         // to a worker thread so the game loop doesn't stall on disk I/O.
         void SaveScreenshot()
         {
+            if (GameAssets.IsWeb) return; // no writable file system in the browser
             try
             {
                 int w = GraphicsDevice.PresentationParameters.BackBufferWidth;
@@ -2269,6 +2277,13 @@ namespace MonogameTest
                 // Don't crash the game if a screenshot fails.
                 System.Diagnostics.Debug.WriteLine("Screenshot failed: " + ex.Message);
             }
+        }
+
+        // Web host only: called after the browser unlocks audio on the first
+        // user gesture, so the active music track can actually start playing.
+        public void UnlockAudio()
+        {
+            music?.UnlockRetry();
         }
 
         static Color[] makeCamoPalette()

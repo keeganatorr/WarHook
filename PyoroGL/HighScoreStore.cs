@@ -2,17 +2,58 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+#if WEB
+using System.Runtime.InteropServices.JavaScript;
+#endif
 
 namespace MonogameTest
 {
-    // Keeps disk writes off the game thread and replaces complete save files atomically.
+    // Reads and writes the complete save document through a SaveBackend.
+    // Desktop writes go to a worker thread and replace save files atomically;
+    // the web backend (browser localStorage) must run on the main thread.
     sealed class HighScoreStore
     {
+        interface SaveBackend
+        {
+            bool SyncWrites { get; }
+            string Read();
+            void Write(string json);
+        }
+
+        sealed class FileSaveBackend : SaveBackend
+        {
+            readonly string path;
+            public FileSaveBackend(string path) { this.path = path; }
+            public bool SyncWrites => false;
+            public string Read()
+            {
+                return !File.Exists(path) ? null : File.ReadAllText(path);
+            }
+            public void Write(string json)
+            {
+                string temporary = path + ".tmp";
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(temporary, json);
+                File.Move(temporary, path, true);
+            }
+        }
+
+#if WEB
+        sealed class WebSaveBackend : SaveBackend
+        {
+            const string Key = "warhook.highscores";
+            public bool SyncWrites => true;
+            public string Read() => WebInterop.LoadSave(Key);
+            public void Write(string json) => WebInterop.SaveSave(Key, json);
+        }
+#endif
+
         public sealed record Entry(string Id, string Initials, int Score);
         readonly List<Entry>[] tables = { new List<Entry>(), new List<Entry>() };
-        readonly string path;
+        readonly SaveBackend backend;
         readonly object gate = new object();
         readonly int[] scores = { 10000, 10000 };
         Task writer = Task.CompletedTask;
@@ -20,11 +61,16 @@ namespace MonogameTest
 
         public HighScoreStore(string path)
         {
-            this.path = path;
+#if WEB
+            backend = OperatingSystem.IsBrowser() ? new WebSaveBackend() : new FileSaveBackend(path);
+#else
+            backend = new FileSaveBackend(path);
+#endif
             try
             {
-                if (!File.Exists(path)) return;
-                using var json = JsonDocument.Parse(File.ReadAllText(path));
+                string saved = backend.Read();
+                if (saved == null) return;
+                using var json = JsonDocument.Parse(saved);
                 if (json.RootElement.ValueKind != JsonValueKind.Object) return;
                 ReadScore(json.RootElement, "GameA", 0);
                 ReadScore(json.RootElement, "GameB", 1);
@@ -35,6 +81,13 @@ namespace MonogameTest
             {
                 Console.Error.WriteLine("Could not load high scores: " + e.Message);
             }
+#if WEB
+            catch (Exception e) when (backend is WebSaveBackend)
+            {
+                // Don't let a storage failure break the game.
+                Console.Error.WriteLine("Could not load high scores: " + e.Message);
+            }
+#endif
         }
 
         void ReadScore(JsonElement root, string name, int mode)
@@ -99,7 +152,7 @@ namespace MonogameTest
                 tables[mode] = tables[mode].OrderByDescending(e => e.Score).Take(10).ToList();
                 scores[mode] = Math.Max(scores[mode], score);
                 dirty = true;
-                if (writer.IsCompleted) writer = Task.Run(WritePending);
+                ScheduleWrite();
                 return entry.Id;
             }
         }
@@ -131,9 +184,22 @@ namespace MonogameTest
                 if (score <= scores[mode]) return scores[mode];
                 scores[mode] = score;
                 dirty = true;
-                if (writer.IsCompleted) writer = Task.Run(WritePending);
+                ScheduleWrite();
                 return scores[mode];
             }
+        }
+
+        void ScheduleWrite()
+        {
+            if (backend.SyncWrites)
+            {
+                // Browser: localStorage only works on the main thread, which is
+                // where Submit/Record run. Monitor is re-entrant so WritePending
+                // can take the same lock.
+                if (dirty) WritePending();
+                return;
+            }
+            if (writer.IsCompleted) writer = Task.Run(WritePending);
         }
 
         void WritePending()
@@ -156,31 +222,36 @@ namespace MonogameTest
                     tableB = tables[1].ToArray();
                     dirty = false;
                 }
-                string temporary = path + ".tmp";
                 try
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    using (var stream = File.Create(temporary))
-                    {
-                        using (var json = new Utf8JsonWriter(stream))
-                        {
-                            json.WriteStartObject();
-                            json.WriteNumber("GameA", gameA);
-                            json.WriteNumber("GameB", gameB);
-                            WriteTable(json, "ScoresA", tableA);
-                            WriteTable(json, "ScoresB", tableB);
-                            json.WriteEndObject();
-                            json.Flush();
-                        }
-                        stream.Flush(true);
-                    }
-                    File.Move(temporary, path, true);
+                    backend.Write(SerializeSave(gameA, gameB, tableA, tableB));
                 }
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
                 {
                     Console.Error.WriteLine("Could not save high scores: " + e.Message);
                 }
+                catch (Exception e) when (backend.SyncWrites)
+                {
+                    // Web storage failures (JSException etc.) must not kill the game.
+                    Console.Error.WriteLine("Could not save high scores: " + e.Message);
+                }
             }
+        }
+
+        static string SerializeSave(int gameA, int gameB, Entry[] tableA, Entry[] tableB)
+        {
+            using var stream = new MemoryStream();
+            using (var json = new Utf8JsonWriter(stream))
+            {
+                json.WriteStartObject();
+                json.WriteNumber("GameA", gameA);
+                json.WriteNumber("GameB", gameB);
+                WriteTable(json, "ScoresA", tableA);
+                WriteTable(json, "ScoresB", tableB);
+                json.WriteEndObject();
+                json.Flush();
+            }
+            return Encoding.UTF8.GetString(stream.ToArray());
         }
 
         public void Flush()
@@ -190,4 +261,16 @@ namespace MonogameTest
             pending.GetAwaiter().GetResult();
         }
     }
+
+#if WEB
+    // JSImport targets registered by index.html (wwwroot).
+    static partial class WebInterop
+    {
+        [JSImport("globalThis.warhookInterop.loadSave")]
+        internal static partial string LoadSave(string key);
+
+        [JSImport("globalThis.warhookInterop.saveSave")]
+        internal static partial void SaveSave(string key, string json);
+    }
+#endif
 }

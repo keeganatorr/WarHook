@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>WarHookWeb</RootNamespace>
+    <AssemblyName>WarHookWeb</AssemblyName>
+    <DefineConstants>$(DefineConstants);WEB</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <KniPlatform>BlazorGL</KniPlatform>
+    <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="nkast.Xna.Framework" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Content" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Graphics" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Audio" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Media" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Input" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Game" Version="4.3.9001" />
+    <PackageReference Include="nkast.Xna.Framework.Devices" Version="4.3.9001" />
+    <PackageReference Include="nkast.Kni.Platform.Blazor.GL" Version="4.3.9001" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.13" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Game sources shared with the desktop PyoroGL project. The web host
+       supplies its own entry point; WineCompatibility stays desktop-only. -->
+  <ItemGroup>
+    <Compile Include="..\PyoroGL\Game1.cs" Link="Game1.cs" />
+    <Compile Include="..\PyoroGL\GameB.cs" Link="GameB.cs" />
+    <Compile Include="..\PyoroGL\GameMenus.cs" Link="GameMenus.cs" />
+    <Compile Include="..\PyoroGL\ScoreMenus.cs" Link="ScoreMenus.cs" />
+    <Compile Include="..\PyoroGL\HighScoreStore.cs" Link="HighScoreStore.cs" />
+    <Compile Include="..\PyoroGL\MusicTracks.cs" Link="MusicTracks.cs" />
+    <Compile Include="..\PyoroGL\BeamAudio.cs" Link="BeamAudio.cs" />
+    <Compile Include="..\PyoroGL\Font6.cs" Link="Font6.cs" />
+    <Compile Include="..\PyoroGL\GameAssets.cs" Link="GameAssets.cs" />
+  </ItemGroup>
+
+  <!-- Loose runtime assets (PNGs loaded via Texture2D.FromStream, OGG music,
+       generated-audio config), mirrored from the desktop csproj asset list. -->
+  <ItemGroup>
+    <Content Include="..\PyoroGL\Assets\*.ogg" Link="wwwroot\Assets\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\PyoroGL\Assets\beam-audio.json;..\PyoroGL\Assets\parachute.png;..\PyoroGL\Assets\mainmenu.png;..\PyoroGL\Assets\tank-pixelart.png;..\PyoroGL\Assets\mortars-pixelart-cleaned.png;..\PyoroGL\Assets\framewide.png;..\PyoroGL\Assets\newbackdrop.png;..\PyoroGL\Assets\font8x8_atlas.png;..\PyoroGL\Assets\frame_panel.png;..\PyoroGL\Assets\block_atlas.png"
+             Link="wwwroot\Assets\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- KNI-compatible SpriteFont XNB files are checked into wwwroot/Content.
+       They were built with KNI's BlazorGL content builder; keeping them here
+       avoids a platform-specific FreeType dependency during normal builds. -->
+
+</Project>

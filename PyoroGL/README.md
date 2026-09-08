@@ -76,3 +76,33 @@ three initials: type letters, or use Left/Right to select a character and Up/Dow
 to change it, then press Enter to save. Escape skips entry. Afterward, R opens
 the retry picker and Escape returns to the main menu. Controller D-pad and A/B
 also work. Old personal-best saves migrate as `OLD` entries.
+
+
+## Windows and Wine builds
+
+From the repository root, run `./build.sh win-x64` on Linux or `build.bat` on
+Windows. Both publish to `dist/win-x64/`. Building requires the .NET 8 SDK and
+the MGCB tool used by the project (`dotnet tool install -g dotnet-mgcb --version 3.8.4.1`).
+
+Run `WarHook.exe` on Windows or `wine dist/win-x64/WarHook.exe` on Linux.
+Ship the whole output folder: the self-contained executable, `SDL2.dll`,
+`openal.dll`, `Assets/`, and `Content/`. MonoGame loads the native DLLs by
+filename, so the Windows publish keeps them beside the executable instead of
+embedding them in the single-file bundle. No Windows .NET installation is needed.
+
+Under Wine, WarHook sets `UseEGL=N` in its own
+`HKCU/Software/Wine/AppDefaults/WarHook.exe/X11 Driver` key and restarts once
+if needed. This uses Wine's GLX path to avoid EGL context-creation failures on
+NVIDIA. It does not modify the prefix-wide graphics settings or native Windows.
+
+
+## Web build
+
+The `WarHookWeb/` Blazor WebAssembly host uses the KNI BlazorGL/WebGL fork
+(`nkast.*` 4.3.9001) while sharing the game sources with `PyoroGL/`. Run
+`./build-web.sh` from the repository root. It publishes `dist/web/` and creates
+`dist/WarHook-web.zip`, whose root contains `index.html`; upload that ZIP to
+itch.io as an HTML Game. For local testing, run `./serve-web.sh` and open the
+printed `http://127.0.0.1:8000/` URL; do not open `index.html` as `file://`.
+Scores use browser localStorage, and music starts after the first user gesture
+as required by browser autoplay policy.

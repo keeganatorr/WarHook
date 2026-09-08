@@ -1,0 +1,23 @@
+#----------------------------- Global Properties ----------------------------#
+/outputDir:.
+/intermediateDir:obj/BlazorGL
+/platform:BlazorGL
+/profile:Reach
+
+#-------------------------------- References --------------------------------#
+
+#---------------------------------- Content ---------------------------------#
+
+#begin font
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/build:font.spritefont
+#end
+
+#begin smallfont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/build:smallfont.spritefont
+#end

@@ -39,8 +39,12 @@ namespace MonogameTest
         KeyboardState previousMenuKeys;
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
-        static readonly string[] mainItems = { "START", "OPTIONS", "SCORES: GAME A", "SCORES: GAME B", "EXIT" };
-        static readonly string[] pauseItems = { "RESUME", "RESTART", "OPTIONS", "MAIN MENU", "EXIT" };
+        static readonly string[] mainItems = GameAssets.IsWeb
+            ? new[] { "START", "OPTIONS", "SCORES: GAME A", "SCORES: GAME B" }
+            : new[] { "START", "OPTIONS", "SCORES: GAME A", "SCORES: GAME B", "EXIT" };
+        static readonly string[] pauseItems = GameAssets.IsWeb
+            ? new[] { "RESUME", "RESTART", "OPTIONS", "MAIN MENU" }
+            : new[] { "RESUME", "RESTART", "OPTIONS", "MAIN MENU", "EXIT" };
 
         // True means menus own this update: no movement, spawns, or effect timers advance.
         bool updateMenus(GameTime time, KeyboardState keys)

@@ -51,6 +51,7 @@ namespace MonogameTest
         Song[] songs;
         Track current = Track.None;
         Track requested = Track.None;
+        bool audioUnlocked;
         string status = "Loading music";
         double fadeTime;
 
@@ -58,14 +59,24 @@ namespace MonogameTest
 
         public MusicTracks(string assetsDir)
         {
+            audioUnlocked = !GameAssets.IsWeb;
             // Songs are decoded lazily by MediaPlayer; construct off-thread.
             pending = Task.Run(() =>
             {
                 var loaded = new Song[TrackCount];
                 for (int i = 1; i < TrackCount; i++)
                 {
-                    string path = Path.Combine(assetsDir, TrackFiles[i]);
-                    if (File.Exists(path)) loaded[i] = Song.FromUri(TrackFiles[i], new Uri(path));
+                    if (GameAssets.IsWeb)
+                    {
+                        // Relative URL served from wwwroot; MediaPlayer sets it
+                        // directly as the HTMLAudio element's src.
+                        loaded[i] = Song.FromUri(TrackFiles[i], new Uri("Assets/" + TrackFiles[i], UriKind.Relative));
+                    }
+                    else
+                    {
+                        string path = Path.Combine(assetsDir, TrackFiles[i]);
+                        if (File.Exists(path)) loaded[i] = Song.FromUri(TrackFiles[i], new Uri(path));
+                    }
                 }
                 return loaded;
             });
@@ -105,7 +116,20 @@ namespace MonogameTest
             if (state == State.Playing) StartTrack(requested, 0);
         }
 
+        // The browser blocks audio until a user gesture; call this on the
+        // first gesture to replay whichever track is active.
+        public void UnlockRetry()
+        {
+            audioUnlocked = true;
+            var target = current != Track.None ? current : requested;
+            if (target == Track.None) return;
+            current = Track.None;
+            requested = Track.None;
+            Request(target);
+        }
+
         // Rapid fade used when the tank is destroyed — much faster than the
+        // normal crossfade so the music cuts out on the death hit.
         // normal crossfade so the music cuts out on the death hit.
         public void StartFastFadeOut()
         {
@@ -121,6 +145,13 @@ namespace MonogameTest
             int index = (int)track;
             Song song = index > 0 && index < TrackCount ? songs[index] : null;
             if (song == null) { current = Track.None; return; }
+            if (GameAssets.IsWeb && !audioUnlocked)
+            {
+                // HTMLAudio.play() rejects before a user gesture. Remember the
+                // track; UnlockRetry starts it after the browser grants audio.
+                current = track;
+                return;
+            }
             MediaPlayer.IsRepeating = true;
             MediaPlayer.Volume = volume;
             if (MediaPlayer.State != MediaState.Playing || MediaPlayer.Queue.ActiveSong != song)

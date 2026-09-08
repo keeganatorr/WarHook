@@ -4,3 +4,5 @@ PyoroGL/Content/obj/*
 PyoroGL/Content/.mgstats
 dist/
 preview/
+WarHookWeb/bin
+WarHookWeb/obj

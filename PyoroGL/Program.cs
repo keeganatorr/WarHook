@@ -13,6 +13,7 @@ namespace MonogameTest
         [STAThread]
         static void Main()
         {
+            if (WineCompatibility.RestartWithCompatibleGraphics()) return;
             using (var game = new Game1())
                 game.Run();
         }

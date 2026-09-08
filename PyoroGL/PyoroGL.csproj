@@ -22,7 +22,8 @@
   <ItemGroup>
     <!-- Copy only compiled XNB assets to output; keep spritefont/mgcb sources
          out of the runtime Content folder. -->
-    <None Include="Content/**/*.xnb" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Content/**/*.xnb" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="README-dist.txt" TargetPath="README.txt" CopyToPublishDirectory="Always" />
   </ItemGroup>
 
   <!-- Rebuild the MonoGame content (sprites, fonts) before compiling so that
@@ -46,7 +47,10 @@
     <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">true</PublishSingleFile>
     <SelfContained Condition="'$(SelfContained)' == ''">true</SelfContained>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' AND '$(NT)' != ''">win-x64</RuntimeIdentifier>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- MonoGame loads SDL/OpenAL by filename. Windows/Wine needs these DLLs
+         beside the executable rather than hidden in the single-file bundle. -->
+    <IncludeNativeLibrariesForSelfExtract Condition="$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">false</IncludeNativeLibrariesForSelfExtract>
+    <IncludeNativeLibrariesForSelfExtract Condition="'$(IncludeNativeLibrariesForSelfExtract)' == ''">true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>

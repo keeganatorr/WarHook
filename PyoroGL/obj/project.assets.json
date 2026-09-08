@@ -131,7 +131,7 @@
         }
       }
     },
-    "net8.0/win-x64": {
+    "net8.0/linux-x64": {
       "Microsoft.NET.ILLink.Tasks/8.0.30": {
         "type": "package",
         "build": {
@@ -162,13 +162,13 @@
       "MonoGame.Library.OpenAL/1.24.3.2": {
         "type": "package",
         "native": {
-          "runtimes/win-x64/native/openal.dll": {}
+          "runtimes/linux-x64/native/libopenal.so": {}
         }
       },
       "MonoGame.Library.SDL/2.32.2.1": {
         "type": "package",
         "native": {
-          "runtimes/win-x64/native/SDL2.dll": {}
+          "runtimes/linux-x64/native/libSDL2-2.0.so.0": {}
         }
       },
       "NVorbis/0.10.4": {
@@ -412,11 +412,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/keegan/Repos/pyoro/PyoroGL/PyoroGL.csproj",
+      "projectUniqueName": "/home/keegan/Repos/WarHook/PyoroGL/PyoroGL.csproj",
       "projectName": "WarHook",
-      "projectPath": "/home/keegan/Repos/pyoro/PyoroGL/PyoroGL.csproj",
+      "projectPath": "/home/keegan/Repos/WarHook/PyoroGL/PyoroGL.csproj",
       "packagesPath": "/home/keegan/.nuget/packages/",
-      "outputPath": "/home/keegan/Repos/pyoro/PyoroGL/obj/",
+      "outputPath": "/home/keegan/Repos/WarHook/PyoroGL/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/keegan/.nuget/NuGet/NuGet.Config"
@@ -471,15 +471,15 @@
             "version": "[8.0.30, 8.0.30]"
           },
           {
-            "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
+            "name": "Microsoft.AspNetCore.App.Runtime.linux-x64",
             "version": "[8.0.30, 8.0.30]"
           },
           {
-            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "name": "Microsoft.NETCore.App.Host.linux-x64",
             "version": "[8.0.30, 8.0.30]"
           },
           {
-            "name": "Microsoft.NETCore.App.Runtime.win-x64",
+            "name": "Microsoft.NETCore.App.Runtime.linux-x64",
             "version": "[8.0.30, 8.0.30]"
           }
         ],
@@ -492,7 +492,7 @@
       }
     },
     "runtimes": {
-      "win-x64": {
+      "linux-x64": {
         "#import": []
       }
     }

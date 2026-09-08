@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>WarHook</title>
+    <base href="./" />
+    <link href="css/app.css" rel="stylesheet" />
+</head>
+
+<body>
+
+    <div id="app">
+        <div id="loading" style="display: table-cell; margin: auto; width:100vw; height:100vh; vertical-align: middle; background: #000;">
+            <div style="display: block; margin: auto; width: 9em; color: white; font-family: monospace;">
+                <div style="text-align: center; font-size: 1.8em;">loading&nbsp;<marquee style="width:0.9em; vertical-align: bottom;">.&nbsp;.&nbsp;.&nbsp;&nbsp;&nbsp;</marquee></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">x</a>
+    </div>
+
+    <script>
+        // localStorage bridge for the high-score store ([JSImport] targets).
+        window.warhookInterop = {
+            loadSave: function (key) { return localStorage.getItem(key); },
+            saveSave: function (key, json) { localStorage.setItem(key, json); }
+        };
+
+        // Wrap AudioContext so the game's context (created before any user
+        // gesture) can be resumed on the first click or key press.
+        (function () {
+            var real = window.AudioContext || window.webkitAudioContext;
+            if (!real) return;
+            var contexts = [];
+            function PatchedAudioContext() {
+                var ctx = new real();
+                contexts.push(ctx);
+                return ctx;
+            }
+            PatchedAudioContext.prototype = real.prototype;
+            window.AudioContext = PatchedAudioContext;
+            window.warhookUnlockAudio = function () {
+                for (var i = 0; i < contexts.length; i++) {
+                    try {
+                        if (contexts[i].state === 'suspended') contexts[i].resume();
+                    } catch (e) { }
+                }
+            };
+        })();
+    </script>
+
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+
+    <script src="_content/nkast.Wasm.JSInterop/js/JSObject.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Window.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Document.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Navigator.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Gamepad.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Dom/js/Media.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.XHR/js/XHR.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Canvas/js/Canvas.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Canvas/js/CanvasGLContext.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.Audio/js/Audio.10.0.3.js"></script>
+    <script src="_content/nkast.Wasm.XR/js/XR.10.0.3.js"></script>
+
+    <script>
+        function tickJS()
+        {
+            window.theInstance.invokeMethod('TickDotNet');
+            window.requestAnimationFrame(tickJS);
+        }
+
+        window.initRenderJS = (instance) =>
+        {
+            window.theInstance = instance;
+
+            // set initial canvas size
+            var canvas = document.getElementById('theCanvas');
+            var holder = document.getElementById('canvasHolder');
+            canvas.width = holder.clientWidth;
+            canvas.height = holder.clientHeight;
+            // disable context menu on right click
+            canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+            // begin game loop
+            window.requestAnimationFrame(tickJS);
+
+            // Browsers start with audio suspended until a user gesture. On the
+            // first click/keypress, resume the WebAudio context and let the
+            // game replay its active music track.
+            var unlock = function () {
+                if (window.warhookUnlockAudio) window.warhookUnlockAudio();
+                window.theInstance.invokeMethod('UnlockAudioDotNet');
+                window.removeEventListener('pointerdown', unlock);
+                window.removeEventListener('keydown', unlock);
+            };
+            window.addEventListener('pointerdown', unlock);
+            window.addEventListener('keydown', unlock);
+        };
+
+        window.addEventListener("keydown", function(event)
+        {
+            // Prevent Arrows Keys and Spacebar scrolling the outer page
+            // when running inside an iframe. e.g: itch.io embedding.
+            if ([32, 37, 38, 39, 40].indexOf(event.keyCode) > -1)
+                event.preventDefault();
+        });
+        window.addEventListener("wheel", function(event)
+        {
+            // Prevent Mousewheel scrolling the outer page
+            // when running inside an iframe. e.g: itch.io embedding.
+            event.preventDefault();
+        }, { passive: false });
+
+        // Start Blazor after KNI's browser-side modules have loaded.
+        Blazor.start();
+    </script>
+</body>
+
+</html>

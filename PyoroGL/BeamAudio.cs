@@ -111,7 +111,7 @@ namespace MonogameTest
             if (pending != null) return;
             pending = Task.Run(() =>
             {
-                var config = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path),
+                var config = JsonSerializer.Deserialize<Settings>(GameAssets.ReadText(path),
                     new BeamAudioJsonContext(
                         new JsonSerializerOptions { ReadCommentHandling=JsonCommentHandling.Skip, AllowTrailingCommas=true }).Settings)
                     ?? throw new InvalidDataException("Empty beam audio settings.");

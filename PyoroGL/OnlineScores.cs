@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -42,27 +43,26 @@ namespace MonogameTest
         {
             try
             {
-                string json = TryReadEmbeddedConfig();
-                if (json == null && !GameAssets.IsWeb)
-                {
-                    // Dev convenience: plain file next to the exe, no rebuild.
-                    string path = Path.Combine(AppContext.BaseDirectory, "supabase.json");
-                    if (File.Exists(path)) json = File.ReadAllText(path);
-                }
+                // Release builds embed supabase.json. The desktop sidecar is
+                // deliberately a fallback so local development can change
+                // endpoints without rebuilding; environment variables win over
+                // both sources and are useful for smoke tests/CI.
+                string json = TryReadConfigText();
                 var config = string.IsNullOrWhiteSpace(json)
                     ? null
                     : JsonSerializer.Deserialize<Config>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                string url = Environment.GetEnvironmentVariable("WARHOOK_SUPABASE_URL") ?? config?.Url;
-                string key = Environment.GetEnvironmentVariable("WARHOOK_SUPABASE_ANON_KEY") ?? config?.AnonKey;
+                string url = FirstNonBlank(Environment.GetEnvironmentVariable("WARHOOK_SUPABASE_URL"), config?.Url);
+                string key = FirstNonBlank(Environment.GetEnvironmentVariable("WARHOOK_SUPABASE_ANON_KEY"), config?.AnonKey);
 
-                if (string.IsNullOrWhiteSpace(url) || !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
-                    string.IsNullOrWhiteSpace(key))
+                if (!Uri.TryCreate(url?.TrimEnd('/'), UriKind.Absolute, out var baseUri) ||
+                    !string.Equals(baseUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                    string.IsNullOrWhiteSpace(baseUri.Host) || string.IsNullOrWhiteSpace(key))
                     return;
 
-                http = new HttpClient { BaseAddress = new Uri(url.TrimEnd('/') + "/") };
+                http = new HttpClient { BaseAddress = new Uri(baseUri + "/"), Timeout = TimeSpan.FromSeconds(8) };
                 http.DefaultRequestHeaders.Add("apikey", key);
-                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
-                http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+                http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 Enabled = true;
             }
             catch (Exception e)
@@ -70,6 +70,21 @@ namespace MonogameTest
                 Console.Error.WriteLine("Online leaderboards disabled: " + e.Message);
                 Enabled = false;
             }
+        }
+
+        static string FirstNonBlank(string preferred, string fallback) =>
+            string.IsNullOrWhiteSpace(preferred) ? fallback : preferred.Trim();
+
+        static string TryReadConfigText()
+        {
+            string embedded = TryReadEmbeddedConfig();
+            if (!string.IsNullOrWhiteSpace(embedded) || GameAssets.IsWeb)
+                return embedded;
+
+            // Dev convenience: plain file next to the desktop executable, no
+            // rebuild. This is never used by the browser build.
+            string path = Path.Combine(AppContext.BaseDirectory, "supabase.json");
+            return File.Exists(path) ? File.ReadAllText(path) : null;
         }
 
         // supabase.json embedded into the entry assembly at build time.

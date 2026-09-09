@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run WarHook (Linux)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-linux",
+            "program": "${workspaceFolder}/PyoroGL/bin/Debug/net8.0/linux-x64/WarHook",
+            "cwd": "${workspaceFolder}/PyoroGL/bin/Debug/net8.0/linux-x64",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        }
+    ]
+}

@@ -36,9 +36,8 @@ namespace WarHookWeb.Pages
             _game.Tick();
         }
 
-        // The browser blocks audio until a user gesture. index.html resumes
-        // the WebAudio context on the first click/keypress and notifies us so
-        // the active music track can be restarted.
+        // If the browser blocks autoplay, index.html resumes the WebAudio
+        // context on the first page click/keypress and retries the active song.
         [JSInvokable]
         public void UnlockAudioDotNet()
         {

@@ -5,6 +5,53 @@ html, body {
     background: #000;
 }
 
+#loading {
+    align-items: center;
+    background: #050604;
+    display: flex;
+    height: 100vh;
+    inset: 0;
+    justify-content: center;
+    position: fixed;
+    width: 100vw;
+    z-index: 10;
+}
+
+#loadingCanvas {
+    display: block;
+    height: 100%;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    max-height: none;
+    max-width: none;
+    width: 100%;
+}
+
+#fullscreenButton {
+    background: #171914;
+    border: 2px solid #ffe191;
+    bottom: 1rem;
+    color: #ffe191;
+    cursor: pointer;
+    font-family: "Courier New", monospace;
+    font-size: clamp(0.7rem, 1.5vw, 1rem);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.55rem 0.8rem;
+    position: fixed;
+    right: 1rem;
+    text-shadow: 1px 1px #000;
+    z-index: 20;
+}
+
+#fullscreenButton:hover,
+#fullscreenButton:focus-visible {
+    background: #ffe191;
+    color: #171914;
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
 #blazor-error-ui {
     background: lightyellow;
     bottom: 0;

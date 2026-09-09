@@ -15,8 +15,9 @@ in the namespace `MonogameTest` and assembly name `WarHook` — do not rename.
 
 ```bash
 cd PyoroGL && dotnet run        # dev run (native Linux)
-./build.sh win-x64              # release publish -> dist/win-x64/ (whole folder is the artifact)
-./build.sh                      # current OS (linux-x64 / osx-x64)
+./build.sh win-x64              # release publish + dist/WarHook-win-x64.zip
+./build.sh linux-x64            # release publish + dist/WarHook-linux-x64.zip
+./build.sh                      # current OS (linux-x64 or osx-x64)
 ./build-web.sh                   # itch.io HTML5 ZIP -> dist/WarHook-web.zip
 ./serve-web.sh                   # local HTTP test server (not file://)
 ```
@@ -30,7 +31,8 @@ There is no test suite; verify by running the game.
 - `WarHookWeb/` — KNI BlazorGL web host; shares the game source files
 - `PyoroGL/Content/` — desktop MGCB content; a pre-Build target runs `mgcb` from inside that directory
 - `PyoroGL/Assets/` — raw PNGs/OGGs loaded at runtime via `Texture2D.FromStream`
-- `dist/<rid>/` — publish output; ship the entire folder, never the bare exe
+- `dist/<rid>/` — publish output; the matching `dist/WarHook-<rid>.zip` is the
+  ready-to-distribute archive (it contains the entire folder, never just the exe)
 - `PyoroGL/README-dist.txt` — ships as `README.txt` in the publish output
 
 ## Conventions
@@ -78,3 +80,6 @@ from reading the code or `git log`.
   `setup-leaderboards.sh`, which also applies `supabase/schema.sql` via the
   Management API and refuses service_role keys. Missing config = feature
   disabled. The anon key is public by design; the RPC validates submissions.
+- Leaderboard ownership uses the persistent `PlayerId` stored in the local
+  high-score save (browser localStorage or desktop JSON); rerun
+  `setup-leaderboards.sh` after applying the `player_id` schema change.

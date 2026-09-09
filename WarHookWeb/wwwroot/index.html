@@ -12,12 +12,14 @@
 <body>
 
     <div id="app">
-        <div id="loading" style="display: table-cell; margin: auto; width:100vw; height:100vh; vertical-align: middle; background: #000;">
-            <div style="display: block; margin: auto; width: 9em; color: white; font-family: monospace;">
-                <div style="text-align: center; font-size: 1.8em;">loading&nbsp;<marquee style="width:0.9em; vertical-align: bottom;">.&nbsp;.&nbsp;.&nbsp;&nbsp;&nbsp;</marquee></div>
-            </div>
+        <div id="loading" role="status" aria-live="polite">
+            <canvas id="loadingCanvas" width="288" height="162" aria-label="WarHook loading"></canvas>
         </div>
     </div>
+
+    <button id="fullscreenButton" type="button" aria-label="Enter fullscreen">
+        FULLSCREEN
+    </button>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.
@@ -70,6 +72,92 @@
     <script src="_content/nkast.Wasm.XR/js/XR.10.0.3.js"></script>
 
     <script>
+        // Draw the boot screen from the same 8x8 atlas used by the game's
+        // main menu. Blazor replaces #loading when the game component starts.
+        (function () {
+            var canvas = document.getElementById('loadingCanvas');
+            var loading = document.getElementById('loading');
+            if (!canvas || !loading) return;
+            var context = canvas.getContext('2d');
+            var atlas = new Image();
+            var atlasReady = false;
+            var started = performance.now();
+            var progress = 4;
+            var phases = [
+                'Loading WebAssembly',
+                'Loading game assets',
+                'Preparing graphics',
+                'Starting WarHook'
+            ];
+
+            atlas.onload = function () {
+                atlasReady = true;
+                draw();
+            };
+            atlas.src = 'Assets/font8x8_atlas.png';
+
+            function drawText(text, x, y, scale, color) {
+                if (!atlasReady) return;
+                context.save();
+                context.imageSmoothingEnabled = false;
+                context.globalAlpha = 1;
+                for (var i = 0; i < text.length; i++) {
+                    var code = text.charCodeAt(i) - 32;
+                    if (code < 0 || code >= 95) code = '?' .charCodeAt(0) - 32;
+                    var sourceX = (code % 16) * 8;
+                    var sourceY = Math.floor(code / 16) * 8;
+                    context.drawImage(atlas, sourceX, sourceY, 8, 8,
+                        x + i * 8 * scale, y, 8 * scale, 8 * scale);
+                }
+                context.restore();
+            }
+
+            function centered(text, y, scale, color) {
+                drawText(text, (canvas.width - text.length * 8 * scale) / 2, y, scale, color);
+            }
+
+            function draw() {
+                context.fillStyle = '#050604';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+
+                var dots = '.'.repeat(1 + Math.floor((performance.now() - started) / 400) % 3);
+                centered('Loading' + dots, 28, 3, '#ffe191');
+
+                var barX = 36, barY = 78, barWidth = 216, barHeight = 9;
+                context.fillStyle = '#382d17';
+                context.fillRect(barX, barY, barWidth, barHeight);
+                context.strokeStyle = '#ffe191';
+                context.lineWidth = 1;
+                context.strokeRect(barX + .5, barY + .5, barWidth - 1, barHeight - 1);
+                context.fillStyle = '#ffe191';
+                context.fillRect(barX + 2, barY + 2,
+                    Math.max(0, (barWidth - 4) * progress / 100), barHeight - 4);
+
+                var phase = phases[Math.min(phases.length - 1,
+                    Math.floor((performance.now() - started) / 3000))];
+                centered(phase, 105, 1, '#ffffff');
+            }
+
+            function animate(now) {
+                if (!document.body.contains(loading)) return;
+                // Keep the bar moving toward completion without pretending that
+                // the browser can report a byte-perfect Blazor download here.
+                progress = Math.min(94, 4 + (now - started) / 12000 * 90);
+                draw();
+                window.requestAnimationFrame(animate);
+            }
+
+            var observer = new MutationObserver(function () {
+                if (document.getElementById('theCanvas')) {
+                    progress = 100;
+                    draw();
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.getElementById('app'), { childList: true, subtree: true });
+            window.requestAnimationFrame(animate);
+        })();
+
         function tickJS()
         {
             window.theInstance.invokeMethod('TickDotNet');
@@ -81,10 +169,8 @@
             window.theInstance = instance;
 
             // set initial canvas size
+            resizeGameCanvas();
             var canvas = document.getElementById('theCanvas');
-            var holder = document.getElementById('canvasHolder');
-            canvas.width = holder.clientWidth;
-            canvas.height = holder.clientHeight;
             // disable context menu on right click
             canvas.addEventListener("contextmenu", e => e.preventDefault());
 
@@ -93,16 +179,72 @@
 
             // Browsers start with audio suspended until a user gesture. On the
             // first click/keypress, resume the WebAudio context and let the
-            // game replay its active music track.
+            // game retry its active music track if autoplay was blocked.
             var unlock = function () {
                 if (window.warhookUnlockAudio) window.warhookUnlockAudio();
-                window.theInstance.invokeMethod('UnlockAudioDotNet');
-                window.removeEventListener('pointerdown', unlock);
-                window.removeEventListener('keydown', unlock);
+                if (window.theInstance)
+                    window.theInstance.invokeMethod('UnlockAudioDotNet');
             };
-            window.addEventListener('pointerdown', unlock);
-            window.addEventListener('keydown', unlock);
+            // Capture events so clicking the fullscreen button, loading
+            // screen, or any other page element unlocks audio—not just the
+            // game canvas. Keep these listeners installed because the first
+            // gesture can happen before the music file has finished loading.
+            document.addEventListener('pointerdown', unlock, true);
+            document.addEventListener('keydown', unlock, true);
+            window.addEventListener('focus', unlock);
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') unlock();
+            });
         };
+
+        function resizeGameCanvas() {
+            var canvas = document.getElementById('theCanvas');
+            var holder = document.getElementById('canvasHolder');
+            if (!canvas || !holder || holder.clientWidth <= 0 || holder.clientHeight <= 0) return;
+            canvas.width = holder.clientWidth;
+            canvas.height = holder.clientHeight;
+        }
+
+        (function () {
+            var button = document.getElementById('fullscreenButton');
+            if (!button) return;
+
+            function fullscreenElement() {
+                return document.fullscreenElement || document.webkitFullscreenElement;
+            }
+
+            function updateButton() {
+                var active = !!fullscreenElement();
+                button.textContent = active ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+                button.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+            }
+
+            button.addEventListener('click', function () {
+                var root = document.documentElement;
+                if (fullscreenElement()) {
+                    var exit = document.exitFullscreen || document.webkitExitFullscreen;
+                    if (exit) exit.call(document);
+                    return;
+                }
+
+                var request = root.requestFullscreen || root.webkitRequestFullscreen;
+                if (request) {
+                    var result = request.call(root);
+                    if (result && result.catch) result.catch(function () { });
+                }
+            });
+
+            document.addEventListener('fullscreenchange', function () {
+                updateButton();
+                resizeGameCanvas();
+            });
+            document.addEventListener('webkitfullscreenchange', function () {
+                updateButton();
+                resizeGameCanvas();
+            });
+            window.addEventListener('resize', resizeGameCanvas);
+            updateButton();
+        })();
 
         window.addEventListener("keydown", function(event)
         {

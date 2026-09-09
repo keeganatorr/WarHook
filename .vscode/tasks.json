@@ -4,7 +4,7 @@
         {
             "label": "build-linux",
             "type": "shell",
-            "command": "${env:HOME}/.dotnet/dotnet",
+            "command": "dotnet",
             "args": [
                 "build",
                 "PyoroGL/PyoroGL.csproj"

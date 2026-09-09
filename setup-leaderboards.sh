@@ -120,14 +120,21 @@ fi
 echo "    schema applied."
 
 echo "==> Verifying leaderboards with the anon key"
-VERIFY="$(curl -s -w '\n%{http_code}' \
-    "$URL/rest/v1/rpc/top_scores?p_mode=game_a" \
-    -H "api-key: $ANON_KEY" \
-    -H "apikey: $ANON_KEY" \
-    -H "Authorization: Bearer $ANON_KEY")"
-VERIFY_CODE="${VERIFY##*$'\n'}"
-VERIFY_BODY="${VERIFY%$'\n'*}"
-if [[ "$VERIFY_CODE" != 2* || "$VERIFY_BODY" != "[]" ]]; then
+VERIFY_CODE="" VERIFY_BODY=""
+for attempt in {1..10}; do
+    VERIFY="$(curl -s -w '\n%{http_code}' \
+        "$URL/rest/v1/rpc/top_scores?p_mode=game_a&p_player_id=00000000000000000000000000000000" \
+        -H "api-key: $ANON_KEY" \
+        -H "apikey: $ANON_KEY" \
+        -H "Authorization: Bearer $ANON_KEY")"
+    VERIFY_CODE="${VERIFY##*$'\n'}"
+    VERIFY_BODY="${VERIFY%$'\n'*}"
+    if [[ "$VERIFY_CODE" == 2* ]] && python3 -c "import json, sys; value = json.load(sys.stdin); sys.exit(0 if isinstance(value, list) else 1)" <<<"$VERIFY_BODY"; then
+        break
+    fi
+    [[ "$attempt" -lt 10 ]] && sleep 1
+done
+if [[ "$VERIFY_CODE" != 2* ]] || ! python3 -c "import json, sys; value = json.load(sys.stdin); sys.exit(0 if isinstance(value, list) else 1)" <<<"$VERIFY_BODY"; then
     echo "ERROR: leaderboard verification failed (HTTP $VERIFY_CODE):" >&2
     echo "$VERIFY_BODY" | head -c 400 >&2; echo >&2
     exit 1

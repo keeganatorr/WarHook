@@ -6,7 +6,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-linux",
-            "program": "${workspaceFolder}/PyoroGL/bin/Debug/net8.0/linux-x64/WarHook",
+            "program": "${workspaceFolder}/PyoroGL/bin/Debug/net8.0/linux-x64/WarHook.dll",
             "cwd": "${workspaceFolder}/PyoroGL/bin/Debug/net8.0/linux-x64",
             "console": "integratedTerminal",
             "stopAtEntry": false

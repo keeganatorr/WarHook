@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 
@@ -27,7 +28,7 @@ namespace MonogameTest
     {
         public enum Status { NotFetched, Loading, Loaded, Failed }
 
-        public sealed record Entry(string Initials, int Score);
+        public sealed record Entry(string Initials, int Score, bool IsMine);
 
         // Immutable snapshot; workers replace the array slot, the UI reads it.
         public sealed record Snapshot(Status Status, Entry[] Entries, DateTime FetchedAt);
@@ -36,11 +37,13 @@ namespace MonogameTest
 
         static HttpClient http;
         static readonly Snapshot[] snapshots = new Snapshot[2]; // [0]=Game A, [1]=Game B
+        static string playerId;
 
         public static bool Enabled { get; private set; }
 
-        public static void Initialize()
+        public static void Initialize(string persistentPlayerId)
         {
+            playerId = persistentPlayerId;
             try
             {
                 // Release builds embed supabase.json. The desktop sidecar is
@@ -125,12 +128,22 @@ namespace MonogameTest
                         {
                             ["p_mode"] = mode,
                             ["p_initials"] = initials,
-                            ["p_score"] = score
+                            ["p_score"] = score,
+                            ["p_player_id"] = playerId
                         }),
                         Encoding.UTF8, "application/json");
                     using var response = await http.PostAsync("rest/v1/rpc/submit_score", content);
                     if (!response.IsSuccessStatusCode)
                         Console.Error.WriteLine("Online score submit failed: HTTP " + (int)response.StatusCode);
+                    else
+                    {
+                        int index = gameB ? 1 : 0;
+                        var current = snapshots[index];
+                        if (current == null)
+                            snapshots[index] = null;
+                        else if (current.Status == Status.Loaded)
+                            snapshots[index] = current with { FetchedAt = DateTime.MinValue };
+                    }
                 }
                 catch (Exception e)
                 {
@@ -147,20 +160,24 @@ namespace MonogameTest
             var current = snapshots[index];
             if (current != null && current.Status == Status.Loading) return;
 
-            snapshots[index] = new Snapshot(Status.Loading, Array.Empty<Entry>(), DateTime.UtcNow);
+            snapshots[index] = new Snapshot(Status.Loading,
+                current?.Entries ?? Array.Empty<Entry>(), DateTime.UtcNow);
             string mode = ModeName(gameB);
             _ = Task.Run(async () =>
             {
                 Snapshot result;
                 try
                 {
-                    using var response = await http.GetAsync("rest/v1/rpc/top_scores?p_mode=" + mode);
+                    using var response = await http.GetAsync(
+                        "rest/v1/rpc/top_scores?p_mode=" + Uri.EscapeDataString(mode) +
+                        "&p_player_id=" + Uri.EscapeDataString(playerId ?? ""));
                     response.EnsureSuccessStatusCode();
                     var json = await response.Content.ReadAsStringAsync();
                     var rows = JsonSerializer.Deserialize<Row[]>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                         ?? Array.Empty<Row>();
                     var entries = new Entry[rows.Length];
-                    for (int i = 0; i < rows.Length; i++) entries[i] = new Entry(rows[i].Initials, rows[i].Score);
+                    for (int i = 0; i < rows.Length; i++)
+                        entries[i] = new Entry(rows[i].Initials, rows[i].Score, rows[i].IsMine);
                     result = new Snapshot(Status.Loaded, entries, DateTime.UtcNow);
                 }
                 catch (Exception)
@@ -171,18 +188,27 @@ namespace MonogameTest
             });
         }
 
-        sealed record Row(string Initials, int Score);
+        sealed record Row(string Initials, int Score,
+            [property: JsonPropertyName("is_mine")] bool IsMine);
 
         public static Snapshot GetSnapshot(bool gameB) => snapshots[gameB ? 1 : 0];
 
-        // True when the visible snapshot is missing, stale, or the last fetch failed.
+        // A loaded board goes stale after this long; a failed one waits out the
+        // shorter cooldown. The score screen polls every frame, so without the
+        // failure cooldown a dead connection would refetch 60 times a second.
+        const double StaleMinutes = 5;
+        const double RetryFailedSeconds = 10;
+
+        // True when the visible snapshot is missing, stale, or the last fetch
+        // failed long enough ago to be worth retrying.
         public static bool ShouldFetch(bool gameB)
         {
             if (!Enabled) return false;
             var snapshot = GetSnapshot(gameB);
-            return snapshot == null
-                || snapshot.Status == Status.Failed
-                || (snapshot.Status == Status.Loaded && (DateTime.UtcNow - snapshot.FetchedAt).TotalMinutes >= 5);
+            if (snapshot == null) return true;
+            var age = DateTime.UtcNow - snapshot.FetchedAt;
+            if (snapshot.Status == Status.Failed) return age.TotalSeconds >= RetryFailedSeconds;
+            return snapshot.Status == Status.Loaded && age.TotalMinutes >= StaleMinutes;
         }
     }
 }

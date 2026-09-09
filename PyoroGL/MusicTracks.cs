@@ -59,7 +59,10 @@ namespace MonogameTest
 
         public MusicTracks(string assetsDir)
         {
-            audioUnlocked = !GameAssets.IsWeb;
+            // Attempt web autoplay as soon as the track is ready. Browsers
+            // may reject audible autoplay; UnlockRetry below then retries the
+            // same track after the first permitted page interaction.
+            audioUnlocked = true;
             // Songs are decoded lazily by MediaPlayer; construct off-thread.
             pending = Task.Run(() =>
             {
@@ -121,6 +124,8 @@ namespace MonogameTest
         public void UnlockRetry()
         {
             audioUnlocked = true;
+            if (GameAssets.IsWeb && current != Track.None && MediaPlayer.State == MediaState.Playing)
+                return;
             var target = current != Track.None ? current : requested;
             if (target == Track.None) return;
             current = Track.None;

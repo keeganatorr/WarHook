@@ -1,0 +1,32 @@
+<linker>
+  <assembly fullname="Kni.Platform" >
+    <type fullname="Microsoft.Xna.Platform.Audio.ConcreteAudioFactory" >
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.ConcreteTitleContainerFactory" >
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.Devices.ConcreteDevicesFactory">
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.ConcreteGameFactory">
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.Graphics.ConcreteGraphicsFactory" >
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.Input.ConcreteInputFactory">
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.Media.ConcreteMediaFactory">
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.Storage.ConcreteStorageFactory">
+      <method name=".ctor" />
+    </type>
+    <type fullname="Microsoft.Xna.Platform.XR.ConcreteXRFactory">
+      <method name=".ctor" />
+    </type>
+  </assembly>
+</linker>
+

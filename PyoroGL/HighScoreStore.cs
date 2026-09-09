@@ -60,6 +60,7 @@ namespace MonogameTest
         readonly SaveBackend backend;
         readonly object gate = new object();
         readonly int[] scores = { 10000, 10000 };
+        public string PlayerId { get; private set; } = Guid.NewGuid().ToString("N");
         Task writer = Task.CompletedTask;
         bool dirty;
 
@@ -76,6 +77,10 @@ namespace MonogameTest
                 if (saved == null) return;
                 using var json = JsonDocument.Parse(saved);
                 if (json.RootElement.ValueKind != JsonValueKind.Object) return;
+                if (json.RootElement.TryGetProperty("PlayerId", out var playerId) &&
+                    playerId.ValueKind == JsonValueKind.String &&
+                    Guid.TryParseExact(playerId.GetString(), "N", out _))
+                    PlayerId = playerId.GetString().ToLowerInvariant();
                 ReadScore(json.RootElement, "GameA", 0);
                 ReadScore(json.RootElement, "GameB", 1);
                 ReadTable(json.RootElement, "ScoresA", 0);
@@ -214,6 +219,7 @@ namespace MonogameTest
             {
                 int gameA, gameB;
                 Entry[] tableA, tableB;
+                string playerId;
                 lock (gate)
                 {
                     if (!dirty)
@@ -224,13 +230,14 @@ namespace MonogameTest
                     }
                     gameA = scores[0];
                     gameB = scores[1];
+                    playerId = PlayerId;
                     tableA = tables[0].ToArray();
                     tableB = tables[1].ToArray();
                     dirty = false;
                 }
                 try
                 {
-                    backend.Write(SerializeSave(gameA, gameB, tableA, tableB));
+                    backend.Write(SerializeSave(playerId, gameA, gameB, tableA, tableB));
                 }
                 catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
                 {
@@ -244,12 +251,13 @@ namespace MonogameTest
             }
         }
 
-        static string SerializeSave(int gameA, int gameB, Entry[] tableA, Entry[] tableB)
+        static string SerializeSave(string playerId, int gameA, int gameB, Entry[] tableA, Entry[] tableB)
         {
             using var stream = new MemoryStream();
             using (var json = new Utf8JsonWriter(stream))
             {
                 json.WriteStartObject();
+                json.WriteString("PlayerId", playerId);
                 json.WriteNumber("GameA", gameA);
                 json.WriteNumber("GameB", gameB);
                 WriteTable(json, "ScoresA", tableA);

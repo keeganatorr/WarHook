@@ -7,7 +7,8 @@
 #                           # runtime pack, which NuGet fetches automatically)
 #   ./build.sh linux-x64
 #
-# Output: dist/<rid>/WarHook[.exe], runtime libraries, Assets/ and Content/.
+# Output: dist/<rid>/WarHook[.exe], runtime libraries, Assets/ and Content/,
+# plus dist/WarHook-<rid>.zip containing the complete publish folder.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -34,5 +35,10 @@ dotnet publish PyoroGL/PyoroGL.csproj \
 
 # The project declares the complete runtime asset list and native-library layout.
 # Use publish's output directly so Windows and Linux ship the same required files.
+rm -f "dist/WarHook-$RID.zip"
+(cd "dist/$RID" && zip -qr "../WarHook-$RID.zip" .)
+
 echo "==> Done: dist/$RID/"
 ls -la "dist/$RID/"
+echo "==> ZIP: dist/WarHook-$RID.zip"
+ls -lh "dist/WarHook-$RID.zip"

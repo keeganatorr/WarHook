@@ -69,9 +69,10 @@ when set), and `%LOCALAPPDATA%/Warhook/highscores.json` on Windows.
 Each mode starts with the existing 10,000-point high-score target.
 
 The main menu's **Scores: Game A** and **Scores: Game B** options open separate
-top-ten leaderboards. Left/Right switches tables; Escape returns to the menu.
-If online leaderboards are configured, Up/Down switches between the local
-(save-file) and global (online) tables.
+top-ten leaderboards. The score screen shows the local table on the left and
+the global online table on the right; Left/Right switches game modes and
+Escape returns to the menu. Scores submitted by this installation are shown
+in the online table in the highlight colour, including after returning later.
 
 ## Online leaderboards (Supabase)
 
@@ -113,7 +114,9 @@ also work. Old personal-best saves migrate as `OLD` entries.
 ## Windows and Wine builds
 
 From the repository root, run `./build.sh win-x64` on Linux or `build.bat` on
-Windows. Both publish to `dist/win-x64/`. Building requires the .NET 8 SDK and
+Windows. Both publish to `dist/win-x64/` and create the distributable
+`dist/WarHook-win-x64.zip`. For Linux, run `./build.sh linux-x64` to create
+`dist/WarHook-linux-x64.zip`. Building requires the .NET 8 SDK and
 the MGCB tool used by the project (`dotnet tool install -g dotnet-mgcb --version 3.8.4.1`).
 
 Run `WarHook.exe` on Windows or `wine dist/win-x64/WarHook.exe` on Linux.

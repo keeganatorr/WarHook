@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "WarHookWeb",
   "resources": {
-    "hash": "sha256-6bI2Pj/t9coDIUEyjsfbczBKsS51DX+HAdYohexHcyU=",
+    "hash": "sha256-/x1iNifp1TDUkuvHLZ+0twibQIVHONwYb8DB8jgLpGs=",
     "jsModuleNative": {
       "dotnet.native.8.0.30.gdxuvdaivk.js": "sha256-dexsp+9ih2C28zVhNnPXUbkz2QCq7lHpkyDcmaLl7NQ="
     },
@@ -56,7 +56,7 @@
       "System.Text.RegularExpressions.wasm": "sha256-8nU4zdtEAJQrvf7oTy2sutuHlvsiiKpBdnWFUJhmnn4=",
       "System.Threading.Thread.wasm": "sha256-H+ua0SokKrJNBfNs0yTXhoCr+JwHMw39/s60XFsV0x4=",
       "System.Threading.wasm": "sha256-GzvCqMJVYRVrC58R4PTRT9900JWsdtwsn8i0zDV1rmA=",
-      "WarHookWeb.wasm": "sha256-59HB2Vem155BZ3EErbx0gkMJMTR8SlLnwMuAsSRKi2U=",
+      "WarHookWeb.wasm": "sha256-vX8UqEJYFppnqDEWsrfMHOiWcFV+2TEmoOnjUiVt98o=",
       "Xna.Framework.Audio.wasm": "sha256-CpqTt9d/+1eI66ljOpbam1g565at6MqYq+iQ7/RSRD8=",
       "Xna.Framework.Content.wasm": "sha256-iu7A5uy0xK0ctZQAGFIgGtVDUEf+rIwBlA9mzXlA5xQ=",
       "Xna.Framework.Devices.wasm": "sha256-4j6N+7wdnhpp/6gJ6UmEwNz+cCWQuz1PET35vsrZvRw=",

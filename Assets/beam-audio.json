@@ -1,0 +1,62 @@
+{
+  "MasterVolume": 0.65,
+  "GameBShotGain": 0.75,
+  "GameBShotSeconds": 0.11,
+  "SampleRate": 44100,
+  "SubHz": 45,
+  "SubLevel": 0.4,
+  "SubHarmonicHz": 90.3,
+  "SubHarmonicLevel": 0.2,
+  "TremoloHz": 1.7,
+  "TremoloDepth": 0.3,
+  "VibratoHz": 9,
+  "VibratoDepth": 0.03,
+  "BeamLevel": 0.5,
+  "SecondHarmonic": 0.5,
+  "ThirdHarmonic": 0.25,
+  "ShimmerRatio": 4.02,
+  "ShimmerLevel": 0.12,
+  "ShimmerHz": 13,
+  "NoiseLevel": 0.08,
+  "TransitionSeconds": 0.035,
+  "Fire": {
+    "Duration": 0.16,
+    "Gain": 0.7,
+    "StartHz": 110,
+    "SweepOctaves": 1,
+    "Attack": 0.008,
+    "Release": 0.07,
+    "PullRise": 0.015,
+    "RampDecay": 1.5
+  },
+  "Extending": {
+    "Duration": 6,
+    "Gain": 0.5,
+    "StartHz": 220,
+    "SweepOctaves": 1.5,
+    "Attack": 0.025,
+    "Release": 0.04,
+    "PullRise": 0.12,
+    "RampDecay": 1.5
+  },
+  "Catch": {
+    "Duration": 0.2,
+    "Gain": 0.8,
+    "StartHz": 660,
+    "SweepOctaves": -0.8,
+    "Attack": 0.005,
+    "Release": 0.12,
+    "PullRise": 0.01,
+    "RampDecay": 0.5
+  },
+  "Returning": {
+    "Duration": 0.65,
+    "Gain": 0.55,
+    "StartHz": 440,
+    "SweepOctaves": -1.5,
+    "Attack": 0.015,
+    "Release": 0.05,
+    "PullRise": 0.02,
+    "RampDecay": 0.3
+  }
+}

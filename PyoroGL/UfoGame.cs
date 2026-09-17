@@ -19,7 +19,11 @@ namespace MonogameTest
         const int StartingMissileSpeed = 0x180;
         const double DifficultyRatePerAbduction = .25;
         Texture2D ufoAtlas;
+        Texture2D abductedSoldierAtlas;
+        Texture2D abductedEngineerAtlas;
         readonly Rectangle[] ufoSprites = new Rectangle[16];
+        readonly Rectangle[] abductedSoldierSprites = new Rectangle[4];
+        readonly Rectangle[] abductedEngineerSprites = new Rectangle[4];
         readonly List<GroundPerson> people = new List<GroundPerson>();
         readonly List<UfoMissile> missiles = new List<UfoMissile>();
         readonly List<ShipBullet> shipBullets = new List<ShipBullet>();
@@ -148,6 +152,43 @@ namespace MonogameTest
                             top = Math.Min(top, yy); bottom = Math.Max(bottom, yy);
                         }
                 ufoSprites[i] = new Rectangle(left, top, right - left + 1, bottom - top + 1);
+            }
+            abductedSoldierAtlas = loadPng("ufo-abducted-soldier");
+            var abductedPixels = new Color[abductedSoldierAtlas.Width * abductedSoldierAtlas.Height];
+            abductedSoldierAtlas.GetData(abductedPixels);
+            // Trim each generated flail pose independently so its transparent
+            // padding does not make the soldier appear to jump in the beam.
+            for (int i = 0; i < abductedSoldierSprites.Length; i++)
+            {
+                int x0 = i * abductedSoldierAtlas.Width / abductedSoldierSprites.Length;
+                int x1 = (i + 1) * abductedSoldierAtlas.Width / abductedSoldierSprites.Length;
+                int left = x1, right = x0, top = abductedSoldierAtlas.Height, bottom = 0;
+                for (int yy = 0; yy < abductedSoldierAtlas.Height; yy++)
+                    for (int xx = x0; xx < x1; xx++)
+                        if (abductedPixels[yy * abductedSoldierAtlas.Width + xx].A >= 100)
+                        {
+                            left = Math.Min(left, xx); right = Math.Max(right, xx);
+                            top = Math.Min(top, yy); bottom = Math.Max(bottom, yy);
+                        }
+                abductedSoldierSprites[i] = new Rectangle(left, top, right - left + 1, bottom - top + 1);
+            }
+
+            abductedEngineerAtlas = loadPng("ufo-abducted-engineer");
+            var engineerPixels = new Color[abductedEngineerAtlas.Width * abductedEngineerAtlas.Height];
+            abductedEngineerAtlas.GetData(engineerPixels);
+            for (int i = 0; i < abductedEngineerSprites.Length; i++)
+            {
+                int x0 = i * abductedEngineerAtlas.Width / abductedEngineerSprites.Length;
+                int x1 = (i + 1) * abductedEngineerAtlas.Width / abductedEngineerSprites.Length;
+                int left = x1, right = x0, top = abductedEngineerAtlas.Height, bottom = 0;
+                for (int yy = 0; yy < abductedEngineerAtlas.Height; yy++)
+                    for (int xx = x0; xx < x1; xx++)
+                        if (engineerPixels[yy * abductedEngineerAtlas.Width + xx].A >= 100)
+                        {
+                            left = Math.Min(left, xx); right = Math.Max(right, xx);
+                            top = Math.Min(top, yy); bottom = Math.Max(bottom, yy);
+                        }
+                abductedEngineerSprites[i] = new Rectangle(left, top, right - left + 1, bottom - top + 1);
             }
         }
 
@@ -735,10 +776,25 @@ namespace MonogameTest
         void DrawUfoPerson(GroundPerson person, Vector2 feet)
         {
             int frame = (int)(person.Animation * 7) % 4;
-            DrawUfoSprite((person.Engineer ? 8 : 4) + frame,
-                new Rectangle((int)feet.X - 5, (int)feet.Y - PersonHeight, 10, PersonHeight),
-                person.HitFlash > 0 ? new Color(255, 135, 135) : Color.White, person.Direction < 0);
-            if (person.Engineer)
+            Color personColor = person.HitFlash > 0 ? new Color(255, 135, 135) : Color.White;
+            bool flailing = person.Falling || abductees.Contains(person);
+            if (flailing)
+            {
+                Texture2D flailAtlas = person.Engineer ? abductedEngineerAtlas : abductedSoldierAtlas;
+                Rectangle[] flailSprites = person.Engineer ? abductedEngineerSprites : abductedSoldierSprites;
+                int flailFrame = (int)(person.Animation * 8) % flailSprites.Length;
+                spriteBatch.Draw(flailAtlas,
+                    new Rectangle((int)feet.X - 7, (int)feet.Y - 14, 14, 14),
+                    flailSprites[flailFrame], personColor, 0, Vector2.Zero,
+                    person.Direction < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0);
+            }
+            else
+            {
+                DrawUfoSprite((person.Engineer ? 8 : 4) + frame,
+                    new Rectangle((int)feet.X - 5, (int)feet.Y - PersonHeight, 10, PersonHeight),
+                    personColor, person.Direction < 0);
+            }
+            if (person.Engineer && !flailing)
                 spriteBatch.Draw(beamPixel, new Rectangle((int)feet.X - 1, (int)feet.Y - PersonHeight - 3, 3, 1), new Color(255, 212, 78));
             else if (person.Health < SoldierMaxHealth)
             {

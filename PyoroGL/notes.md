@@ -3,8 +3,8 @@ enemy/rocket kills drops mult pickups
 auto fire?
 auto fire auto targeting
 upgrade defence from rockets (percentage)
-make dudes flail
 
+shiled with regen
 
 
 
@@ -14,6 +14,9 @@ make dudes flail
 ---
 done
 ---
+make dudes flail
+
+
 make colleciton score just show the new solder total, on gameplay screen make CREW # just the new value number
 
 

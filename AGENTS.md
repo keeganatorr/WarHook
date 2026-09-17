@@ -87,6 +87,9 @@ from reading the code or `git log`.
   ground people, missiles, and engineer repairs; it is linked by the web
   csproj. `--shots` exercises the mechanics in the running game and captures
   screenshots. Atlas regions are alpha-trimmed at load time from a 4x4 grid.
+- Held/falling people use separate four-frame
+  `Assets/ufo-abducted-soldier.png` and `Assets/ufo-abducted-engineer.png`
+  sheets, alpha-trimmed per frame and animated independently from the walking atlas.
 - UFO gameplay has no score or high-score submission; its persistent currency
   is the round-end crew reward. Abduct/Siege retain the original score model
   and save slots.

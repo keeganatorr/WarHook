@@ -31,10 +31,12 @@ namespace MonogameTest
         public int gameplayMusic = 1;
         // True while the game-over jingle plays instead of gameplay music.
         bool gameoverMusicPlaying;
-        // Volume controls (0..10 steps). Sound defaults to 100%, music to 80%.
-        public int soundVolume = 10;
-        public int musicVolume = 8;
+        // Volume controls (0..10 steps). Both default to 50%; the steps are
+        // converted from a -20..0 dB range before reaching the audio APIs.
+        public int soundVolume = 5;
+        public int musicVolume = 5;
         const int VolumeSteps = 10;
+        const float MinimumVolumeDb = -20;
         static readonly string[] optionsItems = { "FULLSCREEN", "SOUND", "MUSIC", "BACK" };
         KeyboardState previousMenuKeys;
         GamePadState previousMenuPad;
@@ -275,12 +277,21 @@ namespace MonogameTest
             }
         }
 
-        // Push current volume settings into the audio systems. Music default
-        // is 80% (musicVolume=8), sound effects 100% (soundVolume=10).
+        static float VolumeGain(int value)
+        {
+            if (value <= 0) return 0;
+            float percent = MathHelper.Clamp(value / (float)VolumeSteps, 0, 1);
+            float decibels = MinimumVolumeDb + percent * -MinimumVolumeDb;
+            return MathF.Pow(10, decibels / 20);
+        }
+
+        // Push current volume settings into the audio systems. The displayed
+        // percentage is a position in the dB range, rather than a linear
+        // amplitude multiplier.
         void ApplyVolumes()
         {
-            if (music != null) music.Volume = (float)musicVolume / VolumeSteps;
-            if (beamAudio != null) beamAudio.VolumeScale = (float)soundVolume / VolumeSteps;
+            if (music != null) music.Volume = VolumeGain(musicVolume);
+            if (beamAudio != null) beamAudio.VolumeScale = VolumeGain(soundVolume);
         }
 
         void resumeGame()
@@ -364,7 +375,8 @@ namespace MonogameTest
 
         void drawTitleScene()
         {
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone,
+                transformMatrix: screen == MenuScreen.Upgrades ? Matrix.CreateScale(2f) : Matrix.Identity);
             if (screen == MenuScreen.SaveSlots)
             {
                 DrawSaveSlots(); spriteBatch.End(); return;

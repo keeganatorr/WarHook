@@ -156,6 +156,7 @@ namespace MonogameTest
             }
             const float dt = 1f / 60;
             resetGame(); screen = MenuScreen.Playing;
+            Require(ShipMaxY == GroundY - 38, "Lower flight limit was not moved toward the rooftops");
             MoveShip(1, dt);
             Require(shipX > 144 && shipTilt > 0 && shipTilt < .18f, "Movement tilt did not ease in");
             float tilt = shipTilt;
@@ -425,28 +426,28 @@ namespace MonogameTest
             Require(shipHealth == 55 && roundSoldiers == 4, "Engineer affected currency");
             Require(RoundMultiplier == 1, "Multiplier must start at one");
             roundSeconds = 60;
-            Require(Math.Abs(RoundMultiplier - 1.1) < .000001 && RoundReward == 4.4, "Survival reward growth failed");
+            Require(Math.Abs(RoundMultiplier - 1.5) < .000001 && RoundReward == 6, "Survival reward growth failed");
             paused = true;
             UpdateUfo(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), new KeyboardState());
             Require(roundSeconds == 60, "Paused time increased rewards");
             EndIncrementalRound();
-            Require(screen == MenuScreen.Upgrades && roundBanked && progression.Balance == 4.4,
+            Require(screen == MenuScreen.Upgrades && roundBanked && progression.Balance == 6,
                 "Round end did not bank fractional rewards and open the map");
             EndIncrementalRound();
-            Require(progression.Balance == 4.4, "Round paid out twice");
-            Require(!progression.Buy(4) && progression.Buy(0) && progression.Balance == 1.4,
+            Require(progression.Balance == 6, "Round paid out twice");
+            Require(!progression.Buy(4) && progression.Buy(0) && progression.Balance == 3,
                 "Purchase cost or prerequisite failed");
             Require(!progression.Buy(0), "Upgrade allowed overspending");
             resetGame();
             Require(weaponLevel == 2 && Math.Abs(ShotInterval - (.8f / 1.2f)) < .0001f && roundSoldiers == 0
-                && roundSeconds == 0 && progression.Balance == 1.4, "Permanent upgrades failed across rounds");
+                && roundSeconds == 0 && progression.Balance == 3, "Permanent upgrades failed across rounds");
             progression.Bank("smoke-funds", 10000);
             foreach (int node in new[] { 0, 1, 1, 2, 3, 4, 5, 8 }) Require(progression.Buy(node), "Tree unlock failed");
             resetGame(); screen = MenuScreen.Playing;
             Require(beamCapacity == 2 && shipHealth == 125 && Math.Abs(FlightSpeed - 103.5f) < .001f && TractorLiftSpeed == 42,
                 "Purchased flight stats failed");
             roundSeconds = 60;
-            Require(Math.Abs(RoundMultiplier - 1.12) < .000001, "Multiplier growth upgrade failed");
+            Require(Math.Abs(RoundMultiplier - 1.6) < .000001, "Multiplier growth upgrade failed");
             for (int i = 0; i < 3; i++) SpawnPerson(shipX + i * 3, false, 1);
             UpdateTractor(.3f, true); UpdateTractor(.3f, true); UpdateTractor(.3f, true);
             Require(abductees.Count == 2 && people[2].Y == GroundY, "Multi-person beam capacity failed");
@@ -722,6 +723,44 @@ namespace MonogameTest
             Console.WriteLine("Altitude defense checks passed: threshold, warnings, alternating aimed volley, pause/death, cooldown, pool isolation, collisions/interception, reset and all clearance ranks.");
         }
 
+        void VerifyImpactEffects()
+        {
+            void Require(bool condition, string message)
+            { if (!condition) throw new InvalidOperationException(message); }
+            progression = new UfoProgression(true);
+            resetGame(); screen = MenuScreen.Playing;
+            shipX = previousShipX = 144; shipY = previousShipY = 80; shipHealth = 100;
+            DamageShip(Vector2.UnitX);
+            Require(shipHealth == 75 && impactShakeTime > 0 && shipX > 144 && shipVelocity.X > 0,
+                "Rocket hit did not apply a directional knockback and shake");
+            Matrix transform = ImpactShakeTransform();
+            Require(transform.Translation.Length() > 0, "Rocket impact shake had no camera offset");
+            UpdateImpactEffects(.12f);
+            Require(impactShakeTime > 0 && ImpactShakeTransform().Translation.Length() < transform.Translation.Length() + 3,
+                "Rocket impact shake did not decay smoothly");
+            UpdateImpactEffects(.2f);
+            Require(impactShakeTime == 0 && ImpactShakeTransform() == Matrix.Identity,
+                "Rocket impact shake did not settle");
+            resetGame();
+            Require(impactShakeTime == 0 && shipVelocity == Vector2.Zero, "New flight retained impact motion");
+            // A fatal hit should hand its direction and momentum to the wreck,
+            // rather than making every crash fall straight down identically.
+            shipHealth = 25; shipX = previousShipX = 144; shipY = previousShipY = 80;
+            DamageShip(Vector2.UnitX);
+            float crashStartX = shipX, crashStartTilt = crashTilt;
+            UpdateCrashLanding(.2f);
+            Require(crashLanding && shipX > crashStartX && crashTilt > crashStartTilt,
+                "Destroyed UFO did not inherit the final hit's slide and tumble");
+            resetGame();
+            shipHealth = 25; roundSeconds = 0;
+            Require(CriticalHullFlash, "Critical hull warning did not start at 25 hull");
+            roundSeconds = .13;
+            Require(!CriticalHullFlash, "Critical hull warning did not flash off");
+            shipHealth = 26;
+            Require(!CriticalHullFlash, "Critical hull warning continued above 25 hull");
+            Console.WriteLine("Impact checks passed: directional rocket knockback, subtle decaying shake, settle and reset.");
+        }
+
         void VerifyRoundResults()
         {
             void Require(bool condition, string message)
@@ -737,9 +776,9 @@ namespace MonogameTest
                 "Destroyed UFO did not begin its crash landing");
             var tick = new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(.1));
             updateMenus(tick, new KeyboardState(Keys.X));
-            Require(screen == MenuScreen.RoundResults && !roundActive && roundBanked && progression.Balance == 15.6,
+            Require(screen == MenuScreen.RoundResults && !roundActive && roundBanked && progression.Balance == 30,
                 "Death must show results and bank the exact reward immediately");
-            Require(resultsCrew == 12 && resultsMultiplier == 1.3 && resultsReward == 15.6 && resultsSurvival == 180,
+            Require(resultsCrew == 12 && resultsMultiplier == 2.5 && resultsReward == 30 && resultsSurvival == 180,
                 "Results must snapshot final round statistics");
             Require(ResultsLineAge(0) < 0, "Results tally started without an opening delay");
             UpdateRoundResults(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), false, true);
@@ -752,12 +791,12 @@ namespace MonogameTest
                 "Held fire must not dismiss results and the survival clock must stay frozen");
             updateMenus(tick, new KeyboardState());
             updateMenus(tick, new KeyboardState(Keys.X));
-            Require(screen == MenuScreen.Upgrades && !mapInputReady && progression.Balance == 15.6,
+            Require(screen == MenuScreen.Upgrades && !mapInputReady && progression.Balance == 30,
                 "Fresh confirm should enter upgrades without buying or paying twice");
             updateMenus(tick, new KeyboardState(Keys.X));
-            Require(progression.Balance == 15.6, "Held results confirmation bought an upgrade");
+            Require(progression.Balance == 30, "Held results confirmation bought an upgrade");
             EndIncrementalRound();
-            Require(progression.Balance == 15.6, "Revisiting round end paid twice");
+            Require(progression.Balance == 30, "Revisiting round end paid twice");
             resetGame(); screen = MenuScreen.Playing;
             EndIncrementalRound(showResults: true);
             Require(resultsCrew == 0 && resultsMultiplier == 1 && resultsReward == 0 && resultsTime == 0,
@@ -784,6 +823,7 @@ namespace MonogameTest
                 VerifyTechWeb();
                 VerifyEngineerUnlock();
                 VerifyAltitudeDefense();
+                VerifyImpactEffects();
                 VerifyRoundResults();
                 Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 32-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
                 resetGame();

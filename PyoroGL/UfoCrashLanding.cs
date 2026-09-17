@@ -7,20 +7,28 @@ namespace MonogameTest
     public partial class Game1
     {
         bool crashLanding;
-        float crashLandVelocity, crashLandTime, crashTilt;
+        float crashLandVelocity, crashLandHorizontalVelocity, crashLandAngularVelocity;
+        float crashLandTime, crashTilt;
 
         void ResetCrashLanding()
         {
             crashLanding = false;
-            crashLandVelocity = crashLandTime = crashTilt = 0;
+            crashLandVelocity = crashLandHorizontalVelocity = crashLandAngularVelocity = 0;
+            crashLandTime = crashTilt = 0;
         }
 
         void BeginCrashLanding()
         {
             crashLanding = true;
             crashLandTime = 0;
-            crashLandVelocity = 18;
-            crashTilt = shipTilt;
+            // Carry the final rocket's momentum into the wreck.  The regular
+            // flight velocity includes the earlier impacts, while the last
+            // heading makes the fatal hit immediately readable.
+            crashLandVelocity = Math.Max(8, 22 + shipVelocity.Y * .18f);
+            crashLandHorizontalVelocity = shipVelocity.X * .5f + lastImpactHeading.X * 20f;
+            crashLandAngularVelocity = lastImpactHeading.X * .8f + shipTilt * .4f;
+            crashTilt = shipTilt + lastImpactHeading.X * .15f;
+            shipVelocity = Vector2.Zero;
         }
 
         void UpdateCrashLanding(float dt)
@@ -28,6 +36,17 @@ namespace MonogameTest
             if (!crashLanding) return;
             crashLandTime += dt;
             float landingY = GroundY - ShipHeight / 2;
+
+            // The wreck slides and tumbles from the impact, then settles.
+            crashLandHorizontalVelocity *= (float)Math.Exp(-1.8f * dt);
+            shipX += crashLandHorizontalVelocity * dt;
+            if (shipX <= ShipSideMargin || shipX >= NATIVE_WIDTH - ShipSideMargin)
+            {
+                shipX = MathHelper.Clamp(shipX, ShipSideMargin, NATIVE_WIDTH - ShipSideMargin);
+                crashLandHorizontalVelocity *= -.35f;
+            }
+            crashLandAngularVelocity *= (float)Math.Exp(-1.5f * dt);
+            crashTilt += crashLandAngularVelocity * dt;
             if (shipY < landingY)
             {
                 crashLandVelocity += 170 * dt;
@@ -39,8 +58,11 @@ namespace MonogameTest
                 // moving the ship away from the ground again.
                 crashLandVelocity = 0;
                 shipY = landingY;
+                crashLandHorizontalVelocity *= .5f;
+                crashLandAngularVelocity *= .7f;
             }
-            crashTilt = MathHelper.Lerp(crashTilt, .42f, 1 - (float)Math.Exp(-5 * dt));
+            crashTilt = MathHelper.Lerp(crashTilt, .42f + lastImpactHeading.X * .1f,
+                1 - (float)Math.Exp(-3 * dt));
         }
 
         void DrawCrashFire()

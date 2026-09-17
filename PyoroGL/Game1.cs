@@ -16,6 +16,7 @@ namespace MonogameTest
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
         RenderTarget2D _nativeRenderTarget;
+        RenderTarget2D _upgradeRenderTarget;
         RasterizerState playfieldRasterizer;
 
         const int NATIVE_WIDTH = 288;
@@ -714,6 +715,7 @@ namespace MonogameTest
             highScore = highScores.Get(gameB);
             // TODO: Add your initialization logic here
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
+            _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH * 2, NATIVE_HEIGHT * 2);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
             if (GameAssets.IsWeb)
@@ -1141,6 +1143,7 @@ namespace MonogameTest
             frame.Dispose();
             playfieldRasterizer.Dispose();
             _nativeRenderTarget.Dispose();
+            _upgradeRenderTarget?.Dispose();
             spriteBatch.Dispose();
         }
 
@@ -1182,9 +1185,11 @@ namespace MonogameTest
             // Upload before either render pass, and unbind the previous frame's target.
             GraphicsDevice.Textures[0] = null;
             updateCamo(gameTime.ElapsedGameTime.TotalSeconds);
-            GraphicsDevice.SetRenderTarget(_nativeRenderTarget);
+            bool highResolutionUpgradeMap = screen == MenuScreen.Upgrades;
+            RenderTarget2D frameTarget = highResolutionUpgradeMap ? _upgradeRenderTarget : _nativeRenderTarget;
+            GraphicsDevice.SetRenderTarget(frameTarget);
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, frameTarget.Width, frameTarget.Height);
 
             // DRAWING INSIDE RENDERTARGET
             // Let the animated outer camo show through outside the frame.
@@ -1202,7 +1207,7 @@ namespace MonogameTest
             // DRAW _nativeRenderTarget TO SCREEN at the integer scale
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             
-            spriteBatch.Draw(_nativeRenderTarget, rect, Color.White);
+            spriteBatch.Draw(frameTarget, rect, Color.White);
             float fade = transitionOpacity();
             if (fade > 0)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * fade);

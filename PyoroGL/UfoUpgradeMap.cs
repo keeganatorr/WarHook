@@ -14,6 +14,9 @@ namespace MonogameTest
         static readonly Rectangle UpgradeMenuButton = new Rectangle(197, 200, 47, 13);
         static readonly Rectangle UpgradeMiniMap = new Rectangle(238, 32, 42, 26);
         static readonly Rectangle UpgradeZoomButton = new Rectangle(253, 18, 29, 9);
+        const float MapNodeVisualScale = .84f;
+        const float MapConnectorScale = .78f;
+        const float MapLabelScale = .88f;
         int mapSelection = UfoProgression.Index("core");
         Vector2 mapCamera, mapDragCamera, mapDragStart;
         float mapZoom = 1;
@@ -38,7 +41,8 @@ namespace MonogameTest
         Rectangle UpgradeNodeRect(int index)
         {
             var p = UpgradeNodePosition(index);
-            int size = (int)((UfoProgression.Nodes[index].Effect == UfoUpgradeEffect.Core ? 30 : 23) * mapZoom);
+            int size = (int)((UfoProgression.Nodes[index].Effect == UfoUpgradeEffect.Core ? 30 : 23)
+                * mapZoom * MapNodeVisualScale);
             return new Rectangle((int)Math.Round(p.X) - size / 2, (int)Math.Round(p.Y) - size / 2, size, size);
         }
 
@@ -186,15 +190,17 @@ namespace MonogameTest
         {
             float length = Vector2.Distance(from, to);
             if (length < .5f) return;
-            if (!dashed) { drawBeamStroke(from, Vector2.Lerp(from, to, fraction), Math.Max(1, mapZoom), color); return; }
+            if (!dashed) { drawBeamStroke(from, Vector2.Lerp(from, to, fraction), Math.Max(.7f, mapZoom * MapConnectorScale), color); return; }
             for (float d = 0; d < length * fraction; d += 6 * mapZoom)
-                drawBeamStroke(Vector2.Lerp(from, to, d / length), Vector2.Lerp(from, to, Math.Min(length * fraction, d + 3 * mapZoom) / length), 1, color);
+                drawBeamStroke(Vector2.Lerp(from, to, d / length), Vector2.Lerp(from, to, Math.Min(length * fraction, d + 3 * mapZoom) / length),
+                    Math.Max(.7f, mapZoom * MapConnectorScale), color);
         }
         void DrawTechEdge(int parent, int child, int requiredRank)
         {
             Vector2 from = UpgradeNodePosition(parent), to = UpgradeNodePosition(child);
             Vector2 direction = Vector2.Normalize(to - from);
-            from += direction * 13 * mapZoom; to -= direction * 13 * mapZoom;
+            from += direction * 11 * mapZoom * MapNodeVisualScale;
+            to -= direction * 11 * mapZoom * MapNodeVisualScale;
             Vector2 bend = new Vector2((from.X + to.X) / 2, from.Y);
             Vector2 bend2 = new Vector2(bend.X, to.Y);
             Color tint = BranchColor(UfoProgression.Nodes[child].Branch);
@@ -274,8 +280,10 @@ namespace MonogameTest
             TechBox(UpgradeZoomButton, new Color(35, 87, 109), new Color(10, 31, 47));
             font6.Draw(spriteBatch, mapZoom.ToString("0.#", CultureInfo.InvariantCulture) + "X", new Vector2(257, 20), Color.Cyan);
             spriteBatch.End();
-            GraphicsDevice.ScissorRectangle = UpgradeMapView;
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer);
+            GraphicsDevice.ScissorRectangle = new Rectangle(UpgradeMapView.X * 2, UpgradeMapView.Y * 2,
+                UpgradeMapView.Width * 2, UpgradeMapView.Height * 2);
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer,
+                transformMatrix: Matrix.CreateScale(2f));
             spriteBatch.Draw(beamPixel, UpgradeMapView, new Color(6, 16, 30));
             for (int i = 0; i < 180; i++)
             {
@@ -289,24 +297,47 @@ namespace MonogameTest
                 var node = UfoProgression.Nodes[i]; var box = UpgradeNodeRect(i);
                 if (!UpgradeMapView.Intersects(new Rectangle(box.X - 22, box.Y - 4, box.Width + 44, box.Height + 16))) continue;
                 bool bought = progression.Rank(i) > 0, unlocked = progression.Unlocked(i), selected = i == mapSelection;
+                bool canBuy = progression.CanBuy(i);
+                bool hasUpgrade = progression.Rank(i) < node.MaxRank;
                 Color tint = BranchColor(node.Branch);
-                Color border = bought ? tint : unlocked ? tint * (progression.CanBuy(i) ? .75f + .25f * (float)Math.Sin(mapPulse * 4) : .55f) : new Color(47, 73, 96);
-                if (selected) TechBox(new Rectangle(box.X - 3, box.Y - 3, box.Width + 6, box.Height + 6), new Color(239, 247, 229), new Color(50, 80, 112));
+                bool unaffordable = unlocked && hasUpgrade && !canBuy;
+                Color border = bought && !unaffordable ? tint
+                    : unlocked ? tint * (canBuy
+                        ? .9f + .1f * (float)Math.Sin(mapPulse * 4) : .09f)
+                    : new Color(47, 73, 96);
+                // Any available rank glows, including the next rank of an
+                // already-owned node. The glow is the purchase affordance.
+                if (canBuy)
+                {
+                    float pulse = .55f + .45f * (float)Math.Sin(mapPulse * 4);
+                    Color glow = tint * (.2f + .14f * pulse);
+                    spriteBatch.Draw(beamPixel, new Rectangle(box.X - 5, box.Y - 5, box.Width + 10, box.Height + 10), glow);
+                    spriteBatch.Draw(beamPixel, new Rectangle(box.X - 2, box.Y - 2, box.Width + 4, box.Height + 4), tint * (.24f + .12f * pulse));
+                }
+                bool selectedActive = canBuy || (bought && !unaffordable);
+                if (selected) TechBox(new Rectangle(box.X - 3, box.Y - 3, box.Width + 6, box.Height + 6),
+                    selectedActive ? new Color(239, 247, 229) : new Color(75, 86, 96), new Color(35, 48, 60));
                 else if (bought) spriteBatch.Draw(beamPixel, new Rectangle(box.X - 1, box.Y - 1, box.Width + 2, box.Height + 2), tint * .18f);
-                TechBox(box, border, selected ? new Color(20, 42, 58) : new Color(8, 23, 38), Math.Max(1, (int)mapZoom));
-                DrawTechIcon(node, new Vector2(box.Center.X, box.Center.Y), mapZoom, unlocked ? tint : new Color(63, 87, 110));
+                TechBox(box, border, selected ? new Color(20, 42, 58) : new Color(8, 23, 38),
+                    Math.Max(1, (int)(mapZoom * MapConnectorScale)));
+                Color iconTint = !unlocked ? new Color(63, 87, 110)
+                    : !unaffordable ? tint * (canBuy ? 1.05f + .1f * (float)Math.Sin(mapPulse * 4) : 1)
+                    : tint * .12f;
+                DrawTechIcon(node, new Vector2(box.Center.X, box.Center.Y), mapZoom * MapNodeVisualScale, iconTint);
                 if (node.MaxRank > 1 && mapZoom >= 1)
                     for (int rank = 0; rank < node.MaxRank; rank++)
-                        spriteBatch.Draw(beamPixel, new Rectangle(box.Center.X - node.MaxRank * 2 + rank * 4, box.Bottom - 4, 2, 2), rank < progression.Rank(i) ? tint : new Color(32, 51, 69));
+                        spriteBatch.Draw(beamPixel, new Rectangle(box.Center.X - node.MaxRank * 2 + rank * 4, box.Bottom - 3, 1, 1),
+                            rank < progression.Rank(i) ? tint : new Color(32, 51, 69));
                 if (mapZoom >= 1) font6.Draw(spriteBatch, node.ShortName,
-                    new Vector2(box.Center.X - font6.Measure(node.ShortName).X / 2, box.Bottom + 5), selected ? Color.White : border);
+                    new Vector2(box.Center.X - font6.Measure(node.ShortName).X * MapLabelScale / 2, box.Bottom + 4),
+                    selected ? Color.White : border, MapLabelScale);
             }
             void Label(string label, Vector2 world, Vector2 overview, UfoBranch branch)
             {
                 Vector2 pos = mapZoom == .5f ? overview : MapToScreen(world);
-                var size = font6.Measure(label);
+                var size = font6.Measure(label) * MapLabelScale;
                 spriteBatch.Draw(beamPixel, new Rectangle((int)pos.X - 2, (int)pos.Y - 1, (int)size.X + 4, 8), new Color(6, 16, 30));
-                font6.Draw(spriteBatch, label, pos, BranchColor(branch) * .8f);
+                font6.Draw(spriteBatch, label, pos, BranchColor(branch) * .8f, MapLabelScale);
             }
             Label("WEAPONS", new Vector2(-295, -130), new Vector2(10, 30), UfoBranch.Weapons);
             Label("BEAM SYSTEMS", new Vector2(210, -182), new Vector2(166, 30), UfoBranch.Beam);
@@ -327,8 +358,8 @@ namespace MonogameTest
                 spriteBatch.Draw(beamPixel, new Rectangle(cameraX - 1, cameraY - 1, 3, 3), Color.White);
             }
             spriteBatch.End();
-            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH * 2, NATIVE_HEIGHT * 2);
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: Matrix.CreateScale(2f));
             font6.Draw(spriteBatch, "DRAG PAN  WHEEL ZOOM  C CORE  ARROWS SELECT", new Vector2(7, 158), new Color(103, 143, 167));
             var selectedNode = UfoProgression.Nodes[mapSelection];
             Color selectedTint = BranchColor(selectedNode.Branch);

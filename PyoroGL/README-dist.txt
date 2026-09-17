@@ -17,7 +17,7 @@ Continue resumes progression between rounds, not an unfinished flight;
 use Pause > End Round to bank rewards before leaving.
 
 Fly the compact UFO around a 288x216 screen. The ship banks smoothly as you
-move and can descend to rooftop height. The city skyline shows your altitude;
+move and can descend to low rooftop height. The city skyline shows your altitude;
 buildings are background scenery. Soldiers run to their original bean spawn position, fire one
 missile aimed at your UFO's position, then keep running offscreen. Dodge the
 missiles: they follow a fixed heading. Engineers run without firing.
@@ -38,7 +38,7 @@ each further rank adds 5 repair, up to 25 at rank 5. Hull Plating rank 2 is
 required to buy the unlock. Before unlocking, engineer spawns are ordinary
 soldiers. Soldiers score 100 and add one CREW currency.
 The survival timer starts at zero. The reward multiplier starts at 1.00x and
-increases by 0.10x per minute; both freeze while paused. Death or End Round
+increases by 0.50x per minute; both freeze while paused. Death or End Round
 from the pause menu banks soldiers times multiplier, retaining hundredths.
 Engineers and kills do not earn currency.
 

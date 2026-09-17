@@ -10,7 +10,7 @@ namespace MonogameTest
     {
         const int GroundY = NATIVE_HEIGHT - 19;
         const int PersonHeight = 14;
-        const float ShipStartY = 38, ShipMinY = 34, ShipMaxY = GroundY - 58, ShipSpeed = 90;
+        const float ShipStartY = 38, ShipMinY = 34, ShipMaxY = GroundY - 38, ShipSpeed = 90;
         const float ShipWidth = 44, ShipHeight = 20, ShipSideMargin = 23;
         const float EnemyRunInSeconds = 3f, EnemyExitSpeed = 24;
         const float LiftSpeed = 30, TractorCenterSpeed = 15, BulletSpeed = 160;
@@ -64,6 +64,31 @@ namespace MonogameTest
         float FlightSpeed => ShipSpeed * (1 + engineBonus) * globalBonus;
         float TractorLiftSpeed => LiftSpeed * (1 + tractorBonus) * globalBonus;
         float TractorPullSpeed => TractorCenterSpeed * (1 + tractorBonus) * globalBonus;
+        bool CriticalHullFlash => shipHealth <= 25 && ((int)(roundSeconds * 8) & 1) == 0;
+
+        Color MultiplierBandColor(int band)
+        {
+            return ((Math.Max(1, band) - 1) % 4) switch {
+                0 => new Color(255, 220, 130),
+                1 => new Color(255, 166, 78),
+                2 => new Color(255, 103, 137),
+                _ => new Color(185, 143, 255)
+            };
+        }
+
+        void DrawMultiplierMeter()
+        {
+            const int x = 112, y = 15, width = 72, height = 5;
+            double multiplier = RoundMultiplier;
+            int band = Math.Max(1, (int)Math.Floor(Math.Min(multiplier, int.MaxValue - 1)));
+            float progress = (float)Math.Clamp(multiplier - band, 0, 1);
+            Color tint = MultiplierBandColor(band);
+            spriteBatch.Draw(beamPixel, new Rectangle(x - 1, y - 1, width + 2, height + 2), tint * .55f);
+            spriteBatch.Draw(beamPixel, new Rectangle(x, y, width, height), new Color(18, 29, 43));
+            int filled = (int)Math.Round(width * progress);
+            if (filled > 0)
+                spriteBatch.Draw(beamPixel, new Rectangle(x, y, filled, height), tint);
+        }
 
         sealed class GroundPerson
         {
@@ -118,6 +143,7 @@ namespace MonogameTest
             shipX = previousShipX = NATIVE_WIDTH / 2f;
             shipY = previousShipY = ShipStartY;
             ResetCrashLanding();
+            ResetImpactEffects();
             shipTilt = shotCooldown = muzzleFlash = hurtTime = repairTime = 0;
             tractorCooldown = messageTime = beamAnimation = 0;
             weaponLevel = 1 + progression.Total(UfoUpgradeEffect.Fire);
@@ -148,7 +174,9 @@ namespace MonogameTest
             missileDifficultySpeed = StartingMissileSpeed;
             max_time = StartingUfoSpawnInterval;
             roundStartMultiplier = 1 + Math.Round(progression.Bonus(UfoUpgradeEffect.StartingBonus), 6);
-            roundGrowth = (1 + Math.Round(progression.Bonus(UfoUpgradeEffect.Growth), 6)) / 600;
+            // Base survival growth is 0.50x per minute; yield upgrades scale
+            // that rate while the timer remains active-only.
+            roundGrowth = (1 + Math.Round(progression.Bonus(UfoUpgradeEffect.Growth), 6)) / 120;
             longHaulBonus = Math.Round(progression.Bonus(UfoUpgradeEffect.LongHaul), 6);
             exponentialRate = Math.Log(1 + Math.Round(progression.Bonus(UfoUpgradeEffect.Exponential), 6)) / 60;
             // Interest is fixed at launch: spending crew trades savings for power.
@@ -293,11 +321,9 @@ namespace MonogameTest
             }
         }
 
-        void SetUfoMessage(string message, float seconds = 1.8f)
-        {
-            ufoMessage = message;
-            messageTime = seconds;
-        }
+        // Event text is intentionally disabled; gameplay communicates through
+        // the HUD, sprites, sound, and effects instead.
+        void SetUfoMessage(string message, float seconds = 1.8f) { }
 
         void MoveShip(float direction, float dt, float verticalDirection = 0)
         {
@@ -328,10 +354,11 @@ namespace MonogameTest
             });
         }
 
-        void DamageShip()
+        void DamageShip(Vector2? impactDirection = null)
         {
             if (gameover || hurtTime > 0) return;
             shipHealth = Math.Max(0, shipHealth - 25);
+            TriggerRocketImpact(impactDirection ?? -Vector2.UnitY);
             timeWithoutDamage = autoRepairFraction = 0;
             hurtTime = 1;
             spawnExplosion(shipX, shipY + 6);
@@ -455,7 +482,7 @@ namespace MonogameTest
                 if (!float.IsPositiveInfinity(contact))
                 {
                     missiles.RemoveAt(i);
-                    DamageShip();
+                    DamageShip(missile.Heading);
                     if (gameover) break;
                 }
                 else if (end.Y < -12 || end.Y > NATIVE_HEIGHT + 12 || end.X < -12 || end.X > NATIVE_WIDTH + 12)
@@ -583,6 +610,7 @@ namespace MonogameTest
         {
             if (ufoShotFrozen || paused) return;
             float dt = (float)time.ElapsedGameTime.TotalSeconds;
+            UpdateImpactEffects(dt);
             updateExplosions(); updateScorePopups();
             if (!gameover && screen == MenuScreen.Playing)
             {
@@ -740,7 +768,7 @@ namespace MonogameTest
 
         void DrawUfoGameplay()
         {
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: ImpactShakeTransform());
             DrawUfoLandscape();
             DrawAltitudeLine();
             DrawTractor();
@@ -760,7 +788,8 @@ namespace MonogameTest
             if (!gameover)
             {
                 Rectangle source = ufoSprites[0];
-                Color shipColor = hurtTime > 0 && (int)(hurtTime * 12) % 2 == 0
+                Color shipColor = CriticalHullFlash ? new Color(255, 74, 74)
+                    : hurtTime > 0 && (int)(hurtTime * 12) % 2 == 0
                     ? new Color(255, 120, 120) : repairTime > 0 ? new Color(145, 255, 190) : Color.White;
                 spriteBatch.Draw(ufoAtlas, ShipPosition, source, shipColor, shipTilt,
                     new Vector2(source.Width / 2f, source.Height / 2f),
@@ -788,18 +817,13 @@ namespace MonogameTest
                 font6.Draw(spriteBatch, "BEST " + highScore.ToString("D6"), new Vector2(214, 3), new Color(255, 215, 128));
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 12, NATIVE_WIDTH, 9), new Color(6, 12, 22));
                 font6.Draw(spriteBatch, "TIME " + FormatRoundTime(roundSeconds), new Vector2(8, 13), Color.White);
-                font6.Draw(spriteBatch, RoundMultiplier.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "X REWARD",
-                    new Vector2(112, 13), new Color(255, 220, 130));
+                DrawMultiplierMeter();
+                font6.Draw(spriteBatch, RoundMultiplier.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "X",
+                    new Vector2(190, 13), MultiplierBandColor((int)Math.Floor(RoundMultiplier)));
                 font6.Draw(spriteBatch, "BEAM " + abductees.Count + "/" + beamCapacity, new Vector2(225, 13), new Color(96, 230, 222));
                 font6.Draw(spriteBatch, "CREW " + roundSoldiers,
                     new Vector2(8, NATIVE_HEIGHT - 10), new Color(95, 245, 255));
                 font6.Draw(spriteBatch, "X/SPACE FIRE Z/SHIFT BEAM", new Vector2(132, NATIVE_HEIGHT - 10), new Color(180, 210, 220));
-            }
-            if (messageTime > 0 && !gameover)
-            {
-                Vector2 size = font6.Measure(ufoMessage);
-                spriteBatch.Draw(beamPixel, new Rectangle((int)(NATIVE_WIDTH - size.X) / 2 - 3, 69, (int)size.X + 6, 10), new Color(7, 13, 30) * .85f);
-                font6.Draw(spriteBatch, ufoMessage, new Vector2((NATIVE_WIDTH - size.X) / 2, 71), new Color(255, 222, 128));
             }
             if (gameover && screen != MenuScreen.Scores && screen != MenuScreen.RoundResults)
             {

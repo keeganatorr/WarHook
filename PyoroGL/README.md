@@ -25,7 +25,8 @@ dotnet run
 
 Fly a compact 44×20 UFO around a 288×216 playfield.
 Left/right movement banks the ship with smoothly eased tilt; Up/Down lets
-you descend from the upper sky to rooftop height. A layered city skyline
+you descend from the upper sky to low rooftop height (the UFO centre can reach
+Y=159). A layered city skyline
 with lit windows and rooftop tanks makes altitude easier to judge. Buildings
 are background scenery; the UFO flies in front of them.
 
@@ -68,7 +69,7 @@ earns 250 points. Existing Engineer Tools purchases retain the unlock.
 
 Delivering a soldier earns 100 score points and one unit of **CREW** currency.
 The survival timer starts at zero and the reward multiplier at **1.00×**,
-growing by **0.10× per minute** before upgrades. Pausing freezes the timer.
+growing by **0.50× per minute** before upgrades. Pausing freezes the timer.
 When the hull is destroyed, or you choose **End Round** from pause, your
 collected soldiers × the current multiplier are banked (to two decimal places).
 Engineers and shooting enemies do not earn currency.

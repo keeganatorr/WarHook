@@ -40,6 +40,7 @@
     <Compile Include="..\PyoroGL\UfoUpgradeMap.cs" Link="UfoUpgradeMap.cs" />
     <Compile Include="..\PyoroGL\UfoRoundResults.cs" Link="UfoRoundResults.cs" />
     <Compile Include="..\PyoroGL\UfoCrashLanding.cs" Link="UfoCrashLanding.cs" />
+    <Compile Include="..\PyoroGL\UfoImpactEffects.cs" Link="UfoImpactEffects.cs" />
     <Compile Include="..\PyoroGL\UfoSmokeChecks.cs" Link="UfoSmokeChecks.cs" />
     <Compile Include="..\PyoroGL\Game1.cs" Link="Game1.cs" />
     <Compile Include="..\PyoroGL\GameB.cs" Link="GameB.cs" />

@@ -91,7 +91,7 @@ from reading the code or `git log`.
   do not initialize the original online leaderboard. Abduct/Siege retain the
   save model's A/B slots, with distinct rules from the original game.
 - UFO playfield is 288×216; the ship is 44×20 and its centre moves within
-  Y=34..139 (GroundY - 58 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
+  Y=34..159 (GroundY - 38 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
   feed missile collision sweeps; firing and tractor origins follow altitude. X/Space (pad A) fires downward; Z/Shift (pad Y)
   holds the tractor cone. Captured people stay in the people list, keeping
   their reserved bean slot and slowly drifting toward the cone centre. Release
@@ -122,13 +122,18 @@ from reading the code or `git log`.
 - Incremental progression lives in `UfoProgression.cs`; the pannable 32-node
   tech web is `UfoUpgradeMap.cs`. Soldier deliveries earn currency at round end:
   floor(soldiers × multiplier × 100) / 100. The timer counts active play only;
-  base multiplier is 1 + seconds / 600. Death and pause End Round show the
+  base multiplier is 1 + seconds / 120. Death and pause End Round show the
   timed tally in UfoRoundResults.cs before the map. Bank immediately on round
   end; the tally only animates a snapshot. Require released confirm controls
   after the tally completes before continuing, then guard input again on the map.
   Permanent ranks apply in ResetUfo, including beam capacity (1..5), hull,
   repair, cone width, and multiplier growth/start bonuses. Held people remain
   in the spawn pool and drop independently; releasing the beam drops all.
+  The gameplay HUD renders multiplier progress as a color-cycling 1x-wide bar
+  with the numeric multiplier beside it; each integer band resets the fill.
+- Options volume sliders use ten percentage steps mapped across -20..0 dB;
+  both sound effects and music start at 50% and are converted to linear gains
+  only at the audio API boundary.
 - Progression uses explicit JSON and atomic desktop replacement at
   `Warhook/ufo-save-{1..3}.json`, or synchronous browser localStorage keys
   `warhook.ufo.save.{1..3}.v1`. UfoSaveMenu.cs handles New Game / Continue
@@ -173,6 +178,8 @@ from reading the code or `git log`.
 - UfoUpgradeMap uses world coordinates, spatial keyboard selection, free drag,
   discrete .5/1/2 zoom and a clickable overview. Icons are code-drawn pixels
   (existing UFO atlas for core/capstone); no additional raster assets required.
+  The upgrade map uses a dedicated 576×432 render target with a 2× transform;
+  gameplay remains on the 288×216 target and map mouse coordinates stay native.
   --shots checks graph reachability, multi-parent gates, any-three capstones,
   new effects and rank-refund migration in addition to the gameplay checks.
 - UfoAltitudeDefense.cs owns the fixed Y=64 danger line and side volleys.
@@ -184,7 +191,12 @@ from reading the code or `git log`.
   AltitudeDefense missiles share bullet/hull collisions but are excluded from
   ActiveBeanSpawnCount so the original 16-slot schedule remains independent.
 - UfoCrashLanding.cs owns the post-destruction visual state. DamageShip starts
-  a downward, tilted landing; RoundResults continues that short animation and
+  a downward, tilted landing whose slide, fall impulse, and tumble inherit the
+  final rocket heading; RoundResults continues that short animation and
   DrawUfoGameplay renders the compact tally over the skyline, crashed UFO,
   animated fire, and rising smoke. RoundResults is deliberately a gameplay
   render path (not a title scene), while gameover still freezes combat state.
+- UfoImpactEffects.cs applies a short .24s camera shake and directional
+  knockback on rocket impact. DamageShip receives the missile heading so normal
+  and altitude-defense rockets push the ship in their travel direction;
+  impact motion resets with each flight and does not alter the combat timer.

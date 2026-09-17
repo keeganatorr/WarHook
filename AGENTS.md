@@ -105,11 +105,13 @@ from reading the code or `git log`.
   starting at 0x180 (1.5x original speed). Both speeds advance on the same
   smallspeed rollover; missiles continue scaling after spawn speed caps.
   UpdateUfoDifficulty advances fractional 60 Hz difficulty ticks at
-  1 + 0.10 * roundAbductions; both soldier and engineer deliveries count.
+  1 + 0.25 * roundAbductions; both soldier and engineer deliveries count.
   It does not advance spawns, movement, or the separate survival/reward clock.
   The original replay test explicitly restores the old starting constants.
   Each event has a fixed 3-second run-in to its assigned X;
-  ordinary beans fire once, special beans become non-firing engineers. The
+  ordinary beans fire once; special beans become non-firing engineers only
+  after Engineer Tools rank 1 is owned, otherwise they become ordinary soldiers.
+  Spawn timing, positions and RNG order are unchanged by the unlock. The
   16-slot pool counts approaching soldiers, missiles, and engineers;
   departing soldiers do not occupy a second slot. Rockets aim at the ship's
   launch-time position and keep that heading, with the original speed ramp.
@@ -117,20 +119,30 @@ from reading the code or `git log`.
   The cone narrows toward the UFO; horizontal pull is slower than ship movement,
   so moving too far away still drops people. Bullets sweep predicted missile
   motion before ship impacts and consume themselves on the first target.
-- Incremental progression lives in `UfoProgression.cs`; the scrollable 20-node
-  map is `UfoUpgradeMap.cs`. Soldier deliveries earn currency at round end:
+- Incremental progression lives in `UfoProgression.cs`; the pannable 32-node
+  tech web is `UfoUpgradeMap.cs`. Soldier deliveries earn currency at round end:
   floor(soldiers × multiplier × 100) / 100. The timer counts active play only;
-  base multiplier is 1 + seconds / 600. Death and pause End Round open the map.
+  base multiplier is 1 + seconds / 600. Death and pause End Round show the
+  timed tally in UfoRoundResults.cs before the map. Bank immediately on round
+  end; the tally only animates a snapshot. Require released confirm controls
+  after the tally completes before continuing, then guard input again on the map.
   Permanent ranks apply in ResetUfo, including beam capacity (1..5), hull,
   repair, cone width, and multiplier growth/start bonuses. Held people remain
   in the spawn pool and drop independently; releasing the beam drops all.
 - Progression uses explicit JSON and atomic desktop replacement at
-  `Warhook/ufo-progression.json`, or synchronous browser localStorage key
-  `warhook.ufo.progression.v1`. Failed writes do not commit purchases/rewards;
+  `Warhook/ufo-save-{1..3}.json`, or synchronous browser localStorage keys
+  `warhook.ufo.save.{1..3}.v1`. UfoSaveMenu.cs handles New Game / Continue
+  selection and defaults overwrite confirmation to Cancel. With no slot saves,
+  LoadSaveSlots imports the legacy ufo-progression.json /
+  warhook.ufo.progression.v1 into slot 1, retaining the original as backup.
+  Continue restores currency, ranks, mode and music between rounds, not an
+  in-flight snapshot. Clear roundId/state when switching saves to prevent
+  cross-slot payout retries. Failed writes do not commit purchases/rewards;
   round IDs prevent duplicate payouts. `--shots` uses in-memory progression
   and runs checks in `UfoSmokeChecks.cs`, including temporary-file save/reload.
 - Bullets instantly kill soldiers and engineers or destroy missiles for 50
-  points; all held people are protected. Engineers repair 25 + upgrades,
+  points; all held people are protected. Engineer Tools rank 1 unlocks engineers
+  (the stable `repair` save ID); they repair 5 hull per owned rank (5..25),
   capped to upgraded hull health; only soldiers earn currency. Missile damage
   is 25 with a one-second grace period. Base fire interval is .8 seconds;
   tractor lift/pull speeds are 30/15 px/s.
@@ -145,3 +157,34 @@ from reading the code or `git log`.
   Keep high-score initials on the original typed-key path. Space fires and
   either Shift activates the tractor on desktop/web. Held gameplay controls
   persist until keyup (repeat is idempotent); blur/hidden-tab events clear them. Run `node --test tests/web-keyboard-controls.test.cjs`.
+
+- Tech web catalog coordinates, branch colours, weighted bonuses and ID-based
+  multi-prerequisites are in UfoProgression.cs; RequiredCount enables any-N
+  prerequisites (Mothership needs three completed capstones). Core is always
+  owned. Old purchased nodes are grandfathered through prerequisite changes.
+  Version-2 JSON retains all 20 old IDs and refunds excess old fire3/engine3
+  ranks at old costs before clamping; the storage filenames/keys stay unchanged.
+- Tech effects are snapshotted in ResetUfo, including interest on launch-time
+  balance. Auto repair integrates only time after five damage-free seconds;
+  Point Defence expands rocket interception and blasts nearby missiles, while
+  preserving sweep ordering against earlier ship impacts. Exponential growth
+  is integrated analytically, with Long Haul applying after 120 active seconds.
+  The reward timer and abduction-driven difficulty clock remain separate.
+- UfoUpgradeMap uses world coordinates, spatial keyboard selection, free drag,
+  discrete .5/1/2 zoom and a clickable overview. Icons are code-drawn pixels
+  (existing UFO atlas for core/capstone); no additional raster assets required.
+  --shots checks graph reachability, multi-parent gates, any-three capstones,
+  new effects and rank-refund migration in addition to the gameplay checks.
+- UfoAltitudeDefense.cs owns the fixed Y=64 danger line and side volleys.
+  Flight Clearance (`clearance` save ID, after Thrusters 1) adds 14px per rank,
+  max 5; stats snapshot at ResetUfo. Crossing below with the ship centre fixes
+  two warning/launch points, waits .85s, then fires six alternating rockets
+  .18s apart at current ship positions (fixed heading, 90px/s). A committed
+  volley finishes even after retreat; staying low retriggers after 3.5s.
+  AltitudeDefense missiles share bullet/hull collisions but are excluded from
+  ActiveBeanSpawnCount so the original 16-slot schedule remains independent.
+- UfoCrashLanding.cs owns the post-destruction visual state. DamageShip starts
+  a downward, tilted landing; RoundResults continues that short animation and
+  DrawUfoGameplay renders the compact tally over the skyline, crashed UFO,
+  animated fire, and rising smoke. RoundResults is deliberately a gameplay
+  render path (not a title scene), while gameover still freezes combat state.

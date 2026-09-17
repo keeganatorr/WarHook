@@ -8,8 +8,7 @@ namespace MonogameTest
     // A 6x6 pixel font generated at load time — no external asset needed.
     // Each glyph is a 5px-wide pattern inside a 6x6 cell (1px spacing), so
     // strings render crisply at native resolution like the 8x8 atlas font.
-    // Supported: space, digits, A-Z, ':', '%' — enough for score popups and
-    // the "MUSIC: n" HUD readout.
+    // Supports the HUD and technology web, including numeric comparisons.
     sealed class Font6
     {
         public const int Cell = 6;
@@ -58,6 +57,11 @@ namespace MonogameTest
             ['.'] = new byte[] { 0b00000, 0b00000, 0b00000, 0b00000, 0b00110, 0b00110 },
             ['/'] = new byte[] { 0b00001, 0b00010, 0b00010, 0b00100, 0b01000, 0b10000 },
             ['-'] = new byte[] { 0, 0, 0b11111, 0, 0, 0 },
+            ['+'] = new byte[] { 0, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100 },
+            ['>'] = new byte[] { 0b10000, 0b01000, 0b00100, 0b01000, 0b10000, 0 },
+            ['('] = new byte[] { 0b00010, 0b00100, 0b01000, 0b01000, 0b00100, 0b00010 },
+            [')'] = new byte[] { 0b01000, 0b00100, 0b00010, 0b00010, 0b00100, 0b01000 },
+            ['&'] = new byte[] { 0b01100, 0b10010, 0b01100, 0b10101, 0b10010, 0b01101 },
             ['%'] = new byte[] { 0b11001, 0b11010, 0b00010, 0b00100, 0b01011, 0b10011 },
             [' '] = new byte[] { 0, 0, 0, 0, 0, 0 },
         };
@@ -90,14 +94,15 @@ namespace MonogameTest
 
         public Vector2 Measure(string text) => new(text.Length * Cell, Cell);
 
-        public void Draw(SpriteBatch batch, string text, Vector2 position, Color color)
+        public void Draw(SpriteBatch batch, string text, Vector2 position, Color color, float scale = 1)
         {
             for (int i = 0; i < text.Length; i++)
             {
                 char c = char.ToUpperInvariant(text[i]);
                 if (!index.TryGetValue(c, out int g)) g = index[' '];
                 Rectangle src = new(g * Cell, 0, Cell, Cell);
-                batch.Draw(Atlas, new Vector2((int)position.X + i * Cell, (int)position.Y), src, color);
+                batch.Draw(Atlas, new Vector2((int)position.X + i * Cell * scale, (int)position.Y), src, color,
+                    0, Vector2.Zero, scale, SpriteEffects.None, 0);
             }
         }
     }

@@ -17,7 +17,7 @@ namespace MonogameTest
         const int SoldierMaxHealth = 100, BulletDamage = SoldierMaxHealth;
         const int StartingUfoSpeed = 0x600, StartingUfoSpawnInterval = 0x78;
         const int StartingMissileSpeed = 0x180;
-        const double DifficultyRatePerAbduction = .10;
+        const double DifficultyRatePerAbduction = .25;
         Texture2D ufoAtlas;
         readonly Rectangle[] ufoSprites = new Rectangle[16];
         readonly List<GroundPerson> people = new List<GroundPerson>();
@@ -26,6 +26,11 @@ namespace MonogameTest
         float shipX, shipY, previousShipX, previousShipY, shipTilt, shotCooldown, muzzleFlash;
         float hurtTime, repairTime, tractorCooldown, messageTime, beamAnimation;
         int shipHealth, weaponLevel, tractorLevel, engineLevel;
+        float fireBonus, engineBonus, tractorBonus, plasmaBonus, focusBonus, matrixBonus, warpBonus, globalBonus = 1;
+        int shotCount = 1, pointDefenseLevel, nanoHull;
+        float autoRepairRate, timeWithoutDamage, autoRepairFraction;
+        Vector2 shipVelocity;
+        double longHaulBonus, exponentialRate, interestBonus;
         UfoProgression progression;
         int roundSoldiers, hullLevel, beamCapacity, repairLevel, widthLevel;
         int roundAbductions;
@@ -34,9 +39,19 @@ namespace MonogameTest
         double roundSeconds, roundGrowth, roundStartMultiplier;
         string roundId;
         bool roundActive, roundBanked;
-        double RoundMultiplier => roundStartMultiplier + roundSeconds * roundGrowth;
+        double RoundMultiplier
+        {
+            get
+            {
+                double GrowthIntegral(double t) => exponentialRate > 0
+                    ? (Math.Exp(Math.Min(40, exponentialRate * t)) - 1) / exponentialRate : t;
+                double growthTime = GrowthIntegral(roundSeconds);
+                if (roundSeconds > 120) growthTime += longHaulBonus * (GrowthIntegral(roundSeconds) - GrowthIntegral(120));
+                return Math.Min(1_000_000, (roundStartMultiplier + roundGrowth * growthTime) * (1 + interestBonus) * globalBonus);
+            }
+        }
         double RoundReward => Math.Floor(roundSoldiers * RoundMultiplier * 100 + .000001) / 100;
-        int MaxShipHealth => 100 + hullLevel * 25;
+        int MaxShipHealth => (int)((100 + hullLevel * 25 + nanoHull * 50) * globalBonus);
         bool tractorActive, ufoShotFrozen;
         readonly List<GroundPerson> abductees = new();
         string ufoMessage = "";
@@ -44,10 +59,11 @@ namespace MonogameTest
         Vector2 PreviousShipPosition => new Vector2(previousShipX, previousShipY);
         Vector2 ShipCollisionHalfSize => new Vector2(19, 10);
         Vector2 TractorOrigin => new Vector2(shipX, shipY + 8);
-        float ShotInterval => .8f / (1 + (weaponLevel - 1) * .25f);
-        float FlightSpeed => ShipSpeed * (1 + engineLevel * .2f);
-        float TractorLiftSpeed => LiftSpeed * (1 + tractorLevel * .25f);
-        float TractorPullSpeed => TractorCenterSpeed * (1 + tractorLevel * .25f);
+        float ShotInterval => .8f / ((1 + fireBonus + plasmaBonus) * globalBonus);
+        float ShipBulletSpeed => BulletSpeed * (1 + plasmaBonus);
+        float FlightSpeed => ShipSpeed * (1 + engineBonus) * globalBonus;
+        float TractorLiftSpeed => LiftSpeed * (1 + tractorBonus) * globalBonus;
+        float TractorPullSpeed => TractorCenterSpeed * (1 + tractorBonus) * globalBonus;
 
         sealed class GroundPerson
         {
@@ -61,7 +77,8 @@ namespace MonogameTest
         sealed class UfoMissile
         {
             public Vector2 Position, Velocity, Heading;
-            // Zero is reserved for scripted smoke-check missiles.
+            public bool AltitudeDefense;
+            // Zero keeps a fixed velocity (side volleys and smoke-check missiles).
             public int BeanSpeed;
         }
 
@@ -100,6 +117,7 @@ namespace MonogameTest
         {
             shipX = previousShipX = NATIVE_WIDTH / 2f;
             shipY = previousShipY = ShipStartY;
+            ResetCrashLanding();
             shipTilt = shotCooldown = muzzleFlash = hurtTime = repairTime = 0;
             tractorCooldown = messageTime = beamAnimation = 0;
             weaponLevel = 1 + progression.Total(UfoUpgradeEffect.Fire);
@@ -108,20 +126,39 @@ namespace MonogameTest
             hullLevel = progression.Total(UfoUpgradeEffect.Hull);
             repairLevel = progression.Total(UfoUpgradeEffect.Repair);
             widthLevel = progression.Total(UfoUpgradeEffect.BeamWidth);
-            beamCapacity = 1 + progression.Total(UfoUpgradeEffect.Capacity);
+            beamCapacity = progression.Capacity;
+            fireBonus = progression.Bonus(UfoUpgradeEffect.Fire);
+            engineBonus = progression.Bonus(UfoUpgradeEffect.Engine);
+            tractorBonus = progression.Bonus(UfoUpgradeEffect.Tractor);
+            plasmaBonus = progression.Bonus(UfoUpgradeEffect.Plasma);
+            focusBonus = progression.Bonus(UfoUpgradeEffect.Focus);
+            matrixBonus = progression.Bonus(UfoUpgradeEffect.Matrix);
+            warpBonus = progression.Bonus(UfoUpgradeEffect.Warp);
+            globalBonus = 1 + progression.Bonus(UfoUpgradeEffect.Mothership);
+            nanoHull = progression.Total(UfoUpgradeEffect.Nanohull);
+            pointDefenseLevel = progression.Total(UfoUpgradeEffect.PointDefense);
+            shotCount = progression.Total(UfoUpgradeEffect.TripleShot) > 0 ? 3 : progression.Total(UfoUpgradeEffect.TwinShot) > 0 ? 2 : 1;
+            autoRepairRate = progression.Bonus(UfoUpgradeEffect.AutoRepair);
+            timeWithoutDamage = autoRepairFraction = 0;
+            shipVelocity = Vector2.Zero;
             shipHealth = MaxShipHealth;
             roundSoldiers = 0; roundSeconds = 0;
             roundAbductions = 0; difficultyTickRemainder = 0;
             bigspeed = StartingUfoSpeed; smallspeed = 0x10;
             missileDifficultySpeed = StartingMissileSpeed;
             max_time = StartingUfoSpawnInterval;
-            roundStartMultiplier = 1 + progression.Total(UfoUpgradeEffect.StartingBonus) * .1;
-            roundGrowth = (1 + progression.Total(UfoUpgradeEffect.Growth) * .25) / 600;
+            roundStartMultiplier = 1 + Math.Round(progression.Bonus(UfoUpgradeEffect.StartingBonus), 6);
+            roundGrowth = (1 + Math.Round(progression.Bonus(UfoUpgradeEffect.Growth), 6)) / 600;
+            longHaulBonus = Math.Round(progression.Bonus(UfoUpgradeEffect.LongHaul), 6);
+            exponentialRate = Math.Log(1 + Math.Round(progression.Bonus(UfoUpgradeEffect.Exponential), 6)) / 60;
+            // Interest is fixed at launch: spending crew trades savings for power.
+            interestBonus = Math.Round(progression.Bonus(UfoUpgradeEffect.Interest), 6) * Math.Min(10, progression.Balance / 100);
             roundId = Guid.NewGuid().ToString("N");
             roundActive = true; roundBanked = false;
             tractorActive = ufoShotFrozen = false;
             abductees.Clear();
             people.Clear(); missiles.Clear(); shipBullets.Clear();
+            ResetAltitudeDefense();
             SetUfoMessage("SPACE/X FIRE - SHIFT/Z BEAM", 4);
         }
 
@@ -141,13 +178,15 @@ namespace MonogameTest
             float entry = direction > 0 ? -6 : NATIVE_WIDTH + 6;
             people.Add(new GroundPerson {
                 X = entry, PreviousX = entry, RunFromX = entry, TargetX = targetX,
-                Engineer = beanType != 0, Direction = direction, BeanSpeed = beanSpeed
+                Engineer = beanType != 0 && repairLevel > 0, Direction = direction, BeanSpeed = beanSpeed
             });
         }
 
         int ActiveBeanSpawnCount()
         {
-            int count = missiles.Count;
+            int count = 0;
+            foreach (UfoMissile missile in missiles)
+                if (!missile.AltitudeDefense) count++;
             foreach (GroundPerson person in people)
                 if (person.Engineer || !person.ReachedTarget) count++;
             return count;
@@ -264,8 +303,14 @@ namespace MonogameTest
         {
             previousShipX = shipX;
             previousShipY = shipY;
-            shipX = Math.Clamp(shipX + direction * FlightSpeed * dt, ShipSideMargin, NATIVE_WIDTH - ShipSideMargin);
-            shipY = Math.Clamp(shipY + verticalDirection * FlightSpeed * .4f * dt, ShipMinY, ShipMaxY);
+            Vector2 target = new Vector2(direction * FlightSpeed, verticalDirection * FlightSpeed * .4f * (1 + warpBonus));
+            float acceleration = 1200 * (1 + warpBonus) * dt;
+            shipVelocity.X += Math.Clamp(target.X - shipVelocity.X, -acceleration, acceleration);
+            shipVelocity.Y += Math.Clamp(target.Y - shipVelocity.Y, -acceleration, acceleration);
+            shipX = Math.Clamp(shipX + shipVelocity.X * dt, ShipSideMargin, NATIVE_WIDTH - ShipSideMargin);
+            shipY = Math.Clamp(shipY + shipVelocity.Y * dt, ShipMinY, ShipMaxY);
+            if (shipX == ShipSideMargin || shipX == NATIVE_WIDTH - ShipSideMargin) shipVelocity.X = 0;
+            if (shipY == ShipMinY || shipY == ShipMaxY) shipVelocity.Y = 0;
             float velocity = dt > 0 ? (shipX - previousShipX) / dt : 0;
             float targetTilt = velocity / FlightSpeed * .18f;
             shipTilt = MathHelper.Lerp(shipTilt, targetTilt, 1 - (float)Math.Exp(-7 * dt));
@@ -287,11 +332,13 @@ namespace MonogameTest
         {
             if (gameover || hurtTime > 0) return;
             shipHealth = Math.Max(0, shipHealth - 25);
+            timeWithoutDamage = autoRepairFraction = 0;
             hurtTime = 1;
             spawnExplosion(shipX, shipY + 6);
-            SetUfoMessage("SHIP HIT - ENGINEERS REPAIR");
+            SetUfoMessage(repairLevel > 0 ? "SHIP HIT - ENGINEERS REPAIR" : "SHIP HIT - KEEP MOVING");
             if (shipHealth > 0) return;
             pyorodead = gameover = true;
+            BeginCrashLanding();
             tractorActive = false;
             DropPayload();
             beamAudio?.StopTankAndBeamVoices();
@@ -299,7 +346,7 @@ namespace MonogameTest
             music?.Request(MusicTracks.Track.Gameover);
         }
 
-        float ConeHalfWidth(float y) => MathHelper.Lerp(7, 22 * (1 + widthLevel * .1f),
+        float ConeHalfWidth(float y) => MathHelper.Lerp(7, 22 * (1 + widthLevel * .1f) * (1 + (abductees.Count > 0 ? matrixBonus : 0)),
             Math.Clamp((y - TractorOrigin.Y) / (GroundY - TractorOrigin.Y), 0, 1));
 
         bool InsideTractor(Vector2 point) => point.Y >= TractorOrigin.Y && point.Y <= GroundY
@@ -329,7 +376,7 @@ namespace MonogameTest
             addScore(shipX - 8, shipY + 20, person.Engineer ? 250 : 100);
             if (person.Engineer)
             {
-                shipHealth = Math.Min(MaxShipHealth, shipHealth + 25 + repairLevel * 5);
+                shipHealth = Math.Min(MaxShipHealth, shipHealth + repairLevel * 5);
                 repairTime = .7f;
                 SetUfoMessage("ENGINEER ABOARD - SHIP REPAIRED");
                 beamAudio?.PlayParachute();
@@ -357,7 +404,8 @@ namespace MonogameTest
                 GroundPerson person = abductees[i];
                 Vector2 payload = new Vector2(person.X, person.Y - PersonHeight / 2f);
                 if (!InsideTractor(payload)) { DropPerson(person); continue; }
-                payload.X += Math.Clamp(shipX - payload.X, -TractorPullSpeed * dt, TractorPullSpeed * dt);
+                float pull = TractorPullSpeed * (1 + focusBonus * Math.Clamp(1 - (payload.Y - TractorOrigin.Y) / 64, 0, 1));
+                payload.X += Math.Clamp(shipX - payload.X, -pull * dt, pull * dt);
                 payload.Y = Math.Max(TractorOrigin.Y + 3, payload.Y - TractorLiftSpeed * dt);
                 if (!InsideTractor(payload)) { DropPerson(person); continue; }
                 person.X = payload.X; person.Y = payload.Y + PersonHeight / 2f;
@@ -384,9 +432,11 @@ namespace MonogameTest
             shotCooldown = Math.Max(0, shotCooldown - dt);
             muzzleFlash = Math.Max(0, muzzleFlash - dt);
             if (!fire || shotCooldown > .00001f) return;
-            shipBullets.Add(new ShipBullet {
-                Position = TractorOrigin + new Vector2(0, 3), Velocity = Vector2.UnitY * BulletSpeed
-            });
+            for (int i = 0; i < shotCount; i++)
+                shipBullets.Add(new ShipBullet {
+                    Position = TractorOrigin + new Vector2((i - (shotCount - 1) / 2f) * 8, 3),
+                    Velocity = Vector2.UnitY * ShipBulletSpeed
+                });
             shotCooldown = ShotInterval;
             muzzleFlash = .09f;
             beamAudio?.PlayGameBShot();
@@ -440,6 +490,7 @@ namespace MonogameTest
                     Vector2 halfSize = new Vector2(
                         Math.Abs(heading.Y) * 2.5f + Math.Abs(heading.X) * 6 + 1,
                         Math.Abs(heading.X) * 2.5f + Math.Abs(heading.Y) * 6 + 1);
+                    halfSize += new Vector2(pointDefenseLevel * 3);
                     float contact = SweptContactTime(shot.Position - missile.Position, end - missileEnd, halfSize);
                     // An interception must happen before the missile hits the
                     // ship, even when both events occur in one long frame.
@@ -456,7 +507,18 @@ namespace MonogameTest
                 if (missileHit != null)
                 {
                     Vector2 impact = Vector2.Lerp(shotStart, end, first);
+                    Vector2 blast = missileHit.Position + missileHit.Velocity * (travelTime * first);
                     missiles.Remove(missileHit);
+                    if (pointDefenseLevel > 0)
+                        for (int m = missiles.Count - 1; m >= 0; m--)
+                        {
+                            var nearby = missiles[m];
+                            Vector2 atImpact = nearby.Position + nearby.Velocity * (travelTime * first);
+                            float shipContact = SweptContactTime(nearby.Position - PreviousShipPosition,
+                                nearby.Position + nearby.Velocity * travelTime - Vector2.Lerp(PreviousShipPosition, ShipPosition, dt > 0 ? travelTime / dt : 0), ShipCollisionHalfSize);
+                            if (shipContact >= first && Vector2.Distance(atImpact, blast) <= pointDefenseLevel * 8)
+                            { missiles.RemoveAt(m); addScore(atImpact.X - 8, atImpact.Y, 50); }
+                        }
                     shipBullets.RemoveAt(i);
                     spawnExplosion(impact.X, impact.Y, false);
                     addScore(Math.Clamp(impact.X - 5, 10, 250), impact.Y, 50);
@@ -501,6 +563,22 @@ namespace MonogameTest
             return enter;
         }
 
+        void UpdateAutoRepair(float dt)
+        {
+            float previousSafeTime = timeWithoutDamage;
+            timeWithoutDamage += dt;
+            if (autoRepairRate <= 0 || shipHealth >= MaxShipHealth) { autoRepairFraction = 0; return; }
+            float healingTime = Math.Max(0, timeWithoutDamage - Math.Max(5, previousSafeTime));
+            autoRepairFraction += healingTime * autoRepairRate;
+            int healing = (int)autoRepairFraction;
+            if (healing > 0)
+            {
+                shipHealth = Math.Min(MaxShipHealth, shipHealth + healing);
+                autoRepairFraction -= healing;
+                repairTime = .2f;
+            }
+        }
+
         void UpdateUfo(GameTime time, KeyboardState keys)
         {
             if (ufoShotFrozen || paused) return;
@@ -509,6 +587,7 @@ namespace MonogameTest
             if (!gameover && screen == MenuScreen.Playing)
             {
                 roundSeconds += dt;
+                UpdateAutoRepair(dt);
                 messageTime = Math.Max(0, messageTime - dt);
                 hurtTime = Math.Max(0, hurtTime - dt);
                 repairTime = Math.Max(0, repairTime - dt);
@@ -523,6 +602,7 @@ namespace MonogameTest
                 MoveShip((right ? 1 : 0) - (left ? 1 : 0), dt, (down ? 1 : 0) - (up ? 1 : 0));
                 UpdateBeanSpawns();
                 UpdateGroundPeople(dt);
+                UpdateAltitudeDefense(dt);
                 foreach (UfoMissile missile in missiles)
                     if (missile.BeanSpeed > 0)
                         missile.Velocity = missile.Heading * BeanMissileSpeed(missile.BeanSpeed);
@@ -662,7 +742,9 @@ namespace MonogameTest
         {
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             DrawUfoLandscape();
+            DrawAltitudeLine();
             DrawTractor();
+            DrawCrashFire();
             foreach (GroundPerson person in people)
             {
                 int slot = abductees.IndexOf(person);
@@ -690,7 +772,13 @@ namespace MonogameTest
                     drawBeamStroke(TractorOrigin + new Vector2(-4, 3), TractorOrigin + new Vector2(4, 3), 1, Color.White);
                 }
             }
+            else
+            {
+                DrawCrashedUfo();
+            }
+            DrawCrashSmoke();
             drawExplosions(spriteBatch);
+            DrawAltitudeWarnings();
             foreach (ScorePopup popup in scorePopups) DrawScorePopup6(spriteBatch, popup);
             if (screen != MenuScreen.Scores)
             {
@@ -713,7 +801,7 @@ namespace MonogameTest
                 spriteBatch.Draw(beamPixel, new Rectangle((int)(NATIVE_WIDTH - size.X) / 2 - 3, 69, (int)size.X + 6, 10), new Color(7, 13, 30) * .85f);
                 font6.Draw(spriteBatch, ufoMessage, new Vector2((NATIVE_WIDTH - size.X) / 2, 71), new Color(255, 222, 128));
             }
-            if (gameover && screen != MenuScreen.Scores)
+            if (gameover && screen != MenuScreen.Scores && screen != MenuScreen.RoundResults)
             {
                 spriteBatch.Draw(beamPixel, new Rectangle(24, 85, 240, 63), Color.Black * .85f);
                 DrawStringBitmap(spriteBatch, "SHIP DISABLED", new Vector2(92, 90), Color.White);
@@ -727,6 +815,7 @@ namespace MonogameTest
             }
 
             drawPauseOverlay();
+            if (screen == MenuScreen.RoundResults) DrawRoundResults();
             if (screen == MenuScreen.Scores && scoresAfterGame) drawScores();
             spriteBatch.End();
         }

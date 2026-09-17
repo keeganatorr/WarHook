@@ -7,7 +7,7 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options, Scores, Upgrades }
+        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options, Scores, Upgrades, SaveSlots, RoundResults }
         enum MenuTransition { None, StartBlink, FadeOut, FadeIn }
         MenuScreen screen = MenuScreen.Main;
         MenuScreen optionsParent = MenuScreen.Main;
@@ -40,8 +40,8 @@ namespace MonogameTest
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
         static readonly string[] mainItems = GameAssets.IsWeb
-            ? new[] { "START", "UPGRADES", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE" }
-            : new[] { "START", "UPGRADES", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE", "EXIT" };
+            ? new[] { "NEW GAME", "CONTINUE", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE" }
+            : new[] { "NEW GAME", "CONTINUE", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE", "EXIT" };
         static readonly string[] pauseItems = GameAssets.IsWeb
             ? new[] { "RESUME", "END ROUND", "OPTIONS", "MAIN MENU" }
             : new[] { "RESUME", "END ROUND", "OPTIONS", "MAIN MENU", "EXIT" };
@@ -64,10 +64,21 @@ namespace MonogameTest
                 advanceTransition(time.ElapsedGameTime.TotalSeconds);
                 return true;
             }
+            if (screen == MenuScreen.SaveSlots)
+            {
+                UpdateSaveSlots(pressed, padPressed, accept, cancel);
+                return true;
+            }
             if (screen == MenuScreen.Upgrades)
             {
                 UpdateUpgradeMap(time, pressed, padPressed, accept,
                     keys.IsKeyDown(Keys.Enter) || keys.IsKeyDown(Keys.Space) || keys.IsKeyDown(Keys.X) || pad.IsButtonDown(Buttons.A), cancel);
+                return true;
+            }
+            if (screen == MenuScreen.RoundResults)
+            {
+                UpdateRoundResults(time, accept,
+                    keys.IsKeyDown(Keys.Enter) || keys.IsKeyDown(Keys.Space) || keys.IsKeyDown(Keys.X) || pad.IsButtonDown(Buttons.A));
                 return true;
             }
             if (screen == MenuScreen.Scores)
@@ -79,7 +90,7 @@ namespace MonogameTest
             {
                 if (gameover)
                 {
-                    EndIncrementalRound();
+                    EndIncrementalRound(showResults: true);
                     return true;
                 }
                 if (cancel || padPressed(Buttons.Start))
@@ -129,8 +140,8 @@ namespace MonogameTest
                 mainSelection = (mainSelection + move + mainItems.Length) % mainItems.Length;
                 if (accept)
                 {
-                    if (mainSelection == 0) { modeSelection = 0; screen = MenuScreen.ModeSelect; }
-                    else if (mainSelection == 1) OpenUpgradeMap();
+                    if (mainSelection == 0) OpenSaveSlots(true);
+                    else if (mainSelection == 1) OpenSaveSlots(false);
                     else if (mainSelection == 2) openOptions(MenuScreen.Main);
                     else if (mainSelection == 3 || mainSelection == 4) openScores(mainSelection == 4, false);
                     else Exit();
@@ -163,6 +174,9 @@ namespace MonogameTest
                 if (cancel) screen = MenuScreen.Main;
                 else if (accept)
                 {
+                    if (!progression.SavePreferences(selectedGame, selectedMusic))
+                    { saveMenuError = progression.Error; return true; }
+                    saveMenuError = "";
                     gameoverMusicPlaying = false;
                     beginTransition(MenuScreen.Playing, true);
                 }
@@ -175,7 +189,7 @@ namespace MonogameTest
                     switch (pauseSelection)
                     {
                         case 0: resumeGame(); break;
-                        case 1: EndIncrementalRound(); break;
+                        case 1: EndIncrementalRound(showResults: true); break;
                         case 2: openOptions(MenuScreen.Pause); break;
                         case 3:
                             EndIncrementalRound();
@@ -344,13 +358,17 @@ namespace MonogameTest
 
         bool usesTitleScene()
         {
-            return screen == MenuScreen.Upgrades || (screen == MenuScreen.Scores && !scoresAfterGame) || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
+            return screen == MenuScreen.SaveSlots || screen == MenuScreen.Upgrades || (screen == MenuScreen.Scores && !scoresAfterGame) || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
                 || (screen == MenuScreen.Options && optionsParent == MenuScreen.Main);
         }
 
         void drawTitleScene()
         {
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
+            if (screen == MenuScreen.SaveSlots)
+            {
+                DrawSaveSlots(); spriteBatch.End(); return;
+            }
             if (screen == MenuScreen.Upgrades)
             {
                 DrawUpgradeMap(); spriteBatch.End(); return;
@@ -382,7 +400,7 @@ namespace MonogameTest
                 bool onMusic = modeSelection == 1;
                 for (int i = 0; i < 5; i++)
                     DrawModeItem($"{i + 1}", i + 1 == selectedMusic, onMusic && i + 1 == selectedMusic, 76 + i * 28, 134);
-                font6.Draw(spriteBatch, "ORIGINAL BEAN DIFFICULTY CURVE",
+                font6.Draw(spriteBatch, string.IsNullOrEmpty(saveMenuError) ? "ABDUCTIONS INCREASE DIFFICULTY" : saveMenuError,
                     new Vector2(20, 156), new Color(120, 231, 224));
             }
             else

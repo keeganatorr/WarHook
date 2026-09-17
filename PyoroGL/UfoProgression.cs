@@ -3,37 +3,56 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Xna.Framework;
 
 namespace MonogameTest
 {
-    enum UfoUpgradeEffect { Fire, Tractor, Engine, Hull, Capacity, Growth, StartingBonus, BeamWidth, Repair }
-
-    sealed record UfoUpgrade(string Id, string Title, string ShortName, string Description,
-        UfoUpgradeEffect Effect, int BaseCost, int MaxRank, int Parent = -1, int RequiredRank = 1);
+    enum UfoUpgradeEffect { Fire, Tractor, Engine, Hull, Capacity, Growth, StartingBonus, BeamWidth, Repair,
+        Core, TwinShot, TripleShot, PointDefense, Plasma, Focus, Matrix, Warp, Nanohull, AutoRepair,
+        LongHaul, Interest, Exponential, Mothership, FlightClearance }
+    enum UfoBranch { Core, Weapons, Beam, Ship, Hull, Yield, Hybrid }
+    sealed record UfoPrerequisite(string Node, int Rank = 1);
+    sealed record UfoUpgrade(string Id, string Title, string ShortName, UfoUpgradeEffect Effect,
+        float Amount, int BaseCost, int MaxRank, UfoBranch Branch, Vector2 Position,
+        UfoPrerequisite[] Requires, int RequiredCount = 0);
 
     sealed class UfoProgression
     {
+        // Stable IDs preserve existing saves; coordinates and graph edges define
+        // the web independently of array order. RequiredCount > 0 means any N.
         public static readonly UfoUpgrade[] Nodes = {
-            new("fire", "RAPID FIRE", "FIRE", "25% MORE BASE FIRE RATE PER RANK", UfoUpgradeEffect.Fire, 3, 5),
-            new("tractor", "TRACTOR DRIVE", "TRACTOR", "25% MORE BASE LIFT AND PULL PER RANK", UfoUpgradeEffect.Tractor, 3, 5),
-            new("engine", "THRUSTERS", "ENGINES", "20% MORE BASE FLIGHT SPEED PER RANK", UfoUpgradeEffect.Engine, 3, 5),
-            new("hull", "HULL PLATING", "HULL", "25 MORE MAX HULL HEALTH PER RANK", UfoUpgradeEffect.Hull, 3, 5),
-            new("fire2", "PULSE ACCELERATOR", "PULSE", "25% MORE BASE FIRE RATE PER RANK", UfoUpgradeEffect.Fire, 12, 5, 0, 2),
-            new("capacity2", "DUAL ABDUCTION", "BEAM 2", "CARRY TWO PEOPLE IN ONE BEAM", UfoUpgradeEffect.Capacity, 12, 1, 1, 2),
-            new("engine2", "ION ENGINES", "ION", "20% MORE BASE FLIGHT SPEED PER RANK", UfoUpgradeEffect.Engine, 12, 5, 2, 2),
-            new("repair", "ENGINEER TOOLS", "REPAIR", "ENGINEERS REPAIR 5 MORE HULL PER RANK", UfoUpgradeEffect.Repair, 12, 5, 3, 2),
-            new("growth", "SURVIVAL DIVIDEND", "YIELD", "25% FASTER MULTIPLIER GROWTH PER RANK", UfoUpgradeEffect.Growth, 20, 5, 4),
-            new("capacity3", "TRIPLE ABDUCTION", "BEAM 3", "CARRY THREE PEOPLE IN ONE BEAM", UfoUpgradeEffect.Capacity, 25, 1, 5),
-            new("width", "WIDE APERTURE", "WIDTH", "10% WIDER TRACTOR CONE PER RANK", UfoUpgradeEffect.BeamWidth, 15, 5, 6),
-            new("hull2", "REINFORCED FRAME", "ARMOR", "25 MORE MAX HULL HEALTH PER RANK", UfoUpgradeEffect.Hull, 20, 5, 7),
-            new("fire3", "PARTICLE ARRAY", "ARRAY", "25% MORE BASE FIRE RATE PER RANK", UfoUpgradeEffect.Fire, 35, 5, 8),
-            new("capacity4", "QUAD ABDUCTION", "BEAM 4", "CARRY FOUR PEOPLE IN ONE BEAM", UfoUpgradeEffect.Capacity, 45, 1, 9),
-            new("growth2", "COMPOUND RETURNS", "YIELD II", "25% FASTER MULTIPLIER GROWTH PER RANK", UfoUpgradeEffect.Growth, 30, 5, 10),
-            new("start", "LAUNCH DIVIDEND", "BONUS", "START MULTIPLIER 0.10X HIGHER PER RANK", UfoUpgradeEffect.StartingBonus, 35, 5, 11),
-            new("growth3", "LONG HAUL", "YIELD III", "25% FASTER MULTIPLIER GROWTH PER RANK", UfoUpgradeEffect.Growth, 60, 5, 12),
-            new("capacity5", "FLEET ABDUCTION", "BEAM 5", "CARRY FIVE PEOPLE IN ONE BEAM", UfoUpgradeEffect.Capacity, 80, 1, 13),
-            new("engine3", "WARP THRUSTERS", "WARP", "20% MORE BASE FLIGHT SPEED PER RANK", UfoUpgradeEffect.Engine, 55, 5, 14),
-            new("start2", "COLONY DIVIDEND", "BONUS II", "START MULTIPLIER 0.10X HIGHER PER RANK", UfoUpgradeEffect.StartingBonus, 65, 5, 15)
+            new("fire", "RAPID FIRE", "RAPID FIRE", UfoUpgradeEffect.Fire, 0.2f, 3, 5, UfoBranch.Weapons, new Vector2(-76, -40), new UfoPrerequisite[] { new("core", 1) }),
+            new("tractor", "TRACTOR DRIVE", "TRACTOR", UfoUpgradeEffect.Tractor, 0.2f, 3, 5, UfoBranch.Beam, new Vector2(76, -40), new UfoPrerequisite[] { new("core", 1) }),
+            new("engine", "THRUSTERS", "THRUSTERS", UfoUpgradeEffect.Engine, 0.15f, 3, 5, UfoBranch.Ship, new Vector2(-76, 40), new UfoPrerequisite[] { new("core", 1) }),
+            new("hull", "HULL PLATING", "HULL", UfoUpgradeEffect.Hull, 25f, 3, 5, UfoBranch.Hull, new Vector2(-76, 106), new UfoPrerequisite[] { new("core", 1) }),
+            new("fire2", "PULSE ACCELERATOR", "PULSE", UfoUpgradeEffect.Fire, 0.15f, 10, 5, UfoBranch.Weapons, new Vector2(-155, -85), new UfoPrerequisite[] { new("fire", 2) }),
+            new("capacity2", "DUAL ABDUCTION", "BEAM II", UfoUpgradeEffect.Capacity, 2f, 12, 1, UfoBranch.Beam, new Vector2(155, -105), new UfoPrerequisite[] { new("tractor", 2) }),
+            new("engine2", "ION ENGINES", "ION", UfoUpgradeEffect.Engine, 0.15f, 12, 5, UfoBranch.Ship, new Vector2(-155, 40), new UfoPrerequisite[] { new("engine", 2) }),
+            new("repair", "ENGINEER TOOLS", "REPAIR", UfoUpgradeEffect.Repair, 5f, 12, 5, UfoBranch.Hull, new Vector2(-155, 164), new UfoPrerequisite[] { new("hull", 2) }),
+            new("growth", "SURVIVAL DIVIDEND", "SURVIVAL", UfoUpgradeEffect.Growth, 0.2f, 8, 5, UfoBranch.Yield, new Vector2(76, 40), new UfoPrerequisite[] { new("core", 1) }),
+            new("capacity3", "TRIPLE ABDUCTION", "BEAM III", UfoUpgradeEffect.Capacity, 3f, 30, 1, UfoBranch.Beam, new Vector2(235, -105), new UfoPrerequisite[] { new("capacity2", 1) }),
+            new("width", "WIDE APERTURE", "APERTURE", UfoUpgradeEffect.BeamWidth, 0.1f, 12, 5, UfoBranch.Beam, new Vector2(155, -35), new UfoPrerequisite[] { new("tractor", 2) }),
+            new("hull2", "REINFORCED FRAME", "FRAME", UfoUpgradeEffect.Hull, 25f, 25, 5, UfoBranch.Hull, new Vector2(-235, 106), new UfoPrerequisite[] { new("hull", 4) }),
+            new("fire3", "PARTICLE ARRAY", "ARRAY", UfoUpgradeEffect.TripleShot, 1f, 150, 1, UfoBranch.Weapons, new Vector2(-395, -40), new UfoPrerequisite[] { new("plasma", 5) }),
+            new("capacity4", "QUAD ABDUCTION", "BEAM IV", UfoUpgradeEffect.Capacity, 4f, 65, 1, UfoBranch.Beam, new Vector2(315, -70), new UfoPrerequisite[] { new("capacity3", 1), new("focus", 3) }),
+            new("growth2", "COMPOUND RETURNS", "COMPOUND", UfoUpgradeEffect.Growth, 0.2f, 20, 5, UfoBranch.Yield, new Vector2(155, 40), new UfoPrerequisite[] { new("growth", 3) }),
+            new("start", "LAUNCH DIVIDEND", "LAUNCH", UfoUpgradeEffect.StartingBonus, 0.1f, 30, 5, UfoBranch.Yield, new Vector2(155, 106), new UfoPrerequisite[] { new("growth", 3) }),
+            new("growth3", "LONG HAUL", "LONG HAUL", UfoUpgradeEffect.LongHaul, 0.15f, 55, 5, UfoBranch.Yield, new Vector2(235, 40), new UfoPrerequisite[] { new("growth2", 1) }),
+            new("capacity5", "FLEET ABDUCTION", "BEAM V", UfoUpgradeEffect.Capacity, 5f, 175, 1, UfoBranch.Beam, new Vector2(395, -145), new UfoPrerequisite[] { new("matrix", 3) }),
+            new("engine3", "WARP CORE", "WARP", UfoUpgradeEffect.Warp, 0.25f, 60, 3, UfoBranch.Ship, new Vector2(-235, 40), new UfoPrerequisite[] { new("engine2", 4) }),
+            new("start2", "COLONY DIVIDEND", "COLONY", UfoUpgradeEffect.StartingBonus, 0.1f, 65, 5, UfoBranch.Yield, new Vector2(235, 106), new UfoPrerequisite[] { new("start", 1) }),
+            new("core", "UFO CORE", "UFO CORE", UfoUpgradeEffect.Core, 0f, 0, 1, UfoBranch.Core, new Vector2(0, 0), new UfoPrerequisite[] {  }),
+            new("twin", "TWIN CANNONS", "TWIN", UfoUpgradeEffect.TwinShot, 1f, 35, 1, UfoBranch.Weapons, new Vector2(-235, -85), new UfoPrerequisite[] { new("fire2", 3) }),
+            new("point", "POINT DEFENCE", "DEFENCE", UfoUpgradeEffect.PointDefense, 3f, 25, 3, UfoBranch.Weapons, new Vector2(-155, -5), new UfoPrerequisite[] { new("fire", 4) }),
+            new("plasma", "PLASMA CYCLER", "PLASMA", UfoUpgradeEffect.Plasma, 0.1f, 45, 5, UfoBranch.Weapons, new Vector2(-315, -40), new UfoPrerequisite[] { new("twin", 1), new("point", 1) }),
+            new("focus", "BEAM FOCUS", "FOCUS", UfoUpgradeEffect.Focus, 0.25f, 25, 5, UfoBranch.Beam, new Vector2(235, -35), new UfoPrerequisite[] { new("width", 3) }),
+            new("matrix", "BEAM MATRIX", "MATRIX", UfoUpgradeEffect.Matrix, 0.15f, 80, 3, UfoBranch.Beam, new Vector2(395, -70), new UfoPrerequisite[] { new("capacity4", 1) }),
+            new("nano", "NANOHULL", "NANOHULL", UfoUpgradeEffect.Nanohull, 50f, 85, 3, UfoBranch.Hull, new Vector2(-315, 75), new UfoPrerequisite[] { new("hull2", 1), new("engine3", 1) }),
+            new("auto", "AUTO REPAIR", "AUTO REPAIR", UfoUpgradeEffect.AutoRepair, 2f, 200, 1, UfoBranch.Hull, new Vector2(-395, 150), new UfoPrerequisite[] { new("nano", 3), new("repair", 5) }),
+            new("interest", "INTEREST ENGINE", "INTEREST", UfoUpgradeEffect.Interest, 0.01f, 100, 5, UfoBranch.Yield, new Vector2(315, 106), new UfoPrerequisite[] { new("start2", 1) }),
+            new("exponential", "EXPONENTIAL YIELD", "EXPONENT", UfoUpgradeEffect.Exponential, 0.05f, 160, 3, UfoBranch.Yield, new Vector2(395, 75), new UfoPrerequisite[] { new("growth3", 1), new("interest", 1) }),
+            new("mothership", "MOTHERSHIP LINK", "MOTHERSHIP", UfoUpgradeEffect.Mothership, 0.25f, 500, 1, UfoBranch.Hybrid, new Vector2(0, 225), new UfoPrerequisite[] { new("fire3", 1), new("capacity5", 1), new("auto", 1), new("exponential", 3) }, 3),
+            new("clearance", "FLIGHT CLEARANCE", "CLEARANCE", UfoUpgradeEffect.FlightClearance, 14f, 8, 5, UfoBranch.Ship, new Vector2(-155, 85), new UfoPrerequisite[] { new("engine", 1) }),
         };
         readonly string saveKey;
         readonly bool memoryOnly;
@@ -73,7 +92,15 @@ namespace MonogameTest
                 if (root.TryGetProperty("ranks", out var levels) && levels.ValueKind == JsonValueKind.Object)
                     foreach (var node in Nodes)
                         if (levels.TryGetProperty(node.Id, out var level) && level.TryGetInt32(out int rank))
+                        {
                             ranks[node.Id] = Math.Clamp(rank, 0, node.MaxRank);
+                            // Old repeatable Array/Warp ranks become capstones.
+                            // Refund removed ranks at their original purchase prices.
+                            int version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out int ver) ? ver : 1;
+                            if (version < 2 && rank > node.MaxRank && (node.Id == "fire3" || node.Id == "engine3"))
+                                for (int r = node.MaxRank + 1; r <= Math.Min(rank, 5); r++)
+                                    Balance = Math.Min(1_000_000_000, Balance + (node.Id == "fire3" ? 35 : 55) * r * r);
+                        }
             }
             catch (Exception) { Error = "COULD NOT READ UPGRADE SAVE"; }
         }
@@ -83,7 +110,26 @@ namespace MonogameTest
         public bool Import(UfoProgression source) => Commit(source.Balance,
             new Dictionary<string, int>(source.ranks), source.lastRound, source.GameMode, source.Music);
 
-        public int Rank(int index) => ranks.TryGetValue(Nodes[index].Id, out int rank) ? rank : 0;
+        public static int Index(string id) => Array.FindIndex(Nodes, n => n.Id == id);
+        public int Rank(string id) => Rank(Index(id));
+        public int Rank(int index) => Nodes[index].Effect == UfoUpgradeEffect.Core ? 1
+            : ranks.TryGetValue(Nodes[index].Id, out int rank) ? rank : 0;
+        public float Bonus(UfoUpgradeEffect effect)
+        {
+            float sum = 0;
+            for (int i = 0; i < Nodes.Length; i++) if (Nodes[i].Effect == effect) sum += Rank(i) * Nodes[i].Amount;
+            return sum;
+        }
+        public int Capacity
+        {
+            get
+            {
+                int capacity = 1;
+                for (int i = 0; i < Nodes.Length; i++)
+                    if (Nodes[i].Effect == UfoUpgradeEffect.Capacity && Rank(i) > 0) capacity = Math.Max(capacity, (int)Nodes[i].Amount);
+                return capacity;
+            }
+        }
         public int Total(UfoUpgradeEffect effect)
         {
             int sum = 0;
@@ -91,7 +137,14 @@ namespace MonogameTest
             return sum;
         }
         public int Cost(int index) => Nodes[index].BaseCost * (Rank(index) + 1) * (Rank(index) + 1);
-        public bool Unlocked(int index) => Nodes[index].Parent < 0 || Rank(Nodes[index].Parent) >= Nodes[index].RequiredRank;
+        public bool Unlocked(int index)
+        {
+            if (Rank(index) > 0) return true; // Honor purchases from older graphs.
+            var node = Nodes[index];
+            int met = 0;
+            foreach (var prerequisite in node.Requires) if (Rank(prerequisite.Node) >= prerequisite.Rank) met++;
+            return met >= (node.RequiredCount > 0 ? node.RequiredCount : node.Requires.Length);
+        }
         public bool CanBuy(int index) => Unlocked(index) && Rank(index) < Nodes[index].MaxRank && Balance >= Cost(index);
         public bool Buy(int index)
         {
@@ -115,7 +168,7 @@ namespace MonogameTest
                     using var stream = new MemoryStream();
                     using (var json = new Utf8JsonWriter(stream))
                     {
-                        json.WriteStartObject(); json.WriteNumber("version", 1); json.WriteNumber("balance", balance);
+                        json.WriteStartObject(); json.WriteNumber("version", 2); json.WriteNumber("balance", balance);
                         json.WriteNumber("mode", nextMode); json.WriteNumber("music", nextMusic);
                         json.WriteString("lastRound", roundId); json.WriteStartObject("ranks");
                         foreach (var rank in levels) json.WriteNumber(rank.Key, rank.Value);

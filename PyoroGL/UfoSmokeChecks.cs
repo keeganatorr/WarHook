@@ -13,6 +13,7 @@ namespace MonogameTest
         void VerifyBeanSpawnSchedule()
         {
             resetGame();
+            repairLevel = 1; // Replay original special beans with engineers unlocked.
             // Isolate the original arithmetic from the UFO's harder opening.
             bigspeed = 0x100; smallspeed = 0xFF; max_time = 0xB4;
             if (people.Count != 0 || missiles.Count != 0)
@@ -50,6 +51,7 @@ namespace MonogameTest
                 foreach (int kind in new[] { 0, 1, 2 })
                 {
                     resetGame();
+                    repairLevel = 1;
                     SpawnBeanRunner(target, kind, 96);
                     GroundPerson runner = people[0];
                     int direction = runner.Direction;
@@ -104,6 +106,7 @@ namespace MonogameTest
             int ordinaryGain = bigspeed - StartingUfoSpeed;
             Require(ordinaryGain == 60 && max_time == 120 && missileDifficultySpeed == StartingMissileSpeed + 60, "Base ramp or harder interval failed");
             resetGame();
+            repairLevel = 1;
             for (int i = 0; i < 10; i++)
             {
                 SpawnPerson(shipX, i == 9, 1);
@@ -112,9 +115,9 @@ namespace MonogameTest
             Require(roundAbductions == 10 && roundSoldiers == 9,
                 "Soldiers and engineers must accelerate difficulty; only soldiers earn currency");
             UpdateUfoDifficulty(16);
-            Require(bigspeed - StartingUfoSpeed == ordinaryGain * 2
-                && missileDifficultySpeed - StartingMissileSpeed == ordinaryGain * 2,
-                "Ten abductions did not double the difficulty ramp");
+            Require(bigspeed - StartingUfoSpeed == ordinaryGain * 3.5
+                && missileDifficultySpeed - StartingMissileSpeed == ordinaryGain * 3.5,
+                "Ten abductions did not produce the 3.5x difficulty ramp");
             Require(roundSeconds == 0 && RoundMultiplier == 1 && RoundReward == 9,
                 "Difficulty clock advanced survival rewards");
             int before = bigspeed, spawnTimer = time_until_new_bean;
@@ -128,7 +131,7 @@ namespace MonogameTest
             // Fractional rates must not round away at 60 Hz.
             roundAbductions = 1;
             for (int i = 0; i < 960; i++) UpdateUfoDifficulty(1f / 60);
-            Require(bigspeed - StartingUfoSpeed == 66, "Fractional difficulty ticks were lost");
+            Require(bigspeed - StartingUfoSpeed == 75, "Fractional difficulty ticks were lost");
             score = 10000;
             UpdateUfoDifficulty(1);
             Require(max_time == 0x32, "Score-based spawn tiers stopped working");
@@ -251,14 +254,14 @@ namespace MonogameTest
             for (int i = 0; i < 400 && SmokeAbductee != null; i++) UpdateTractor(dt, true);
             Require(SmokeAbductee == null && people.Count == 0 && score == 100 && weaponLevel == 1 && roundSoldiers == 1
                 && Math.Abs(shotCooldown - .6f) < .0001f, "Soldier pickup changed gun before an upgrade choice");
-            shipHealth = 50;
+            shipHealth = 50; repairLevel = 1;
             SpawnPerson(shipX, true, 1);
             UpdateTractor(.3f, true);
             for (int i = 0; i < 400 && SmokeAbductee != null; i++) UpdateTractor(dt, true);
-            Require(shipHealth == 75 && score == 350 && weaponLevel == 1 && roundSoldiers == 1, "Engineer did not repair ship");
+            Require(shipHealth == 55 && score == 350 && weaponLevel == 1 && roundSoldiers == 1, "Engineer did not repair ship");
             SpawnPerson(shipX, true, 1);
             UpdateTractor(.3f, true);
-            shipHealth = 90;
+            shipHealth = 98;
             for (int i = 0; i < 400 && SmokeAbductee != null; i++) UpdateTractor(dt, true);
             Require(shipHealth == 100, "Repair exceeded full health");
 
@@ -417,9 +420,9 @@ namespace MonogameTest
             }
             Require(roundSoldiers == 4 && weaponLevel == 1 && screen == MenuScreen.Playing,
                 "Soldier pickups must accumulate without interrupting the round");
-            shipHealth = 50;
+            shipHealth = 50; repairLevel = 1;
             SpawnPerson(shipX, true, 1); DeliverPerson(people[0]);
-            Require(shipHealth == 75 && roundSoldiers == 4, "Engineer affected currency");
+            Require(shipHealth == 55 && roundSoldiers == 4, "Engineer affected currency");
             Require(RoundMultiplier == 1, "Multiplier must start at one");
             roundSeconds = 60;
             Require(Math.Abs(RoundMultiplier - 1.1) < .000001 && RoundReward == 4.4, "Survival reward growth failed");
@@ -435,15 +438,15 @@ namespace MonogameTest
                 "Purchase cost or prerequisite failed");
             Require(!progression.Buy(0), "Upgrade allowed overspending");
             resetGame();
-            Require(weaponLevel == 2 && Math.Abs(ShotInterval - .64f) < .0001f && roundSoldiers == 0
+            Require(weaponLevel == 2 && Math.Abs(ShotInterval - (.8f / 1.2f)) < .0001f && roundSoldiers == 0
                 && roundSeconds == 0 && progression.Balance == 1.4, "Permanent upgrades failed across rounds");
             progression.Bank("smoke-funds", 10000);
             foreach (int node in new[] { 0, 1, 1, 2, 3, 4, 5, 8 }) Require(progression.Buy(node), "Tree unlock failed");
             resetGame(); screen = MenuScreen.Playing;
-            Require(beamCapacity == 2 && shipHealth == 125 && Math.Abs(FlightSpeed - 108) < .001f && TractorLiftSpeed == 45,
+            Require(beamCapacity == 2 && shipHealth == 125 && Math.Abs(FlightSpeed - 103.5f) < .001f && TractorLiftSpeed == 42,
                 "Purchased flight stats failed");
             roundSeconds = 60;
-            Require(Math.Abs(RoundMultiplier - 1.125) < .000001, "Multiplier growth upgrade failed");
+            Require(Math.Abs(RoundMultiplier - 1.12) < .000001, "Multiplier growth upgrade failed");
             for (int i = 0; i < 3; i++) SpawnPerson(shipX + i * 3, false, 1);
             UpdateTractor(.3f, true); UpdateTractor(.3f, true); UpdateTractor(.3f, true);
             Require(abductees.Count == 2 && people[2].Y == GroundY, "Multi-person beam capacity failed");
@@ -455,20 +458,25 @@ namespace MonogameTest
             Require(roundSoldiers == 1 && abductees.Count == 0, "Multi-person delivery failed");
             UpdateTractor(.3f, true); UpdateTractor(.1f, false);
             Require(abductees.Count == 0 && people[1].Falling, "Beam release failed");
-            progression.Bank("smoke-complete-tree", 100000);
-            for (int i = 0; i < UfoProgression.Nodes.Length; i++)
+            progression.Bank("smoke-complete-tree", 1000000);
+            // Catalog order is not graph order: buy all reachable ranks until
+            // the complete DAG is traversed, including multi-parent nodes.
+            int bought;
+            do
             {
-                while (progression.Rank(i) < UfoProgression.Nodes[i].MaxRank)
-                    Require(progression.Buy(i), "Deep upgrade node could not be purchased");
-                double balance = progression.Balance;
-                Require(!progression.Buy(i) && progression.Balance == balance, "Max-rank node charged currency");
-            }
+                bought = 0;
+                for (int i = 0; i < UfoProgression.Nodes.Length; i++)
+                    while (progression.CanBuy(i)) { Require(progression.Buy(i), "Graph purchase failed"); bought++; }
+            } while (bought > 0);
+            for (int i = 0; i < UfoProgression.Nodes.Length; i++)
+                Require(progression.Rank(i) == UfoProgression.Nodes[i].MaxRank && !progression.Buy(i),
+                    "Graph has unreachable nodes, insufficient fixture funds, or uncapped ranks");
             resetGame();
-            Require(beamCapacity == 5 && MaxShipHealth == 350 && RoundMultiplier == 2,
+            Require(beamCapacity == 5 && MaxShipHealth == 625 && Math.Abs(RoundMultiplier - 3.75) < .0001,
                 "Full tree capacity, hull, or starting multiplier failed");
             shipHealth = 100;
             SpawnPerson(shipX, true, 1); DeliverPerson(people[0]);
-            Require(shipHealth == 150 && roundSoldiers == 0, "Engineer repair upgrade failed");
+            Require(shipHealth == 125 && roundSoldiers == 0, "Engineer repair upgrade failed");
 #if !WEB
             string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "warhook-progression-" + Guid.NewGuid() + ".json");
             try
@@ -478,6 +486,25 @@ namespace MonogameTest
                 var loaded = new UfoProgression(false, path);
                 Require(loaded.Balance == 13.25 && loaded.Rank(1) == 1 && loaded.Bank("persistent-round", 16.25)
                     && loaded.Balance == 13.25, "Progression reload or payout idempotency failed");
+                string slotPath = path + ".slot";
+                try
+                {
+                    var slot = new UfoProgression(false, slotPath);
+                    Require(!slot.Exists && slot.Import(loaded), "Legacy save migration failed");
+                    Require(slot.SavePreferences(1, 4), "Save preferences failed");
+                    var resumed = new UfoProgression(false, slotPath);
+                    Require(resumed.Exists && resumed.Balance == 13.25 && resumed.Rank(1) == 1
+                        && resumed.GameMode == 1 && resumed.Music == 4, "Save slot did not preserve progress/settings");
+                    Require(resumed.StartNew() && resumed.Balance == 0 && resumed.Rank(1) == 0
+                        && resumed.GameMode == 0 && resumed.Music == 1, "New game retained previous progression");
+                    var original = new UfoProgression(false, path);
+                    Require(original.Balance == 13.25 && original.Rank(1) == 1,
+                        "Replacing a save modified a different slot");
+                    var empty = new UfoProgression(false, slotPath);
+                    Require(empty.Exists && empty.Balance == 0 && empty.Rank(1) == 0,
+                        "Empty new game did not persist as a continuable save");
+                }
+                finally { System.IO.File.Delete(slotPath); }
                 var failed = new UfoProgression(false, path + "/invalid.json");
                 Require(!failed.Bank("failure", 100) && failed.Balance == 0, "Failed save committed a reward");
             }
@@ -485,6 +512,258 @@ namespace MonogameTest
 #endif
             progression = new UfoProgression(true);
             resetGame();
+        }
+
+        void VerifyTechWeb()
+        {
+            void Require(bool condition, string message)
+            { if (!condition) throw new InvalidOperationException(message); }
+            void BuyTo(string id, int rank)
+            {
+                int index = UfoProgression.Index(id);
+                var node = UfoProgression.Nodes[index];
+                foreach (var req in node.Requires) BuyTo(req.Node, req.Rank);
+                while (progression.Rank(index) < rank) Require(progression.Buy(index), "Cannot reach " + id);
+            }
+            progression = new UfoProgression(true); progression.Bank("web-funds", 1000000);
+            Require(UfoProgression.Nodes.Length == 32 && progression.Rank("core") == 1
+                && !progression.Buy(UfoProgression.Index("core")), "Core must be owned and non-purchasable");
+            var seen = new System.Collections.Generic.HashSet<int> { UfoProgression.Index("core") };
+            var queue = new System.Collections.Generic.Queue<int>(seen);
+            while (queue.Count > 0)
+            {
+                int node = queue.Dequeue();
+                foreach (var direction in new[] { Vector2.UnitX, -Vector2.UnitX, Vector2.UnitY, -Vector2.UnitY })
+                {
+                    int next = SpatialUpgradeNeighbor(node, direction);
+                    if (seen.Add(next)) queue.Enqueue(next);
+                }
+            }
+            Require(seen.Count == UfoProgression.Nodes.Length, "Spatial navigation strands a node");
+            BuyTo("twin", 1);
+            Require(!progression.Unlocked(UfoProgression.Index("plasma")), "Merge unlocked with one parent");
+            resetGame(); UpdateShipWeapon(.1f, true);
+            Require(shipBullets.Count == 2 && shipBullets[0].Position.X < shipX && shipBullets[1].Position.X > shipX,
+                "Twin cannons failed to split the shot");
+            BuyTo("point", 1);
+            Require(progression.Unlocked(UfoProgression.Index("plasma")), "Merge remained locked with both parents");
+            BuyTo("plasma", 1); resetGame();
+            Require(ShipBulletSpeed > BulletSpeed, "Plasma did not speed bullets");
+            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 80), Velocity = Vector2.UnitY * BulletSpeed });
+            missiles.Add(new UfoMissile { Position = new Vector2(shipX + 6, 110) });
+            missiles.Add(new UfoMissile { Position = new Vector2(shipX + 13, 110) });
+            missiles.Add(new UfoMissile { Position = new Vector2(shipX + 40, 110) });
+            UpdateShipBullets(.3f);
+            Require(missiles.Count == 1 && score == 100, "Point defence radius/blast failed");
+            BuyTo("fire3", 1); BuyTo("capacity5", 1);
+            Require(!progression.Unlocked(UfoProgression.Index("mothership")), "Mothership unlocked before three capstones");
+            resetGame(); UpdateShipWeapon(.1f, true);
+            Require(shipBullets.Count == 3 && beamCapacity == 5, "Weapon/beam capstones failed");
+            float emptyWidth = ConeHalfWidth(GroundY);
+            SpawnPerson(shipX + 5, false, 1); SmokeAbductee = people[0]; SmokeAbductee.Y = TractorOrigin.Y + 25;
+            Require(ConeHalfWidth(GroundY) > emptyWidth, "Matrix did not widen an occupied beam");
+            float beforeX = SmokeAbductee.X;
+            UpdateTractor(.1f, true);
+            Require(beforeX - SmokeAbductee.X > TractorPullSpeed * .1f, "Focus did not strengthen near-ship pull");
+            DropPayload(); Require(Math.Abs(ConeHalfWidth(GroundY) - emptyWidth) < .001f, "Matrix stayed active with an empty beam");
+            BuyTo("auto", 1);
+            Require(progression.Unlocked(UfoProgression.Index("mothership")) && progression.Rank("exponential") == 0,
+                "Mothership must accept any three complete capstones");
+            resetGame();
+            Require(nanoHull == 3 && warpBonus > 0, "Ship merge bonuses failed");
+            MoveShip(1, .01f, 1);
+            Require(shipVelocity.X > 12 && shipVelocity.Y > 12, "Warp acceleration failed");
+            MoveShip(0, 1, 1);
+            Require(shipVelocity.Y == 0 || shipVelocity.Y > FlightSpeed * .4f, "Warp vertical speed failed");
+            shipHealth = 50;
+            UpdateAutoRepair(5); Require(shipHealth == 50, "Auto repair started before five safe seconds");
+            UpdateAutoRepair(1); Require(shipHealth == 52, "Auto repair rate incorrect");
+            DamageShip(); UpdateAutoRepair(4); Require(shipHealth == 27, "Hit did not reset auto repair delay");
+            UpdateAutoRepair(2); Require(shipHealth == 29, "Auto repair failed to restart after safety delay");
+            Require(progression.Buy(UfoProgression.Index("mothership")), "Mothership purchase failed");
+            BuyTo("exponential", 1); resetGame();
+            Require(globalBonus == 1.25f && interestBonus > 0, "Mothership/interest launch bonuses failed");
+            roundSeconds = 0; double start = RoundMultiplier;
+            roundSeconds = 60; double minute = RoundMultiplier;
+            roundSeconds = 120; double twoMinutes = RoundMultiplier;
+            Require(twoMinutes - minute > minute - start, "Exponential yield did not accelerate growth");
+            roundSeconds = 121; double withLongHaul = RoundMultiplier;
+            longHaulBonus = 0;
+            Require(withLongHaul > RoundMultiplier, "Long Haul did not activate after two minutes");
+            double beforeReset = RoundMultiplier;
+            progression.StartNew();
+            Require(RoundMultiplier == beforeReset, "Flight bonuses changed after launch");
+#if !WEB
+            string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "warhook-tech-migration-" + Guid.NewGuid() + ".json");
+            try
+            {
+                System.IO.File.WriteAllText(path, "{\"version\":1,\"balance\":12.5,\"ranks\":{\"fire3\":5,\"engine3\":5,\"capacity5\":1}}");
+                var migrated = new UfoProgression(false, path);
+                Require(migrated.Balance == 4157.5 && migrated.Rank("fire3") == 1 && migrated.Rank("engine3") == 3
+                    && migrated.Capacity == 5, "Legacy ranks/capacity or refund migration failed");
+                Require(migrated.SavePreferences(0, 1), "Migrated save write failed");
+                var reloaded = new UfoProgression(false, path);
+                Require(reloaded.Balance == 4157.5, "Migration refunded ranks twice");
+            }
+            finally { System.IO.File.Delete(path); }
+#endif
+            progression = new UfoProgression(true); resetGame();
+        }
+
+        void VerifyEngineerUnlock()
+        {
+            void Require(bool condition, string message)
+            { if (!condition) throw new InvalidOperationException(message); }
+            progression = new UfoProgression(true);
+            resetGame();
+            for (int kind = 0; kind <= 2; kind++) SpawnBeanRunner(144, kind, 96);
+            Require(people.TrueForAll(p => !p.Engineer), "Engineers spawned before their unlock");
+            UpdateGroundPeople(EnemyRunInSeconds);
+            Require(missiles.Count == 3, "Locked engineer events must become ordinary soldiers");
+            progression.Bank("engineer-test", 10000);
+            int repair = UfoProgression.Index("repair"), hull = UfoProgression.Index("hull");
+            Require(!progression.Buy(repair), "Engineer unlock skipped hull prerequisites");
+            Require(progression.Buy(hull) && progression.Buy(hull) && progression.Buy(repair),
+                "Engineer unlock could not be purchased");
+            for (int rank = 1; rank <= 5; rank++)
+            {
+                resetGame();
+                Require(repairLevel == rank, "Engineer rank did not apply at round start");
+                for (int kind = 0; kind <= 2; kind++) SpawnBeanRunner(144, kind, 96);
+                Require(!people[0].Engineer && people[1].Engineer && people[2].Engineer,
+                    "Unlocked engineers lost their original special-bean schedule");
+                UpdateGroundPeople(EnemyRunInSeconds);
+                Require(missiles.Count == 1, "Unlocked engineers fired rockets");
+                shipHealth = 50;
+                DeliverPerson(people[1]);
+                Require(shipHealth == 50 + rank * 5 && roundSoldiers == 0 && roundAbductions == 1,
+                    "Engineer repair must start at five and add five per rank without earning crew");
+                shipHealth = MaxShipHealth - 1;
+                DeliverPerson(people[1]);
+                Require(shipHealth == MaxShipHealth, "Engineer repair exceeded upgraded hull maximum");
+                if (rank < 5) Require(progression.Buy(repair), "Engineer repair rank purchase failed");
+            }
+            progression = new UfoProgression(true); resetGame();
+            SpawnBeanRunner(144, 1, 96);
+            Require(!people[0].Engineer, "Engineer unlock leaked into another save");
+            Console.WriteLine("Engineer checks passed: locked spawns, upgrade prerequisites, unlock, 5-25 hull repairs, non-firing engineers, hull cap and save isolation.");
+            resetGame();
+        }
+
+        void VerifyAltitudeDefense()
+        {
+            void Require(bool condition, string message)
+            { if (!condition) throw new InvalidOperationException(message); }
+            progression = new UfoProgression(true);
+            resetGame(); screen = MenuScreen.Playing;
+            Require(altitudeLineY == 64 && shipY + ShipHeight / 2 < altitudeLineY, "Altitude line must start just below the UFO");
+            shipY = altitudeLineY;
+            UpdateAltitudeDefense(5);
+            Require(altitudeShotsRemaining == 0 && missiles.Count == 0, "Safe altitude triggered a volley");
+            shipY++;
+            UpdateAltitudeDefense(.01f);
+            Vector2 left = altitudeLeftSpawn, right = altitudeRightSpawn;
+            Require(altitudeShotsRemaining == 6 && missiles.Count == 0 && left.X == 7 && right.X == NATIVE_WIDTH - 7,
+                "Crossing the line must warn at both launch points before firing");
+            UpdateAltitudeDefense(.4f);
+            float timer = altitudeTimer;
+            paused = true; UpdateAltitudeDefense(10); paused = false;
+            Require(altitudeTimer == timer && missiles.Count == 0, "Pause advanced the warning");
+            gameover = true; UpdateAltitudeDefense(10); gameover = false;
+            Require(altitudeTimer == timer && missiles.Count == 0, "Death launched pending rockets");
+            shipY = ShipStartY; // A warned volley remains committed when the player retreats.
+            for (int i = 0; i < 6; i++)
+            {
+                shipX = 120 + i * 5;
+                UpdateAltitudeDefense(i == 0 ? .46f : AltitudeShotInterval + .001f);
+                Require(missiles.Count == i + 1, "Volley did not fire one rocket at a time");
+                var rocket = missiles[i];
+                Vector2 expected = i % 2 == 0 ? left : right;
+                Require(rocket.Position == expected && rocket.AltitudeDefense && rocket.BeanSpeed == 0
+                    && Vector2.Distance(rocket.Heading, Vector2.Normalize(ShipPosition - expected)) < .0001f,
+                    "Rocket launch point moved away from its warning or missed current ship aim");
+                Require(Math.Abs(rocket.Velocity.Length() - 90) < .001f, "Side rocket speed changed");
+            }
+            Require(altitudeShotsRemaining == 0 && ActiveBeanSpawnCount() == 0,
+                "Side rockets occupied the original bean pool");
+            for (int i = 0; i < 16; i++) SpawnBeanRunner(30 + i * 12, 0, 64);
+            Require(ActiveBeanSpawnCount() == 16, "Side volley reduced the ground-enemy pool");
+            shipY = altitudeLineY + 1;
+            UpdateAltitudeDefense(AltitudeVolleyCooldown - .1f);
+            Require(altitudeShotsRemaining == 0, "Volley repeated before its cooldown");
+            UpdateAltitudeDefense(.11f);
+            Require(altitudeShotsRemaining == 6 && missiles.Count == 6, "Staying low did not start another warned volley");
+            resetGame();
+            Require(altitudeShotsRemaining == 0 && altitudeCooldown == 0 && missiles.Count == 0,
+                "New flight retained altitude threats");
+            missiles.Add(new UfoMissile { Position = new Vector2(shipX, shipY + 40), Velocity = -Vector2.UnitY * 90, AltitudeDefense = true });
+            UpdateMissiles(.5f);
+            Require(shipHealth == 75 && missiles.Count == 0, "Side rockets failed hull collision");
+            missiles.Add(new UfoMissile { Position = new Vector2(120, 120), Velocity = -Vector2.UnitY * 90, AltitudeDefense = true });
+            shipBullets.Add(new ShipBullet { Position = new Vector2(120, 110), Velocity = Vector2.UnitY * 160 });
+            UpdateShipBullets(.1f);
+            Require(missiles.Count == 0 && score == 50, "Side rockets cannot be shot down");
+            progression.Bank("clearance-test", 10000);
+            int clearance = UfoProgression.Index("clearance");
+            Require(!progression.Buy(clearance) && progression.Buy(UfoProgression.Index("engine")),
+                "Flight Clearance must require Thrusters rank 1");
+            for (int rank = 1; rank <= 5; rank++)
+            {
+                Require(progression.Buy(clearance), "Flight Clearance rank could not be bought");
+                resetGame(); shipY = altitudeLineY;
+                Require(altitudeLineY == 64 + rank * 14, "Clearance upgrade did not lower the line");
+                UpdateAltitudeDefense(1);
+                Require(altitudeShotsRemaining == 0, "Upgraded safe altitude still triggered rockets");
+                shipY++; UpdateAltitudeDefense(.01f);
+                Require(altitudeShotsRemaining == 6, "Upgraded altitude threshold was not enforced");
+            }
+            Require(!progression.Buy(clearance), "Flight Clearance exceeded its rank cap");
+            progression = new UfoProgression(true); resetGame();
+            Console.WriteLine("Altitude defense checks passed: threshold, warnings, alternating aimed volley, pause/death, cooldown, pool isolation, collisions/interception, reset and all clearance ranks.");
+        }
+
+        void VerifyRoundResults()
+        {
+            void Require(bool condition, string message)
+            { if (!condition) throw new InvalidOperationException(message); }
+            progression = new UfoProgression(true);
+            resetGame(); screen = MenuScreen.Playing; transition = MenuTransition.None;
+            roundSoldiers = 12; roundSeconds = 180;
+            shipHealth = 25; hurtTime = 0;
+            DamageShip();
+            float crashStartY = shipY;
+            UpdateRoundResults(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(.1)), false, true);
+            Require(crashLanding && shipY > crashStartY && crashTilt > 0,
+                "Destroyed UFO did not begin its crash landing");
+            var tick = new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(.1));
+            updateMenus(tick, new KeyboardState(Keys.X));
+            Require(screen == MenuScreen.RoundResults && !roundActive && roundBanked && progression.Balance == 15.6,
+                "Death must show results and bank the exact reward immediately");
+            Require(resultsCrew == 12 && resultsMultiplier == 1.3 && resultsReward == 15.6 && resultsSurvival == 180,
+                "Results must snapshot final round statistics");
+            Require(ResultsLineAge(0) < 0, "Results tally started without an opening delay");
+            UpdateRoundResults(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), false, true);
+            Require(ResultsLineAge(0) >= 0 && ResultsLineAge(1) < 0, "Crew should appear first");
+            UpdateRoundResults(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), true, true);
+            Require(screen == MenuScreen.RoundResults && ResultsLineAge(1) >= 0 && ResultsLineAge(2) < 0,
+                "Multiplier should appear second and early input must not skip the tally");
+            for (int i = 0; i < 30; i++) updateMenus(tick, new KeyboardState(Keys.X));
+            Require(ResultsComplete && !resultsInputReady && screen == MenuScreen.RoundResults && roundSeconds == 180,
+                "Held fire must not dismiss results and the survival clock must stay frozen");
+            updateMenus(tick, new KeyboardState());
+            updateMenus(tick, new KeyboardState(Keys.X));
+            Require(screen == MenuScreen.Upgrades && !mapInputReady && progression.Balance == 15.6,
+                "Fresh confirm should enter upgrades without buying or paying twice");
+            updateMenus(tick, new KeyboardState(Keys.X));
+            Require(progression.Balance == 15.6, "Held results confirmation bought an upgrade");
+            EndIncrementalRound();
+            Require(progression.Balance == 15.6, "Revisiting round end paid twice");
+            resetGame(); screen = MenuScreen.Playing;
+            EndIncrementalRound(showResults: true);
+            Require(resultsCrew == 0 && resultsMultiplier == 1 && resultsReward == 0 && resultsTime == 0,
+                "A zero-crew round inherited an earlier tally");
+            Console.WriteLine("Round results checks passed: death routing, timed reveals, exact banking, frozen timer, held-input guard, upgrade handoff and zero-crew reset.");
+            progression = new UfoProgression(true); resetGame(); screen = MenuScreen.Playing;
         }
 
         void UpdateShots(GameTime time)
@@ -502,7 +781,11 @@ namespace MonogameTest
                 VerifyUfoDifficulty();
                 VerifyUfoFlight();
                 VerifyUpgradeRewards();
-                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent soldier currency, survival multiplier, upgrade tree purchases and multi-person beams; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
+                VerifyTechWeb();
+                VerifyEngineerUnlock();
+                VerifyAltitudeDefense();
+                VerifyRoundResults();
+                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 32-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
                 resetGame();
                 shipX = previousShipX = 146; shipY = previousShipY = ShipMaxY - 16;
                 shipTilt = .13f; shipHealth = 75; weaponLevel = 3;
@@ -517,6 +800,7 @@ namespace MonogameTest
                 shipBullets.Add(new ShipBullet { Position = new Vector2(160, 168), Velocity = Vector2.UnitY * BulletSpeed });
                 shipBullets.Add(new ShipBullet { Position = new Vector2(148, 148), Velocity = Vector2.UnitY * BulletSpeed });
                 messageTime = 0;
+                UpdateAltitudeDefense(0);
                 ufoShotFrozen = true;
                 NextShotStage();
             }
@@ -524,10 +808,26 @@ namespace MonogameTest
             {
                 SaveScreenshot();
                 roundSoldiers = 12; roundSeconds = 180;
-                EndIncrementalRound();
+                shipHealth = 0;
+                EndIncrementalRound(showResults: true);
                 NextShotStage();
             }
-            else if (shotStage == 3 && shotTimer > .8)
+            else if (shotStage == 3 && shotTimer > 1.2)
+            {
+                if (screen != MenuScreen.RoundResults) throw new InvalidOperationException("Results closed without input");
+                SaveScreenshot(); NextShotStage();
+            }
+            else if (shotStage == 4 && shotTimer > 1.15)
+            {
+                SaveScreenshot(); NextShotStage();
+            }
+            else if (shotStage == 5 && shotTimer > 1.5)
+            {
+                SaveScreenshot();
+                UpdateRoundResults(new GameTime(), true, false);
+                NextShotStage();
+            }
+            else if (shotStage == 6 && shotTimer > .8)
             {
                 if (screen != MenuScreen.Upgrades) throw new InvalidOperationException("Upgrade map closed without input");
                 SaveScreenshot();
@@ -536,11 +836,11 @@ namespace MonogameTest
                 mapSelection = 17; FocusUpgradeNode();
                 NextShotStage();
             }
-            else if (shotStage == 4 && shotTimer > 2.5)
+            else if (shotStage == 7 && shotTimer > 2.5)
             {
                 SaveScreenshot(); NextShotStage();
             }
-            else if (shotStage == 5 && shotTimer > .5) Exit();
+            else if (shotStage == 8 && shotTimer > .5) Exit();
         }
     }
 }

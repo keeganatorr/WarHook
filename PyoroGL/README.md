@@ -21,8 +21,8 @@ One bullet instantly defeats a soldier or engineer, or destroys an incoming
 missile, for 50 points. A shot stops at the first target. The held tractor
 payload is protected from your bullets.
 
-Hold **Z** or **Shift** to project a narrow tractor cone. It lifts one person
-at a time, slowly. You can move and fire while using it. Captured people slowly
+Hold **Z** or **Shift** to project a narrow tractor cone. It initially lifts one person
+at a time, slowly; capacity upgrades let it carry more. You can move and fire while using it. Captured people slowly
 drift toward the cone's horizontal centre as they rise. The UFO moves faster
 than this pull, so moving outside the cone's range or releasing Z still drops
 the payload. People fall back to the ground and resume their route; they can be caught again in midair.
@@ -40,19 +40,27 @@ one-second grace period between hits. Losing all hull health ends the run.
 Engineers wear yellow hardhats and orange overalls; delivering one restores
 25 hull health (up to 100) and earns 250 points.
 
-Delivering a soldier earns 100 points and fills the **CREW** target. Rescue
-3 soldiers to pause the action and choose one upgrade; the next targets require
-5, then 7, then 9 more soldiers, and so on. Each choice resets the crew counter.
-Engineers and shooting enemies do not fill the target.
+Delivering a soldier earns 100 score points and one unit of **CREW** currency.
+The survival timer starts at zero and the reward multiplier at **1.00×**,
+growing by **0.10× per minute** before upgrades. Pausing freezes the timer.
+When the hull is destroyed, or you choose **End Round** from pause, your
+collected soldiers × the current multiplier are banked (to two decimal places).
+Engineers and shooting enemies do not earn currency.
 
-- **Rapid Fire:** adds 25% of the base firing rate; reload progress is preserved.
-- **Tractor Boost:** adds 25% of the base vertical lift and horizontal pull speed.
-- **Thrusters:** adds 20% of the base UFO movement speed.
+The end-of-round **Upgrade Map** has 20 connected nodes across four branches.
+Start with faster firing, faster abduction, faster movement, or stronger hull.
+Buying ranks unlocks deeper nodes for up to five people in one beam, a wider
+cone, better engineer repairs, faster multiplier growth, and starting bonuses.
+Costs increase with each rank. Purchases apply on the next flight and persist
+along with unspent currency between rounds and browser sessions.
 
-Use Up/Down and Enter/X (controller D-pad and A) to choose. Release held fire
-before confirming so reaching the target cannot accidentally choose for you.
-Upgrades stack for the current run. A new round resets hull health, upgrades,
-and the target to 3. Friendly bullets do not occupy enemy spawn slots.
+Use arrows/WASD or the controller D-pad to select a node, then Enter/X or A
+to buy. Mouse clicks select nodes; wheel scrolling or dragging pans the map.
+Press **R** (controller Start) or click **Next Flight** to launch; Escape
+returns to the main menu. You can also open the map from the main menu.
+Web progress is saved in `warhook.ufo.progression.v1` in browser localStorage;
+desktop progress uses `Warhook/ufo-progression.json` in your user data folder.
+Friendly bullets do not occupy enemy spawn slots.
 
 Both **Abduct** and **Siege** now use the original bean spawn timing, random
 positions, per-projectile speeds, 16-slot limit, and difficulty progression.
@@ -73,7 +81,7 @@ after firing do not consume an additional slot.
 - Arrow keys or WASD: fly horizontally and descend to rooftop height.
 - X or Space: hold to fire bullets.
 - Z or Shift: hold the tractor cone; release to drop the payload.
-- Escape: pause/resume. The pause menu includes restart and options.
+- Escape: pause/resume. The pause menu includes End Round and options.
 - 1–5: select gameplay music.
 - Up/Down and Enter/X: navigate menus.
 - Tab (desktop): save a screenshot beside the executable.
@@ -84,8 +92,8 @@ remain consistent on AZERTY, QWERTZ, Dvorak and non-Latin layouts. **Space**
 (fire), **Shift** (tractor) and the arrow keys are layout-independent alternatives.
 Score initials still follow the letters typed with your keyboard layout.
 
-Local scores are separate for Abduct and Siege. After a run, enter initials,
-then use R to open the retry picker or Escape to return to the main menu.
+Local scores are separate for Abduct and Siege and save automatically with
+your current initials when the round ends. The upgrade map opens immediately.
 Desktop saves use `Warhook/ufo-highscores.json` under the OS local application
 data directory. Web saves use `warhook.ufo.highscores` in localStorage.
 The original WarHook saves are preserved. This variant does not connect to
@@ -109,10 +117,10 @@ The desktop content build requires the global `dotnet-mgcb` tool version
 For a running-game smoke check, use `dotnet run --project PyoroGL -- --shots`.
 This checks movement and eased tilt, manual firing, instant soldier kills and missile destruction,
 shootable engineers, cone capture, gradual horizontal centring, dropping,
-landing and recapture, repairs, soldier targets and all three upgrade choices, aimed missiles, rocket suction immunity, pause, game over and reset. It also replays 4,200 ticks against
+landing and recapture, repairs, permanent currency, survival rewards, upgrade prerequisites/purchases, persistence, multi-person beams, aimed missiles, rocket suction immunity, pause, game over and reset. It also replays 4,200 ticks against
 the original bean schedule and checks runner arrivals, single shots,
 engineer routes, the 16-slot pool, and exits.
-It saves title, gameplay, upgrade-choice, and score-screen PNGs into the executable's
+It saves title, gameplay, upgrade-map PNGs into the executable's
 `screenshots/` directory and exits. On Linux, set
 `XDG_DATA_HOME` to a temporary directory to isolate smoke-run scores.
 

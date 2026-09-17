@@ -43,6 +43,7 @@ namespace MonogameTest
                 if (arg == "--shots")
                     shotsMode = true;
             }
+            progression = new UfoProgression(shotsMode);
         }
 
         // Compute the largest integer scale factor that fits the current window,
@@ -237,7 +238,7 @@ namespace MonogameTest
         // Screenshot counter for Tab-key PNG saves.
         int screenshotCount = 0;
 
-        // UFO smoke checks and screenshot capture (--shots); see UfoGame.cs.
+        // UFO smoke checks and screenshot capture (--shots); see UfoSmokeChecks.cs.
         bool shotsMode;
         int shotStage;
         double shotTimer;

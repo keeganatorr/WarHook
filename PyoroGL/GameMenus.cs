@@ -7,7 +7,7 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options, Scores }
+        enum MenuScreen { Main, ModeSelect, Playing, Pause, Options, Scores, Upgrades }
         enum MenuTransition { None, StartBlink, FadeOut, FadeIn }
         MenuScreen screen = MenuScreen.Main;
         MenuScreen optionsParent = MenuScreen.Main;
@@ -40,11 +40,11 @@ namespace MonogameTest
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
         static readonly string[] mainItems = GameAssets.IsWeb
-            ? new[] { "START", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE" }
-            : new[] { "START", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE", "EXIT" };
+            ? new[] { "START", "UPGRADES", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE" }
+            : new[] { "START", "UPGRADES", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE", "EXIT" };
         static readonly string[] pauseItems = GameAssets.IsWeb
-            ? new[] { "RESUME", "RESTART", "OPTIONS", "MAIN MENU" }
-            : new[] { "RESUME", "RESTART", "OPTIONS", "MAIN MENU", "EXIT" };
+            ? new[] { "RESUME", "END ROUND", "OPTIONS", "MAIN MENU" }
+            : new[] { "RESUME", "END ROUND", "OPTIONS", "MAIN MENU", "EXIT" };
 
         // True means menus own this update: no movement, spawns, or effect timers advance.
         bool updateMenus(GameTime time, KeyboardState keys)
@@ -64,6 +64,12 @@ namespace MonogameTest
                 advanceTransition(time.ElapsedGameTime.TotalSeconds);
                 return true;
             }
+            if (screen == MenuScreen.Upgrades)
+            {
+                UpdateUpgradeMap(time, pressed, padPressed, accept,
+                    keys.IsKeyDown(Keys.Enter) || keys.IsKeyDown(Keys.Space) || keys.IsKeyDown(Keys.X) || pad.IsButtonDown(Buttons.A), cancel);
+                return true;
+            }
             if (screen == MenuScreen.Scores)
             {
                 updateScores(time, pressed, padPressed);
@@ -73,22 +79,7 @@ namespace MonogameTest
             {
                 if (gameover)
                 {
-                    // Handle overlay input but let the game keep running in
-                    // the background (explosions, popups, effects still tick).
-                    if (!retryMusicVisible)
-                    {
-                        openScores(gameB, true);
-                        return false;
-                    }
-                    UpdateGameoverOverlay(pressed, accept, padPressed);
-                    return false;
-                }
-                if (upgradePending)
-                {
-                    UpdateUpgradeChoice(pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp),
-                        pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown), accept,
-                        keys.IsKeyDown(Keys.Enter) || keys.IsKeyDown(Keys.Space) || keys.IsKeyDown(Keys.X)
-                            || pad.IsButtonDown(Buttons.A));
+                    EndIncrementalRound();
                     return true;
                 }
                 if (cancel || padPressed(Buttons.Start))
@@ -139,8 +130,9 @@ namespace MonogameTest
                 if (accept)
                 {
                     if (mainSelection == 0) { modeSelection = 0; screen = MenuScreen.ModeSelect; }
-                    else if (mainSelection == 1) openOptions(MenuScreen.Main);
-                    else if (mainSelection == 2 || mainSelection == 3) openScores(mainSelection == 3, false);
+                    else if (mainSelection == 1) OpenUpgradeMap();
+                    else if (mainSelection == 2) openOptions(MenuScreen.Main);
+                    else if (mainSelection == 3 || mainSelection == 4) openScores(mainSelection == 4, false);
                     else Exit();
                 }
             }
@@ -183,10 +175,13 @@ namespace MonogameTest
                     switch (pauseSelection)
                     {
                         case 0: resumeGame(); break;
-                        case 1: beginTransition(MenuScreen.Playing, false); break;
+                        case 1: EndIncrementalRound(); break;
                         case 2: openOptions(MenuScreen.Pause); break;
-                        case 3: beginTransition(MenuScreen.Main, false); break;
-                        case 4: Exit(); break;
+                        case 3:
+                            EndIncrementalRound();
+                            if (roundBanked) beginTransition(MenuScreen.Main, false);
+                            break;
+                        case 4: EndIncrementalRound(); if (roundBanked) Exit(); break;
                     }
                 }
             }
@@ -349,13 +344,17 @@ namespace MonogameTest
 
         bool usesTitleScene()
         {
-            return (screen == MenuScreen.Scores && !scoresAfterGame) || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
+            return screen == MenuScreen.Upgrades || (screen == MenuScreen.Scores && !scoresAfterGame) || screen == MenuScreen.Main || screen == MenuScreen.ModeSelect
                 || (screen == MenuScreen.Options && optionsParent == MenuScreen.Main);
         }
 
         void drawTitleScene()
         {
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
+            if (screen == MenuScreen.Upgrades)
+            {
+                DrawUpgradeMap(); spriteBatch.End(); return;
+            }
             if (screen == MenuScreen.Scores)
             {
                 drawScores();
@@ -388,9 +387,9 @@ namespace MonogameTest
             }
             else
             {
-                spriteBatch.Draw(beamPixel, new Rectangle(12, 92, 172, 78), Color.Black * 0.7f);
+                spriteBatch.Draw(beamPixel, new Rectangle(12, 84, 172, 94), Color.Black * 0.7f);
                 for (int i = 0; i < mainItems.Length; i++)
-                    drawMenuItem(mainItems[i], i == mainSelection, 20, 96 + i * 14,
+                    drawMenuItem(mainItems[i], i == mainSelection, 20, 88 + i * 14,
                         i != 0 || startBracketsVisible());
             }
             string hint = screen == MenuScreen.ModeSelect

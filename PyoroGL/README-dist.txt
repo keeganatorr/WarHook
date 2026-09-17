@@ -25,13 +25,20 @@ the payload. Dropped people
 fall and resume running, and can be caught again. Rockets ignore the tractor
 beam: dodge them or shoot them down.
 
-The UFO has 100 hull health; missile hits cost 25. An abducted engineer repairs
-25 health and scores 250. Soldiers score 100 and fill the CREW target.
-Rescue 3 soldiers to pause and pick an upgrade: Rapid Fire (25% more base fire
-rate), Tractor Boost (25% more base lift/pull speed), or Thrusters (20% more
-base flight speed). Pick with Up/Down and Enter/X; release held fire first.
-The counter then resets and targets grow to 5, 7, 9 more soldiers, and so on.
-Engineers and kills do not count toward the target. All upgrades reset on retry.
+The UFO starts with 100 hull health; missile hits cost 25. An abducted engineer
+repairs 25 health and scores 250. Soldiers score 100 and add one CREW currency.
+The survival timer starts at zero. The reward multiplier starts at 1.00x and
+increases by 0.10x per minute; both freeze while paused. Death or End Round
+from the pause menu banks soldiers times multiplier, retaining hundredths.
+Engineers and kills do not earn currency.
+
+Spend currency on the permanent 20-node upgrade map between rounds.
+Start with firing speed, abduction speed, movement speed, and hull health.
+Deeper nodes unlock multi-person beams (up to five), beam width, repairs,
+faster multiplier growth, and higher starting multipliers. Costs grow by rank.
+Arrows/WASD select, Enter/X buys, R starts the next flight. Mouse clicks select
+nodes/buttons; wheel or dragging scrolls. Controller: D-pad select, A buy,
+Start launches. Purchases apply next flight and persist between sessions.
 Abduct and Siege retain the original bean spawn timing and difficulty ramp.
 
 Controls
@@ -47,8 +54,7 @@ Web letter controls use physical QWERTY positions on all keyboard layouts.
 Use Space to fire and Shift for the tractor if the letter labels differ.
 Arrow keys work for movement on every layout. Score initials use typed letters.
 
-After game over, qualifying scores can be saved with three initials.
-Type letters or use the arrow keys, then Enter to save.
-R opens the retry picker; Escape returns to the main menu after entry.
-Scores are local and separate for Abduct and Siege, stored in your user data
-folder as Warhook/ufo-highscores.json (web: warhook.ufo.highscores).
+After each round, rewards are banked and the upgrade map opens. Scores are
+saved locally with your current initials, separately for Abduct and Siege.
+Progress saves as Warhook/ufo-progression.json in your user data folder
+(web: browser localStorage key warhook.ufo.progression.v1).

@@ -507,8 +507,14 @@ namespace MonogameTest
                     {
                         if (i == 4 || i == 5) continue;
                         var voice = voices[i];
-                        if (voice != null && voice.State == SoundState.Playing) voice.Pause();
+                        if (voice != null && voice.State == SoundState.Playing)
+                        {
+                            // WebAudio cannot Stop a paused source when ending
+                            // a round from pause. Restart gameplay loops on resume.
+                            if (GameAssets.IsWeb) voice.Stop(); else voice.Pause();
+                        }
                     }
+                if (GameAssets.IsWeb) wasActive = wasCaught = false;
                 suspended=true; return;
             }
             if (suspended)

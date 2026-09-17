@@ -10,7 +10,7 @@ namespace MonogameTest
     {
         const int GroundY = NATIVE_HEIGHT - 19;
         const int PersonHeight = 14;
-        const float ShipStartY = 38, ShipMinY = 26, ShipMaxY = GroundY - 58, ShipSpeed = 90;
+        const float ShipStartY = 38, ShipMinY = 34, ShipMaxY = GroundY - 58, ShipSpeed = 90;
         const float ShipWidth = 44, ShipHeight = 20, ShipSideMargin = 23;
         const float EnemyRunInSeconds = 3f, EnemyExitSpeed = 24;
         const float LiftSpeed = 30, TractorCenterSpeed = 15, BulletSpeed = 160;
@@ -23,10 +23,16 @@ namespace MonogameTest
         float shipX, shipY, previousShipX, previousShipY, shipTilt, shotCooldown, muzzleFlash;
         float hurtTime, repairTime, tractorCooldown, messageTime, beamAnimation;
         int shipHealth, weaponLevel, tractorLevel, engineLevel;
-        int soldiersTowardUpgrade, soldierUpgradeTarget, upgradeSelection;
-        bool upgradePending, upgradeInputReady;
+        UfoProgression progression;
+        int roundSoldiers, hullLevel, beamCapacity, repairLevel, widthLevel;
+        double roundSeconds, roundGrowth, roundStartMultiplier;
+        string roundId;
+        bool roundActive, roundBanked;
+        double RoundMultiplier => roundStartMultiplier + roundSeconds * roundGrowth;
+        double RoundReward => Math.Floor(roundSoldiers * RoundMultiplier * 100 + .000001) / 100;
+        int MaxShipHealth => 100 + hullLevel * 25;
         bool tractorActive, ufoShotFrozen;
-        GroundPerson abductee;
+        readonly List<GroundPerson> abductees = new();
         string ufoMessage = "";
         Vector2 ShipPosition => new Vector2(shipX, shipY);
         Vector2 PreviousShipPosition => new Vector2(previousShipX, previousShipY);
@@ -90,13 +96,21 @@ namespace MonogameTest
             shipY = previousShipY = ShipStartY;
             shipTilt = shotCooldown = muzzleFlash = hurtTime = repairTime = 0;
             tractorCooldown = messageTime = beamAnimation = 0;
-            shipHealth = 100;
-            weaponLevel = 1;
-            tractorLevel = engineLevel = soldiersTowardUpgrade = upgradeSelection = 0;
-            soldierUpgradeTarget = 3;
-            upgradePending = upgradeInputReady = false;
+            weaponLevel = 1 + progression.Total(UfoUpgradeEffect.Fire);
+            tractorLevel = progression.Total(UfoUpgradeEffect.Tractor);
+            engineLevel = progression.Total(UfoUpgradeEffect.Engine);
+            hullLevel = progression.Total(UfoUpgradeEffect.Hull);
+            repairLevel = progression.Total(UfoUpgradeEffect.Repair);
+            widthLevel = progression.Total(UfoUpgradeEffect.BeamWidth);
+            beamCapacity = 1 + progression.Total(UfoUpgradeEffect.Capacity);
+            shipHealth = MaxShipHealth;
+            roundSoldiers = 0; roundSeconds = 0;
+            roundStartMultiplier = 1 + progression.Total(UfoUpgradeEffect.StartingBonus) * .1;
+            roundGrowth = (1 + progression.Total(UfoUpgradeEffect.Growth) * .25) / 600;
+            roundId = Guid.NewGuid().ToString("N");
+            roundActive = true; roundBanked = false;
             tractorActive = ufoShotFrozen = false;
-            abductee = null;
+            abductees.Clear();
             people.Clear(); missiles.Clear(); shipBullets.Clear();
             SetUfoMessage("SPACE/X FIRE - SHIFT/Z BEAM", 4);
         }
@@ -183,7 +197,7 @@ namespace MonogameTest
                 person.PreviousY = person.Y;
                 person.Animation += dt;
                 person.HitFlash = Math.Max(0, person.HitFlash - dt);
-                if (person == abductee) continue;
+                if (abductees.Contains(person)) continue;
                 if (person.Falling)
                 {
                     person.FallSpeed = Math.Min(120, person.FallSpeed + 80 * dt);
@@ -256,125 +270,46 @@ namespace MonogameTest
             music?.Request(MusicTracks.Track.Gameover);
         }
 
-        float ConeHalfWidth(float y) => MathHelper.Lerp(7, 22,
+        float ConeHalfWidth(float y) => MathHelper.Lerp(7, 22 * (1 + widthLevel * .1f),
             Math.Clamp((y - TractorOrigin.Y) / (GroundY - TractorOrigin.Y), 0, 1));
 
         bool InsideTractor(Vector2 point) => point.Y >= TractorOrigin.Y && point.Y <= GroundY
             && Math.Abs(point.X - shipX) <= ConeHalfWidth(point.Y);
 
+        void DropPerson(GroundPerson person)
+        {
+            if (!person.ReachedTarget)
+            {
+                float progress = Math.Min(.99999f, person.ApproachTime / EnemyRunInSeconds);
+                person.RunFromX = (person.X - person.TargetX * progress) / (1 - progress);
+            }
+            person.Falling = true; person.FallSpeed = 0;
+            abductees.Remove(person);
+        }
+
         void DropPayload()
         {
-            if (abductee != null)
-            {
-                // Rebase the remaining approach from the beam-shifted X so
-                // landing never snaps the person back to their old route.
-                if (!abductee.ReachedTarget)
-                {
-                    float progress = Math.Min(.99999f, abductee.ApproachTime / EnemyRunInSeconds);
-                    abductee.RunFromX = (abductee.X - abductee.TargetX * progress) / (1 - progress);
-                }
-                abductee.Falling = true;
-                abductee.FallSpeed = 0;
-                abductee = null;
-            }
+            for (int i = abductees.Count - 1; i >= 0; i--) DropPerson(abductees[i]);
             tractorCooldown = .25f;
         }
 
-        void DeliverPayload()
+        void DeliverPerson(GroundPerson person)
         {
-            if (abductee != null)
+            people.Remove(person); abductees.Remove(person);
+            addScore(shipX - 8, shipY + 20, person.Engineer ? 250 : 100);
+            if (person.Engineer)
             {
-                people.Remove(abductee);
-                addScore(shipX - 8, shipY + 20, abductee.Engineer ? 250 : 100);
-                if (abductee.Engineer)
-                {
-                    shipHealth = Math.Min(100, shipHealth + 25);
-                    repairTime = .7f;
-                    SetUfoMessage("ENGINEER ABOARD - SHIP REPAIRED");
-                    beamAudio?.PlayParachute();
-                }
-                else
-                {
-                    soldiersTowardUpgrade++;
-                    SetUfoMessage("SOLDIERS " + soldiersTowardUpgrade + "/" + soldierUpgradeTarget);
-                    if (soldiersTowardUpgrade >= soldierUpgradeTarget)
-                    {
-                        upgradePending = true;
-                        upgradeInputReady = false;
-                        upgradeSelection = 0;
-                    }
-                    beamAudio?.PlayMenuBlip();
-                }
-                abductee = null;
-            }
-            tractorCooldown = .25f;
-        }
-
-        void UpdateUpgradeChoice(bool up, bool down, bool confirm, bool acceptHeld)
-        {
-            // X also fires. Require a release before accepting so a held shot
-            // cannot silently spend the player's choice when the panel opens.
-            if (!upgradeInputReady)
-            {
-                if (!acceptHeld) upgradeInputReady = true;
-                return;
-            }
-            if (up || down)
-            {
-                upgradeSelection = (upgradeSelection + (down ? 1 : 2)) % 3;
-                beamAudio?.PlayMenuBlip();
-            }
-            if (confirm) ApplyUfoUpgrade();
-        }
-
-        void ApplyUfoUpgrade()
-        {
-            if (!upgradePending) return;
-            if (upgradeSelection == 0)
-            {
-                float oldInterval = ShotInterval;
-                weaponLevel++;
-                shotCooldown *= ShotInterval / oldInterval;
-                SetUfoMessage("RAPID FIRE UPGRADED");
-            }
-            else if (upgradeSelection == 1)
-            {
-                tractorLevel++;
-                SetUfoMessage("TRACTOR SPEED UPGRADED");
+                shipHealth = Math.Min(MaxShipHealth, shipHealth + 25 + repairLevel * 5);
+                repairTime = .7f;
+                SetUfoMessage("ENGINEER ABOARD - SHIP REPAIRED");
+                beamAudio?.PlayParachute();
             }
             else
             {
-                engineLevel++;
-                SetUfoMessage("THRUSTERS UPGRADED");
+                roundSoldiers++;
+                SetUfoMessage("SOLDIER COLLECTED", .7f);
+                beamAudio?.PlayMenuBlip();
             }
-            soldiersTowardUpgrade = 0;
-            soldierUpgradeTarget += 2;
-            upgradePending = upgradeInputReady = false;
-            beamAudio?.PlayMenuBlip();
-        }
-
-        void DrawUpgradeChoice()
-        {
-            spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.Black * .8f);
-            spriteBatch.Draw(beamPixel, new Rectangle(20, 26, 248, 165), new Color(12, 26, 43));
-            DrawStringBitmap(spriteBatch, "CHOOSE AN UPGRADE", new Vector2(80, 36), new Color(255, 222, 128));
-            string progress = soldierUpgradeTarget + " SOLDIERS RESCUED";
-            font6.Draw(spriteBatch, progress, new Vector2((NATIVE_WIDTH - font6.Measure(progress).X) / 2, 51), Color.White);
-            string[] titles = { "RAPID FIRE", "TRACTOR BOOST", "THRUSTERS" };
-            string[] descriptions = { "25% MORE BASE FIRE RATE", "25% MORE BASE LIFT AND PULL", "20% MORE BASE FLIGHT SPEED" };
-            int[] levels = { weaponLevel - 1, tractorLevel, engineLevel };
-            for (int i = 0; i < 3; i++)
-            {
-                int yy = 68 + i * 33;
-                Color color = i == upgradeSelection ? new Color(100, 245, 235) : new Color(150, 180, 200);
-                spriteBatch.Draw(beamPixel, new Rectangle(30, yy, 228, 29),
-                    i == upgradeSelection ? new Color(27, 69, 81) : new Color(15, 34, 52));
-                if (i == upgradeSelection)
-                    spriteBatch.Draw(beamPixel, new Rectangle(30, yy, 2, 29), color);
-                font6.Draw(spriteBatch, titles[i] + "   RANK " + (levels[i] + 1), new Vector2(40, yy + 5), color);
-                font6.Draw(spriteBatch, descriptions[i], new Vector2(40, yy + 17), Color.White);
-            }
-            font6.Draw(spriteBatch, "UP/DOWN PICK  ENTER/X CONFIRM", new Vector2(60, 177), Color.White);
         }
 
         void UpdateTractor(float dt, bool held)
@@ -382,38 +317,36 @@ namespace MonogameTest
             tractorActive = held;
             beamAnimation += dt;
             tractorCooldown = Math.Max(0, tractorCooldown - dt);
-            if (abductee != null)
+            if (!held)
             {
-                Vector2 payload = new Vector2(abductee.X, abductee.Y - PersonHeight / 2f);
-                if (!held || !InsideTractor(payload))
-                {
-                    DropPayload();
-                    SetUfoMessage("PAYLOAD DROPPED", .8f);
-                    return;
-                }
-                // People drift toward the cone centre, much slower than the
-                // UFO can fly. Moving out of range still drops the payload.
-                payload.X += Math.Clamp(shipX - payload.X, -TractorPullSpeed * dt, TractorPullSpeed * dt);
-                payload.Y = Math.Max(TractorOrigin.Y + 3, payload.Y - TractorLiftSpeed * dt);
-                if (!InsideTractor(payload)) { DropPayload(); return; }
-                abductee.X = payload.X;
-                abductee.Y = payload.Y + PersonHeight / 2f;
-                if (payload.Y <= TractorOrigin.Y + 3) DeliverPayload();
+                if (abductees.Count > 0) DropPayload();
                 return;
             }
-            if (!held || tractorCooldown > 0) return;
-
-            // Only people respond to suction; rockets pass through freely.
-            GroundPerson personHit = null;
+            for (int i = abductees.Count - 1; i >= 0; i--)
+            {
+                GroundPerson person = abductees[i];
+                Vector2 payload = new Vector2(person.X, person.Y - PersonHeight / 2f);
+                if (!InsideTractor(payload)) { DropPerson(person); continue; }
+                payload.X += Math.Clamp(shipX - payload.X, -TractorPullSpeed * dt, TractorPullSpeed * dt);
+                payload.Y = Math.Max(TractorOrigin.Y + 3, payload.Y - TractorLiftSpeed * dt);
+                if (!InsideTractor(payload)) { DropPerson(person); continue; }
+                person.X = payload.X; person.Y = payload.Y + PersonHeight / 2f;
+                if (payload.Y <= TractorOrigin.Y + 3) DeliverPerson(person);
+            }
+            if (abductees.Count >= beamCapacity || tractorCooldown > 0) return;
+            GroundPerson nearest = null;
             float nearestY = float.PositiveInfinity;
             foreach (GroundPerson person in people)
             {
+                if (abductees.Contains(person)) continue;
                 Vector2 center = new Vector2(person.X, person.Y - PersonHeight / 2f);
-                if (InsideTractor(center) && center.Y < nearestY)
-                { personHit = person; nearestY = center.Y; }
+                if (InsideTractor(center) && center.Y < nearestY) { nearest = person; nearestY = center.Y; }
             }
-            abductee = personHit;
-            if (abductee != null) { abductee.Falling = false; abductee.FallSpeed = 0; }
+            if (nearest != null)
+            {
+                abductees.Add(nearest); nearest.Falling = false; nearest.FallSpeed = 0;
+                tractorCooldown = .25f;
+            }
         }
 
         void UpdateShipWeapon(float dt, bool fire)
@@ -462,7 +395,7 @@ namespace MonogameTest
                 float first = float.PositiveInfinity;
                 foreach (GroundPerson person in people)
                 {
-                    if (person == abductee) continue;
+                    if (abductees.Contains(person)) continue;
                     Vector2 oldCenter = new Vector2(person.PreviousX, person.PreviousY - PersonHeight / 2f);
                     Vector2 center = new Vector2(person.X, person.Y - PersonHeight / 2f);
                     float contact = SweptContactTime(shot.Position - oldCenter, end - center,
@@ -540,11 +473,12 @@ namespace MonogameTest
 
         void UpdateUfo(GameTime time, KeyboardState keys)
         {
-            if (ufoShotFrozen || paused || upgradePending) return;
+            if (ufoShotFrozen || paused) return;
             float dt = (float)time.ElapsedGameTime.TotalSeconds;
             updateExplosions(); updateScorePopups();
             if (!gameover && screen == MenuScreen.Playing)
             {
+                roundSeconds += dt;
                 messageTime = Math.Max(0, messageTime - dt);
                 hurtTime = Math.Max(0, hurtTime - dt);
                 repairTime = Math.Max(0, repairTime - dt);
@@ -563,12 +497,6 @@ namespace MonogameTest
                     if (missile.BeanSpeed > 0)
                         missile.Velocity = missile.Heading * BeanMissileSpeed(missile.BeanSpeed);
                 UpdateTractor(dt, tractor);
-                if (upgradePending)
-                {
-                    beamAudio?.StopBeamVoices();
-                    music?.Update(dt);
-                    return;
-                }
                 // Resolve traveling bullets against predicted missile movement
                 // before applying any surviving missile's ship impact.
                 UpdateShipBullets(dt);
@@ -579,7 +507,7 @@ namespace MonogameTest
                     UpdateBeanDifficulty();
                 }
             }
-            beamAudio?.Update(tractorActive && !gameover, false, abductee != null, false, dt);
+            beamAudio?.Update(tractorActive && !gameover, false, abductees.Count > 0, false, dt);
             music?.Update(dt);
         }
 
@@ -681,7 +609,7 @@ namespace MonogameTest
         void DrawTractor()
         {
             if (!tractorActive || gameover) return;
-            Color glow = abductee != null
+            Color glow = abductees.Count > 0
                 ? new Color(100, 255, 205) : new Color(70, 210, 245);
             for (int yy = (int)TractorOrigin.Y; yy < GroundY; yy++)
             {
@@ -697,7 +625,7 @@ namespace MonogameTest
                 float offset = (i % 3 - 1) * ConeHalfWidth(yy) * .5f;
                 spriteBatch.Draw(beamPixel, new Rectangle((int)(shipX + offset), (int)yy, 1, 3), glow * .65f);
             }
-            spriteBatch.Draw(beamPixel, new Rectangle((int)shipX - 22, GroundY, 44, 1), glow * .8f);
+            spriteBatch.Draw(beamPixel, new Rectangle((int)(shipX - ConeHalfWidth(GroundY)), GroundY, (int)(2 * ConeHalfWidth(GroundY)), 1), glow * .8f);
         }
 
         void DrawUfoGameplay()
@@ -705,7 +633,12 @@ namespace MonogameTest
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
             DrawUfoLandscape();
             DrawTractor();
-            foreach (GroundPerson person in people) DrawUfoPerson(person, new Vector2(person.X, person.Y));
+            foreach (GroundPerson person in people)
+            {
+                int slot = abductees.IndexOf(person);
+                float visualOffset = slot >= 0 && abductees.Count > 1 ? (slot - (abductees.Count - 1) / 2f) * 4 : 0;
+                DrawUfoPerson(person, new Vector2(person.X + visualOffset, person.Y));
+            }
             foreach (UfoMissile missile in missiles) DrawUfoMissile(missile, missile.Position);
             foreach (ShipBullet shot in shipBullets)
             {
@@ -735,7 +668,12 @@ namespace MonogameTest
                 font6.Draw(spriteBatch, "SCORE " + score.ToString("D6"), new Vector2(8, 3), Color.White);
                 font6.Draw(spriteBatch, "HULL " + shipHealth, new Vector2(119, 3), new Color(96, 230, 222));
                 font6.Draw(spriteBatch, "BEST " + highScore.ToString("D6"), new Vector2(214, 3), new Color(255, 215, 128));
-                font6.Draw(spriteBatch, "CREW " + soldiersTowardUpgrade + "/" + soldierUpgradeTarget,
+                spriteBatch.Draw(beamPixel, new Rectangle(0, 12, NATIVE_WIDTH, 9), new Color(6, 12, 22));
+                font6.Draw(spriteBatch, "TIME " + FormatRoundTime(roundSeconds), new Vector2(8, 13), Color.White);
+                font6.Draw(spriteBatch, RoundMultiplier.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "X REWARD",
+                    new Vector2(112, 13), new Color(255, 220, 130));
+                font6.Draw(spriteBatch, "BEAM " + abductees.Count + "/" + beamCapacity, new Vector2(225, 13), new Color(96, 230, 222));
+                font6.Draw(spriteBatch, "CREW " + roundSoldiers,
                     new Vector2(8, NATIVE_HEIGHT - 10), new Color(95, 245, 255));
                 font6.Draw(spriteBatch, "X/SPACE FIRE Z/SHIFT BEAM", new Vector2(132, NATIVE_HEIGHT - 10), new Color(180, 210, 220));
             }
@@ -757,471 +695,11 @@ namespace MonogameTest
                     font6.Draw(spriteBatch, "LEFT/RIGHT CHANGE   ENTER LAUNCH", new Vector2(48, 136), Color.White);
                 }
             }
-            if (upgradePending) DrawUpgradeChoice();
+
             drawPauseOverlay();
             if (screen == MenuScreen.Scores && scoresAfterGame) drawScores();
             spriteBatch.End();
         }
 
-        void VerifyBeanSpawnSchedule()
-        {
-            resetGame();
-            if (people.Count != 0 || missiles.Count != 0)
-                throw new InvalidOperationException("Round started with unscheduled enemies");
-            randnum = 0x1234; randnum2 = 0x5678; randnum3 = 0x9ABC; randnum4 = 0xDEF0;
-            int[] tierScores = { 0, 1000, 3000, 5000, 8000, 10000, 20000 };
-            uint hash = 2166136261;
-            int events = 0;
-            // Reference fixture replayed from the original Game1.Update bean
-            // operations over 4,200 ticks, with a free pool and these seeds.
-            // Includes threshold transitions and special-bean milestones.
-            for (int tick = 0; tick < 4200; tick++)
-            {
-                score = tierScores[tick / 600];
-                UpdateBeanSpawns();
-                foreach (GroundPerson person in people)
-                {
-                    events++;
-                    foreach (int value in new[] { tick, (int)person.TargetX, person.BeanSpeed, person.Engineer ? 1 : 0 })
-                        hash = unchecked((hash ^ (uint)value) * 16777619);
-                }
-                people.Clear();
-                UpdateBeanDifficulty();
-            }
-            if (events != 99 || hash != 0x1689FA91 || bigspeed != 503 || time_until_new_bean != 19)
-                throw new InvalidOperationException("UFO spawn schedule diverged from original bean replay");
-            bigspeed = 0x100;
-            if (BeanMissileSpeed(0x40) != 15 || BeanMissileSpeed(0x7F) != 29.765625f)
-                throw new InvalidOperationException("Rocket lost original bean speed");
-            bigspeed = 0x7F0; smallspeed = 1;
-            UpdateBeanDifficulty();
-            if (bigspeed != 0x7F0) throw new InvalidOperationException("Original speed cap was lost");
-
-            foreach (int target in new[] { 24, 260 })
-                foreach (int kind in new[] { 0, 1, 2 })
-                {
-                    resetGame();
-                    SpawnBeanRunner(target, kind, 96);
-                    GroundPerson runner = people[0];
-                    int direction = runner.Direction;
-                    if (runner.X >= -5 && runner.X <= NATIVE_WIDTH + 5)
-                        throw new InvalidOperationException("Runner did not enter from offscreen");
-                    UpdateGroundPeople(EnemyRunInSeconds / 2);
-                    if (missiles.Count != 0 || runner.ReachedTarget)
-                        throw new InvalidOperationException("Runner fired before reaching its target");
-                    UpdateGroundPeople(EnemyRunInSeconds / 2 + .1f);
-                    int expectedRockets = kind == 0 ? 1 : 0;
-                    if (!runner.ReachedTarget || missiles.Count != expectedRockets)
-                        throw new InvalidOperationException("Runner failed its single-shot assignment");
-                    if (kind == 0 && (missiles[0].Position.X != target || missiles[0].Velocity.Y >= 0 || missiles[0].BeanSpeed != 96))
-                        throw new InvalidOperationException("Rocket lost its assigned position or speed");
-                    if (direction * (runner.X - target) <= 0 || runner.Direction != direction)
-                        throw new InvalidOperationException("Runner did not continue through its firing point");
-                    UpdateGroundPeople((NATIVE_WIDTH + 12) / EnemyExitSpeed + 1);
-                    if (people.Count != 0 || missiles.Count != expectedRockets)
-                        throw new InvalidOperationException("Runner repeated fire or failed to exit");
-                }
-
-            resetGame();
-            for (int i = 0; i < max_amount_of_beans; i++) SpawnBeanRunner(20 + i * 8, 0, 64);
-            int oldRandom = randnum;
-            UpdateBeanSpawns();
-            if (people.Count != 16 || randnum == oldRandom)
-                throw new InvalidOperationException("Full bean pool changed spawn/RNG behaviour");
-            UpdateGroundPeople(EnemyRunInSeconds);
-            if (missiles.Count != 16 || ActiveBeanSpawnCount() != 16)
-                throw new InvalidOperationException("Reserved bean slots did not transfer to rockets");
-            missiles.RemoveAt(0);
-            time_until_new_bean = 0;
-            UpdateBeanSpawns();
-            if (ActiveBeanSpawnCount() != 16 || people.Count != 17)
-                throw new InvalidOperationException("Freed bean slot was not reused");
-            resetGame();
-        }
-
-        void VerifyUfoFlight()
-        {
-            void Require(bool condition, string message)
-            {
-                if (!condition) throw new InvalidOperationException(message);
-            }
-            const float dt = 1f / 60;
-            resetGame(); screen = MenuScreen.Playing;
-            MoveShip(1, dt);
-            Require(shipX > 144 && shipTilt > 0 && shipTilt < .18f, "Movement tilt did not ease in");
-            float tilt = shipTilt;
-            MoveShip(0, dt);
-            Require(shipTilt > 0 && shipTilt < tilt, "Movement tilt did not ease out");
-            MoveShip(-1, 10);
-            Require(shipX == ShipSideMargin && shipTilt < 0, "Left flight limit / tilt failed");
-            MoveShip(1, 10);
-            Require(shipX == NATIVE_WIDTH - ShipSideMargin, "Right flight limit failed");
-
-            MoveShip(0, 10, -1);
-            Require(shipY == ShipMinY, "Upper flight limit failed");
-            MoveShip(0, 10, 1);
-            Require(shipY == ShipMaxY && previousShipY == ShipMinY, "Lower flight limit failed");
-            resetGame();
-            MoveShip(0, 10, 1);
-            SpawnPerson(shipX, false, 1);
-            UpdateTractor(dt, true);
-            for (int i = 0; i < 120 && abductee != null; i++) UpdateTractor(dt, true);
-            Require(abductee == null && soldiersTowardUpgrade == 1 && score == 100,
-                "Low-altitude tractor failed to deliver a person");
-            UpdateShipWeapon(dt, true);
-            Require(shipBullets[0].Position.Y == ShipMaxY + 11,
-                "Low-altitude shot did not start below the UFO");
-            foreach (Keys key in new[] { Keys.Up, Keys.W, Keys.Down, Keys.S })
-            {
-                resetGame(); time_until_new_bean = 1000;
-                UpdateUfo(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(dt)), new KeyboardState(key, Keys.X));
-                bool movingUp = key == Keys.Up || key == Keys.W;
-                Require(movingUp ? shipY < ShipStartY : shipY > ShipStartY, "Vertical keyboard flight input failed");
-                Require(shipBullets.Count == 1 && shipBullets[0].Position.Y == TractorOrigin.Y + 3,
-                    "Gun muzzle did not follow vertical ship movement");
-            }
-            resetGame();
-            missiles.Add(new UfoMissile { Position = new Vector2(shipX, 63) });
-            MoveShip(0, 1, 1);
-            UpdateMissiles(1);
-            Require(shipHealth == 75 && missiles.Count == 0, "Missile collision missed vertical ship movement");
-            resetGame();
-            missiles.Add(new UfoMissile { Position = new Vector2(shipX + 21, 100), Velocity = new Vector2(0, -100) });
-            UpdateMissiles(1);
-            Require(shipHealth == 100, "Shrunken UFO retained the old wider collision box");
-
-            resetGame();
-            SpawnPerson(shipX, false, 1);
-            SpawnPerson(shipX + 8, true, -1);
-            GroundPerson soldier = people[0];
-            UpdateTractor(dt, true);
-            Require(abductee == soldier, "Cone failed single-person acquisition");
-            float lockedX = soldier.X;
-            for (int i = 0; i < 30; i++) { UpdateGroundPeople(dt); UpdateTractor(dt, true); }
-            Require(soldier.X == lockedX && soldier.Y < GroundY - 10 && people[1].Y == GroundY,
-                "Tractor did not lift exactly one unit at its world X");
-            MoveShip(1, .05f);
-            UpdateTractor(dt, true);
-            Require(abductee == soldier && soldier.X > lockedX && soldier.X < shipX,
-                "Tractor did not gradually centre the unit while the ship moved");
-            lockedX = soldier.X;
-            MoveShip(1, .4f);
-            UpdateTractor(dt, true);
-            Require(abductee == null && soldier.Falling, "Leaving cone range did not drop the unit");
-            float oldY = soldier.Y;
-            UpdateGroundPeople(.1f);
-            Require(soldier.Y > oldY && soldier.X == lockedX, "Dropped unit did not fall vertically");
-            for (int i = 0; i < 180; i++) UpdateGroundPeople(dt);
-            Require(!soldier.Falling && soldier.Y == GroundY && soldier.X > lockedX,
-                "Dropped unit did not land and resume running");
-
-            foreach (int side in new[] { -1, 1 })
-            {
-                resetGame();
-                SpawnPerson(shipX + side * 18, false, 1);
-                soldier = people[0];
-                UpdateTractor(dt, true);
-                float originalX = soldier.X;
-                UpdateTractor(.5f, true);
-                Require(Math.Abs(soldier.X - shipX) < Math.Abs(originalX - shipX)
-                    && Math.Abs(soldier.X - originalX) <= TractorCenterSpeed * .5f + .001f
-                    && Math.Abs(soldier.X - shipX) > 1, "Tractor centring snapped or pulled away from centre");
-                for (int i = 0; i < 90; i++) UpdateTractor(dt, true);
-                Require(abductee == soldier && Math.Abs(soldier.X - shipX) < .001f,
-                    "Stationary cone failed to centre an off-axis soldier");
-            }
-
-            resetGame();
-            SpawnPerson(shipX, false, 1);
-            soldier = people[0];
-            UpdateTractor(dt, true);
-            UpdateTractor(.5f, true);
-            UpdateTractor(dt, false);
-            Require(abductee == null && soldier.Falling && !tractorActive, "Releasing Z did not drop payload");
-            UpdateGroundPeople(.1f);
-            UpdateTractor(.3f, true);
-            Require(abductee == soldier && !soldier.Falling, "Falling unit could not be caught again");
-            shotCooldown = .6f;
-            for (int i = 0; i < 400 && abductee != null; i++) UpdateTractor(dt, true);
-            Require(abductee == null && people.Count == 0 && score == 100 && weaponLevel == 1 && soldiersTowardUpgrade == 1 && !upgradePending
-                && Math.Abs(shotCooldown - .6f) < .0001f, "Soldier pickup changed gun before an upgrade choice");
-            shipHealth = 50;
-            SpawnPerson(shipX, true, 1);
-            UpdateTractor(.3f, true);
-            for (int i = 0; i < 400 && abductee != null; i++) UpdateTractor(dt, true);
-            Require(shipHealth == 75 && score == 350 && weaponLevel == 1 && soldiersTowardUpgrade == 1, "Engineer did not repair ship");
-            SpawnPerson(shipX, true, 1);
-            UpdateTractor(.3f, true);
-            shipHealth = 90;
-            for (int i = 0; i < 400 && abductee != null; i++) UpdateTractor(dt, true);
-            Require(shipHealth == 100, "Repair exceeded full health");
-
-            // Beam holds reserve the original spawn slot until delivery.
-            resetGame();
-            SpawnBeanRunner(144, 0, 64);
-            UpdateGroundPeople(1.5f);
-            shipX = previousShipX = people[0].X;
-            UpdateTractor(dt, true);
-            Require(abductee != null && ActiveBeanSpawnCount() == 1, "Capture lost approaching bean slot");
-            shipX += 6;
-            UpdateTractor(.5f, true); UpdateTractor(dt, false);
-            float shiftedX = people[0].X;
-            for (int i = 0; i < 45 && people[0].Falling; i++) UpdateGroundPeople(dt);
-            UpdateGroundPeople(0);
-            Require(Math.Abs(people[0].X - shiftedX) < .001f, "Dropped runner snapped back to its old X");
-            UpdateGroundPeople(1.5f);
-            Require(missiles.Count == 1, "Dropped approaching soldier failed its original shot assignment");
-
-            foreach (float target in new[] { 50f, 230f })
-            {
-                resetGame(); shipX = previousShipX = target;
-                shipY = previousShipY = target < 144 ? ShipMinY : ShipMaxY;
-                LaunchMissile(new GroundPerson { TargetX = 144, BeanSpeed = 96 });
-                UfoMissile rocket = missiles[0];
-                Vector2 expected = Vector2.Normalize(ShipPosition - rocket.Position);
-                Require(Vector2.Distance(rocket.Heading, expected) < .0001f && rocket.Velocity.Y < 0,
-                    "Missile did not aim at the launch-time UFO position");
-                shipX = previousShipX = 288 - target;
-                UpdateMissiles(.1f);
-                Require(Vector2.Distance(Vector2.Normalize(rocket.Velocity), expected) < .0001f,
-                    "Missile unexpectedly homed after launch");
-            }
-            resetGame();
-            var fastRocket = new UfoMissile { Position = new Vector2(shipX, 110), Velocity = new Vector2(0, -800) };
-            missiles.Add(fastRocket);
-            UpdateTractor(.2f, true);
-            Require(abductee == null && missiles.Count == 1 && fastRocket.Position.Y == 110,
-                "Empty tractor cone still affected a rocket");
-            UpdateMissiles(.2f);
-            Require(shipHealth == 75 && missiles.Count == 0 && score == 0,
-                "Tractor prevented rocket damage or awarded disarm points");
-            resetGame();
-            SpawnPerson(shipX, false, 1);
-            missiles.Add(new UfoMissile { Position = new Vector2(shipX, 120), Velocity = new Vector2(0, -30) });
-            UpdateTractor(dt, true); UpdateMissiles(.5f);
-            Require(abductee == people[0] && missiles[0].Position.Y == 105,
-                "Rocket blocked person capture or stopped moving inside the tractor");
-            resetGame();
-            for (int hit = 0; hit < 4; hit++)
-            {
-                hurtTime = 0;
-                missiles.Add(new UfoMissile { Position = new Vector2(shipX, 100), Velocity = new Vector2(0, -500) });
-                UpdateMissiles(.2f);
-                Require(shipHealth == 75 - hit * 25, "Swept rocket hit failed to damage ship");
-                if (hit == 0) { DamageShip(); Require(shipHealth == 75, "Hit grace period failed"); }
-            }
-            Require(gameover && pyorodead, "Empty hull health did not end the round");
-
-            resetGame();
-            UpdateShipWeapon(1, false);
-            Require(shipBullets.Count == 0, "UFO fired without X");
-            UpdateShipWeapon(dt, true);
-            Require(shipBullets.Count == 1 && shipBullets[0].Velocity == Vector2.UnitY * BulletSpeed,
-                "X failed to fire downward");
-            for (int i = 0; i < 46; i++) UpdateShipWeapon(dt, true);
-            Require(shipBullets.Count == 1, "Base fire rate was too fast");
-            UpdateShipWeapon(.05f, true);
-            Require(shipBullets.Count == 2, "Held X did not repeat slowly");
-            shipBullets.Clear();
-            SpawnPerson(shipX, false, 1);
-            SpawnPerson(shipX, true, 1);
-            soldier = people[0];
-            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, GroundY - 30), Velocity = Vector2.UnitY * BulletSpeed });
-            UpdateShipBullets(.3f);
-            Require(soldier.Health == 0 && shipBullets.Count == 0 && score == 50,
-                "One UFO bullet did not instantly kill the soldier for 50 points");
-            Require(people.Count == 1 && people[0].Engineer && people[0].Health == 100,
-                "Bullet pierced its first target");
-            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, GroundY - 30), Velocity = Vector2.UnitY * BulletSpeed });
-            UpdateShipBullets(.3f);
-            Require(people.Count == 0 && score == 100 && shipBullets.Count == 0,
-                "Engineer did not die from one bullet");
-
-            // Opposing fast projectiles cross between frames; the bullet
-            // must intercept before the rocket can damage the UFO.
-            resetGame();
-            missiles.Add(new UfoMissile { Position = new Vector2(shipX, 130), Velocity = new Vector2(0, -500) });
-            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 60), Velocity = Vector2.UnitY * BulletSpeed });
-            UpdateShipBullets(.2f); UpdateMissiles(.2f);
-            Require(missiles.Count == 0 && shipBullets.Count == 0 && shipHealth == 100 && score == 50,
-                "Bullet failed to destroy a crossing missile before ship impact");
-
-            // Consume the shot on its first target, regardless of list order.
-            resetGame();
-            SpawnPerson(shipX, false, 1);
-            var fartherRocket = new UfoMissile { Position = new Vector2(shipX, 140) };
-            missiles.Add(fartherRocket);
-            missiles.Add(new UfoMissile { Position = new Vector2(shipX, 95) });
-            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 60), Velocity = Vector2.UnitY * BulletSpeed });
-            UpdateShipBullets(1);
-            Require(missiles.Count == 1 && missiles[0] == fartherRocket && people.Count == 1
-                && shipBullets.Count == 0 && score == 50, "Bullet pierced a missile or chose the wrong first target");
-            missiles.Clear();
-            abductee = people[0];
-            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 60), Velocity = Vector2.UnitY * BulletSpeed });
-            UpdateShipBullets(1);
-            Require(missiles.Count == 0 && people.Count == 1 && score == 50,
-                "Friendly bullet destroyed a held person");
-
-            resetGame();
-            missiles.Add(new UfoMissile { Position = new Vector2(shipX + 16, 80), Velocity = new Vector2(0, -300) });
-            shipBullets.Add(new ShipBullet { Position = new Vector2(shipX + 16, 20), Velocity = Vector2.UnitY * BulletSpeed });
-            UpdateShipBullets(.2f); UpdateMissiles(.2f);
-            Require(shipHealth == 75 && score == 0, "Late interception incorrectly prevented an earlier ship impact");
-
-            foreach (Keys shift in new[] { Keys.LeftShift, Keys.RightShift })
-            {
-                resetGame(); time_until_new_bean = 1000;
-                UpdateUfo(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(dt)), new KeyboardState(shift, Keys.Space));
-                Require(tractorActive && shipBullets.Count == 1, "Space/Shift fallback controls failed");
-            }
-
-            resetGame(); time_until_new_bean = 1000;
-            SpawnPerson(shipX, false, 1);
-            var tickTime = new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(dt));
-            UpdateUfo(tickTime, new KeyboardState(Keys.Y));
-            Require(!tractorActive && abductee == null, "Old keyboard Y binding still activates the tractor");
-            UpdateUfo(tickTime, new KeyboardState(Keys.Z, Keys.X, Keys.Right));
-            Require(tractorActive && abductee != null && shipBullets.Count == 1 && shipX > 144,
-                "Simultaneous movement / X / Z input failed");
-            paused = true;
-            float savedX = shipX, savedY = abductee.Y, savedCooldown = shotCooldown;
-            UpdateUfo(tickTime, new KeyboardState(Keys.X, Keys.Z, Keys.Right));
-            Require(shipX == savedX && abductee.Y == savedY && shotCooldown == savedCooldown, "Pause advanced flight");
-            paused = false; gameover = true;
-            UpdateUfo(tickTime, new KeyboardState(Keys.X, Keys.Z, Keys.Right));
-            Require(shipX == savedX && shotCooldown == savedCooldown, "Game over advanced flight");
-            resetGame();
-            Require(shipHealth == 100 && weaponLevel == 1 && shipTilt == 0 && shipY == ShipStartY
-                && previousShipY == ShipStartY && !tractorActive
-                && abductee == null && shipBullets.Count == 0,
-                "Round reset retained flight state");
-        }
-
-        void VerifyUpgradeRewards()
-        {
-            void Require(bool condition, string message)
-            {
-                if (!condition) throw new InvalidOperationException(message);
-            }
-            void DeliverSoldier()
-            {
-                SpawnPerson(shipX, false, 1);
-                abductee = people[people.Count - 1];
-                DeliverPayload();
-            }
-            resetGame(); screen = MenuScreen.Playing; transition = MenuTransition.None;
-            DeliverSoldier();
-            Require(soldiersTowardUpgrade == 1 && weaponLevel == 1 && !upgradePending,
-                "A single soldier still granted an automatic gun upgrade");
-            shipHealth = 50;
-            SpawnPerson(shipX, true, 1); abductee = people[0]; DeliverPayload();
-            Require(shipHealth == 75 && soldiersTowardUpgrade == 1 && !upgradePending,
-                "Engineer delivery affected soldier upgrade progress");
-            DeliverSoldier(); DeliverSoldier();
-            Require(upgradePending && soldiersTowardUpgrade == 3 && weaponLevel == 1,
-                "Three soldiers failed to open an unspent upgrade choice");
-            var tick = new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1f / 60));
-            missiles.Add(new UfoMissile { Position = new Vector2(40, 140), Velocity = new Vector2(0, -30) });
-            shipBullets.Add(new ShipBullet { Position = new Vector2(90, 80), Velocity = Vector2.UnitY * BulletSpeed });
-            float savedShipX = shipX;
-            int savedTimer = time_until_new_bean, savedSpeed = bigspeed;
-            UpdateUfo(tick, new KeyboardState(Keys.X, Keys.Z, Keys.Right));
-            Require(shipX == savedShipX && time_until_new_bean == savedTimer && bigspeed == savedSpeed
-                && missiles[0].Position.Y == 140 && shipBullets[0].Position.Y == 80,
-                "Upgrade choice did not freeze gameplay");
-            Require(updateMenus(tick, new KeyboardState(Keys.X)) && upgradePending && !upgradeInputReady,
-                "Held fire automatically selected an upgrade");
-            updateMenus(tick, new KeyboardState());
-            updateMenus(tick, new KeyboardState(Keys.Down));
-            Require(upgradeSelection == 1, "Upgrade menu navigation failed");
-            Require(updateMenus(tick, new KeyboardState(Keys.Enter)), "Upgrade confirm did not consume input");
-            Require(!upgradePending && tractorLevel == 1 && weaponLevel == 1 && engineLevel == 0
-                && soldiersTowardUpgrade == 0 && soldierUpgradeTarget == 5
-                && TractorLiftSpeed == 37.5f && TractorPullSpeed == 18.75f,
-                "Tractor upgrade or next soldier target was incorrect");
-
-            for (int i = 0; i < 4; i++) DeliverSoldier();
-            Require(!upgradePending && soldiersTowardUpgrade == 4, "Second target triggered early");
-            DeliverSoldier();
-            Require(upgradePending, "Second soldier target failed to open choices");
-            shotCooldown = .6f;
-            float intervalBefore = ShotInterval;
-            upgradeSelection = 0; ApplyUfoUpgrade();
-            Require(weaponLevel == 2 && tractorLevel == 1 && engineLevel == 0 && soldierUpgradeTarget == 7
-                && Math.Abs(ShotInterval - .64f) < .0001f
-                && Math.Abs(shotCooldown / ShotInterval - .6f / intervalBefore) < .0001f,
-                "Rapid fire upgrade lost reload progress or modified another upgrade");
-            for (int i = 0; i < 7; i++) DeliverSoldier();
-            Require(upgradePending, "Third soldier target failed to open choices");
-            upgradeSelection = 2; ApplyUfoUpgrade();
-            Require(engineLevel == 1 && Math.Abs(FlightSpeed - 108) < .001f && soldierUpgradeTarget == 9,
-                "Thruster upgrade did not increase ship speed");
-            float beforeMove = shipX;
-            MoveShip(1, .1f);
-            Require(Math.Abs(shipX - beforeMove - 10.8f) < .001f, "Flight did not use the thruster upgrade");
-            ApplyUfoUpgrade();
-            Require(engineLevel == 1 && soldierUpgradeTarget == 9, "Upgrade applied twice from one reward");
-            resetGame();
-            Require(!upgradePending && !upgradeInputReady && soldiersTowardUpgrade == 0 && soldierUpgradeTarget == 3
-                && weaponLevel == 1 && tractorLevel == 0 && engineLevel == 0,
-                "Round reset retained reward progress or chosen upgrades");
-        }
-
-        void UpdateShots(GameTime time)
-        {
-            shotTimer += time.ElapsedGameTime.TotalSeconds;
-            if (shotStage == 0 && shotTimer > 1)
-            {
-                SaveScreenshot();
-                resetGame(); screen = MenuScreen.Playing;
-                NextShotStage();
-            }
-            else if (shotStage == 1 && shotTimer > 1)
-            {
-                VerifyBeanSpawnSchedule();
-                VerifyUfoFlight();
-                VerifyUpgradeRewards();
-                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; soldier targets and selectable upgrades; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
-                resetGame();
-                shipX = previousShipX = 146; shipY = previousShipY = ShipMaxY - 16;
-                shipTilt = .13f; shipHealth = 75; weaponLevel = 3;
-                SpawnPerson(47, false, 1); SpawnPerson(90, true, 1);
-                SpawnPerson(143, false, -1); SpawnPerson(202, false, -1); SpawnPerson(248, false, -1);
-                abductee = people[2]; abductee.Y = 169;
-                tractorActive = true; beamAnimation = 1.2f;
-                LaunchMissile(new GroundPerson { TargetX = 50, BeanSpeed = 96 });
-                missiles[0].Position = new Vector2(83, 163);
-                LaunchMissile(new GroundPerson { TargetX = 240, BeanSpeed = 96 });
-                missiles[1].Position = new Vector2(212, 154);
-                shipBullets.Add(new ShipBullet { Position = new Vector2(160, 168), Velocity = Vector2.UnitY * BulletSpeed });
-                shipBullets.Add(new ShipBullet { Position = new Vector2(148, 148), Velocity = Vector2.UnitY * BulletSpeed });
-                messageTime = 0;
-                ufoShotFrozen = true;
-                NextShotStage();
-            }
-            else if (shotStage == 2 && shotTimer > .6)
-            {
-                SaveScreenshot();
-                upgradePending = true;
-                soldiersTowardUpgrade = soldierUpgradeTarget;
-                upgradeSelection = 1;
-                NextShotStage();
-            }
-            else if (shotStage == 3 && shotTimer > .8)
-            {
-                if (!upgradePending) throw new InvalidOperationException("Upgrade choice closed without player input");
-                SaveScreenshot();
-                ufoShotFrozen = false;
-                transition = MenuTransition.None;
-                selectedGame = 1; resetGame(); shipHealth = 25; DamageShip();
-                NextShotStage();
-            }
-            else if (shotStage == 4 && shotTimer > 2.5)
-            {
-                SaveScreenshot(); NextShotStage();
-            }
-            else if (shotStage == 5 && shotTimer > .5) Exit();
-        }
     }
 }

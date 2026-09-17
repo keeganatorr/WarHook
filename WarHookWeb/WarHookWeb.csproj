@@ -34,6 +34,9 @@
        supplies its own entry point; WineCompatibility stays desktop-only. -->
   <ItemGroup>
     <Compile Include="..\PyoroGL\UfoGame.cs" Link="UfoGame.cs" />
+    <Compile Include="..\PyoroGL\UfoProgression.cs" Link="UfoProgression.cs" />
+    <Compile Include="..\PyoroGL\UfoUpgradeMap.cs" Link="UfoUpgradeMap.cs" />
+    <Compile Include="..\PyoroGL\UfoSmokeChecks.cs" Link="UfoSmokeChecks.cs" />
     <Compile Include="..\PyoroGL\Game1.cs" Link="Game1.cs" />
     <Compile Include="..\PyoroGL\GameB.cs" Link="GameB.cs" />
     <Compile Include="..\PyoroGL\GameMenus.cs" Link="GameMenus.cs" />

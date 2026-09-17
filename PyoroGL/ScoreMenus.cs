@@ -146,7 +146,7 @@ namespace MonogameTest
         {
             string[] lines = {
                 "FLIGHT MANUAL", "", "ARROWS: FLY", "X/SPACE: FIRE", "Z/SHIFT: TRACTOR", "",
-                "SOLDIER: 100", "ENGINEER: 250", "ENGINEERS REPAIR", "CREW TARGET: UPGRADE", "MISSILE: 50", "MOVE TOO FAR: DROP"
+                "SOLDIER: 100", "ENGINEER: 250", "ENGINEERS REPAIR", "CREW BUYS UPGRADES", "MISSILE: 50", "MOVE TOO FAR: DROP"
             };
             for (int i = 0; i < lines.Length; i++)
                 font6.Draw(spriteBatch, lines[i], new Vector2(157, 32 + i * 7),

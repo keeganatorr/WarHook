@@ -91,7 +91,7 @@ from reading the code or `git log`.
   do not initialize the original online leaderboard. Abduct/Siege retain the
   save model's A/B slots, with distinct rules from the original game.
 - UFO playfield is 288×216; the ship is 44×20 and its centre moves within
-  Y=26..139 (GroundY - 58 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
+  Y=34..139 (GroundY - 58 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
   feed missile collision sweeps; firing and tractor origins follow altitude. X/Space (pad A) fires downward; Z/Shift (pad Y)
   holds the tractor cone. Captured people stay in the people list, keeping
   their reserved bean slot and slowly drifting toward the cone centre. Release
@@ -108,20 +108,27 @@ from reading the code or `git log`.
   The cone narrows toward the UFO; horizontal pull is slower than ship movement,
   so moving too far away still drops people. Bullets sweep predicted missile
   motion before ship impacts and consume themselves on the first target.
-- Soldier deliveries fill a crew target (3, then 5, 7, ... additional soldiers).
-  Reaching it freezes simulation and opens three repeatable upgrade choices:
-  25% base fire rate, 25% base tractor lift/pull, or 20% base flight speed.
-  `GameMenus` consumes choice input before normal play/pause controls; confirm
-  must be released after opening to prevent held X selecting automatically.
-  Only the chosen stat improves. Rapid Fire preserves reload fraction.
-  Base firing interval is 0.8 seconds; tractor lift/pull speeds are 30/15 px/s.
+- Incremental progression lives in `UfoProgression.cs`; the scrollable 20-node
+  map is `UfoUpgradeMap.cs`. Soldier deliveries earn currency at round end:
+  floor(soldiers × multiplier × 100) / 100. The timer counts active play only;
+  base multiplier is 1 + seconds / 600. Death and pause End Round open the map.
+  Permanent ranks apply in ResetUfo, including beam capacity (1..5), hull,
+  repair, cone width, and multiplier growth/start bonuses. Held people remain
+  in the spawn pool and drop independently; releasing the beam drops all.
+- Progression uses explicit JSON and atomic desktop replacement at
+  `Warhook/ufo-progression.json`, or synchronous browser localStorage key
+  `warhook.ufo.progression.v1`. Failed writes do not commit purchases/rewards;
+  round IDs prevent duplicate payouts. `--shots` uses in-memory progression
+  and runs checks in `UfoSmokeChecks.cs`, including temporary-file save/reload.
 - Bullets instantly kill soldiers and engineers or destroy missiles for 50
-  points; only the held payload is protected. Delivered engineers heal 25 of
-  100 UFO health and do not advance the soldier target. Missiles deal 25 with
-  a one-second hit grace period. Progress and upgrades reset per round.
+  points; all held people are protected. Engineers repair 25 + upgrades,
+  capped to upgraded hull health; only soldiers earn currency. Missile damage
+  is 25 with a one-second grace period. Base fire interval is .8 seconds;
+  tractor lift/pull speeds are 30/15 px/s.
 - KNI WebAudio can throw `NullReferenceException` in `SourceNodeStop` when
-  restarting a paused sound. `BeamAudio.Update` must leave menu voices 4/5
-  unpaused while gameplay is suspended; upgrade navigation restarts voice 4.
+  restarting a paused sound. `BeamAudio.Update` leaves menu voices 4/5
+  unpaused and stops gameplay sounds on web pause (loops restart on resume).
+  End Round from pause must never Stop an already-paused KNI voice.
   An uncaught error in `TickDotNet` stops the browser animation loop, appearing
   as a frozen upgrade panel. Verify this path in a browser with audio enabled.
 - Web letter controls use `KeyboardEvent.code` via `wwwroot/keyboard-controls.js`

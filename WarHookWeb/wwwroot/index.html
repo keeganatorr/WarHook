@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>WarHook</title>
+    <title>WarHook: UFO Abduction</title>
     <base href="./" />
     <link href="css/app.css" rel="stylesheet" />
 </head>
@@ -13,7 +13,7 @@
 
     <div id="app">
         <div id="loading" role="status" aria-live="polite">
-            <canvas id="loadingCanvas" width="288" height="162" aria-label="WarHook loading"></canvas>
+            <canvas id="loadingCanvas" width="288" height="216" aria-label="WarHook loading"></canvas>
         </div>
     </div>
 
@@ -57,6 +57,7 @@
         })();
     </script>
 
+    <script src="keyboard-controls.js"></script>
     <script src="_framework/blazor.webassembly.js" autostart="false"></script>
 
     <script src="_content/nkast.Wasm.JSInterop/js/JSObject.10.0.3.js"></script>
@@ -121,9 +122,9 @@
                 context.fillRect(0, 0, canvas.width, canvas.height);
 
                 var dots = '.'.repeat(1 + Math.floor((performance.now() - started) / 400) % 3);
-                centered('Loading' + dots, 28, 3, '#ffe191');
+                centered('Loading' + dots, 55, 3, '#ffe191');
 
-                var barX = 36, barY = 78, barWidth = 216, barHeight = 9;
+                var barX = 36, barY = 105, barWidth = 216, barHeight = 9;
                 context.fillStyle = '#382d17';
                 context.fillRect(barX, barY, barWidth, barHeight);
                 context.strokeStyle = '#ffe191';
@@ -135,7 +136,7 @@
 
                 var phase = phases[Math.min(phases.length - 1,
                     Math.floor((performance.now() - started) / 3000))];
-                centered(phase, 105, 1, '#ffffff');
+                centered(phase, 132, 1, '#ffffff');
             }
 
             function animate(now) {

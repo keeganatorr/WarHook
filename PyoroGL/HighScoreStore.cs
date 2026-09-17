@@ -48,7 +48,7 @@ namespace MonogameTest
 #if WEB
         sealed class WebSaveBackend : SaveBackend
         {
-            const string Key = "warhook.highscores";
+            const string Key = "warhook.ufo.highscores";
             public bool SyncWrites => true;
             public string Read() => WebInterop.LoadSave(Key);
             public void Write(string json) => WebInterop.SaveSave(Key, json);

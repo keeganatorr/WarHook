@@ -17,8 +17,8 @@ namespace MonogameTest
         const double BLINK_INTERVAL = 0.15;
         const double FADE_SECONDS = 0.45;
         int mainSelection, pauseSelection, optionsSelection, modeSelection;
-        // Mode-select choices: 0 = Game A, 1 = Game B; music 1..5. Defaults
-        // mirror the original game (Game A, Music 1). modeSelection is the
+        // Mode-select choices: 0 = Abduct, 1 = Siege; music 1..5. Defaults
+        // start with Abduct and Music 1. modeSelection is the
         // row cursor (0 = games, 1 = music).
         int selectedGame, selectedMusic = 1, previousGame, previousMusic = 1;
         // Music track picked on the game-over screen (Enter/X restarts).
@@ -40,8 +40,8 @@ namespace MonogameTest
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
         static readonly string[] mainItems = GameAssets.IsWeb
-            ? new[] { "START", "OPTIONS", "SCORES: GAME A", "SCORES: GAME B" }
-            : new[] { "START", "OPTIONS", "SCORES: GAME A", "SCORES: GAME B", "EXIT" };
+            ? new[] { "START", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE" }
+            : new[] { "START", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE", "EXIT" };
         static readonly string[] pauseItems = GameAssets.IsWeb
             ? new[] { "RESUME", "RESTART", "OPTIONS", "MAIN MENU" }
             : new[] { "RESUME", "RESTART", "OPTIONS", "MAIN MENU", "EXIT" };
@@ -82,6 +82,14 @@ namespace MonogameTest
                     }
                     UpdateGameoverOverlay(pressed, accept, padPressed);
                     return false;
+                }
+                if (upgradePending)
+                {
+                    UpdateUpgradeChoice(pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp),
+                        pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown), accept,
+                        keys.IsKeyDown(Keys.Enter) || keys.IsKeyDown(Keys.Space) || keys.IsKeyDown(Keys.X)
+                            || pad.IsButtonDown(Buttons.A));
+                    return true;
                 }
                 if (cancel || padPressed(Buttons.Start))
                 {
@@ -354,42 +362,43 @@ namespace MonogameTest
                 spriteBatch.End();
                 return;
             }
-            spriteBatch.Draw(mainMenuBackground, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.White);
-            spriteBatch.Draw(mainMenuTitle, new Rectangle(10, 6, 176, 59), Color.White);
+            DrawUfoTitle();
             if (screen == MenuScreen.Options)
             {
-                spriteBatch.Draw(beamPixel, new Rectangle(12, 70, 244, 70), Color.Black * 0.78f);
-                drawOptions(20, 78);
+                spriteBatch.Draw(beamPixel, new Rectangle(12, 90, 244, 86), Color.Black * 0.78f);
+                drawOptions(20, 98);
             }
             else if (screen == MenuScreen.ModeSelect)
             {
-                spriteBatch.Draw(beamPixel, new Rectangle(12, 70, 244, 70), Color.Black * 0.78f);
-                DrawStringBitmap(spriteBatch, "SELECT MODE", new Vector2(20, 76), new Color(255, 221, 134));
+                spriteBatch.Draw(beamPixel, new Rectangle(12, 90, 244, 86), Color.Black * 0.78f);
+                DrawStringBitmap(spriteBatch, "SELECT MODE", new Vector2(20, 96), new Color(255, 221, 134));
                 // Top row: Game A / Game B side by side. Brackets always mark
                 // the chosen game; amber marks the chosen item of the row the
                 // cursor is on, so both selections show brackets at once.
                 bool onGames = modeSelection == 0;
-                DrawModeItem("GAME A", selectedGame == 0, onGames && selectedGame == 0, 28, 92);
-                DrawModeItem("GAME B", selectedGame == 1, onGames && selectedGame == 1, 152, 92);
-                DrawStringBitmap(spriteBatch, "MUSIC", new Vector2(20, 110), new Color(240, 218, 160));
+                DrawModeItem("ABDUCT", selectedGame == 0, onGames && selectedGame == 0, 28, 112);
+                DrawModeItem("SIEGE", selectedGame == 1, onGames && selectedGame == 1, 152, 112);
+                DrawStringBitmap(spriteBatch, "MUSIC", new Vector2(20, 134), new Color(240, 218, 160));
                 // Bottom row: Music 1..5. Brackets mark the chosen music.
                 bool onMusic = modeSelection == 1;
                 for (int i = 0; i < 5; i++)
-                    DrawModeItem($"{i + 1}", i + 1 == selectedMusic, onMusic && i + 1 == selectedMusic, 76 + i * 28, 110);
+                    DrawModeItem($"{i + 1}", i + 1 == selectedMusic, onMusic && i + 1 == selectedMusic, 76 + i * 28, 134);
+                font6.Draw(spriteBatch, "ORIGINAL BEAN DIFFICULTY CURVE",
+                    new Vector2(20, 156), new Color(120, 231, 224));
             }
             else
             {
-                spriteBatch.Draw(beamPixel, new Rectangle(12, 72, 172, 70), Color.Black * 0.7f);
+                spriteBatch.Draw(beamPixel, new Rectangle(12, 92, 172, 78), Color.Black * 0.7f);
                 for (int i = 0; i < mainItems.Length; i++)
-                    drawMenuItem(mainItems[i], i == mainSelection, 20, 76 + i * 13,
+                    drawMenuItem(mainItems[i], i == mainSelection, 20, 96 + i * 14,
                         i != 0 || startBracketsVisible());
             }
             string hint = screen == MenuScreen.ModeSelect
-                ? "LEFT/RIGHT MOVE   X FIRE"
+                ? "ARROWS  SPACE FIRE  SHIFT BEAM"
                 : "UP/DOWN  ENTER/X SELECT";
-            spriteBatch.Draw(beamPixel, new Rectangle(10, 144, hint.Length * FONT_CELL + 8, FONT_CELL + 8),
+            spriteBatch.Draw(beamPixel, new Rectangle(10, NATIVE_HEIGHT - 18, hint.Length * FONT_CELL + 8, FONT_CELL + 8),
                 Color.Black * 0.7f);
-            DrawStringBitmap(spriteBatch, hint, new Vector2(14, 148), new Color(240, 218, 160));
+            DrawStringBitmap(spriteBatch, hint, new Vector2(14, NATIVE_HEIGHT - 14), new Color(240, 218, 160));
             spriteBatch.End();
         }
 
@@ -513,6 +522,7 @@ namespace MonogameTest
             angelQueue.Clear();
             rainbowClearQueue.Clear();
             angelQueueTimer = rainbowClearTimer = 0;
+            ResetUfo();
         }
     }
 }

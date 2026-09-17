@@ -97,10 +97,10 @@ namespace MonogameTest
             if (scoresAfterGame)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.Black * .7f);
             else
-                spriteBatch.Draw(mainMenuBackground, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), Color.White * .25f);
+                DrawUfoLandscape();
             DrawStringBitmap(spriteBatch, scoresAfterGame ? "GAME OVER" : "HIGH SCORES",
                 new Vector2(scoresAfterGame ? 108 : 100, 8), new Color(255, 225, 145));
-            string mode = scoresGameB ? "GAME B" : "GAME A";
+            string mode = scoresGameB ? "SIEGE" : "ABDUCT";
             font6.Draw(spriteBatch, mode, new Vector2((NATIVE_WIDTH - mode.Length * Font6.Cell) / 2, 22), Color.White);
 
             // The ranked list rises from below the screen and settles below its heading.
@@ -110,36 +110,47 @@ namespace MonogameTest
             if (scoresAfterGame)
             {
                 drawScoreColumn("LOCAL TOP 10", 4, 132, local, offset, enteringInitials);
-                drawOnlineScoreColumn(152, 132, online, offset);
+                DrawUfoScoreGuide();
             }
             else
             {
                 drawScoreColumn("LOCAL TOP 10", 4, 132, local, offset, false);
-                drawOnlineScoreColumn(152, 132, online, offset);
+                DrawUfoScoreGuide();
             }
 
             if (scoresAfterGame)
             {
-                font6.Draw(spriteBatch, "YOUR SCORE " + completedScore.ToString("D6"), new Vector2(93, 122), new Color(255, 225, 145));
+                font6.Draw(spriteBatch, "YOUR SCORE " + completedScore.ToString("D6"), new Vector2(93, 160), new Color(255, 225, 145));
                 if (scoreScrollTime < 2) return;
                 if (enteringInitials)
                 {
-                    font6.Draw(spriteBatch, "INITIALS", new Vector2(82, 134), Color.White);
+                    font6.Draw(spriteBatch, "INITIALS", new Vector2(82, 176), Color.White);
                     for (int i = 0; i < 3; i++)
                     {
-                        font6.Draw(spriteBatch, scoreInitials[i].ToString(), new Vector2(145 + i * 12, 134), new Color(255, 225, 145));
-                        if (i == initialCursor) spriteBatch.Draw(beamPixel, new Rectangle(145 + i * 12, 141, 5, 1), Color.White);
+                        font6.Draw(spriteBatch, scoreInitials[i].ToString(), new Vector2(145 + i * 12, 176), new Color(255, 225, 145));
+                        if (i == initialCursor) spriteBatch.Draw(beamPixel, new Rectangle(145 + i * 12, 183, 5, 1), Color.White);
                     }
-                    font6.Draw(spriteBatch, "ARROWS OR TYPE  ENTER SAVE  ESC SKIP", new Vector2(42, 146), Color.White);
+                    font6.Draw(spriteBatch, "ARROWS OR TYPE  ENTER SAVE  ESC SKIP", new Vector2(42, NATIVE_HEIGHT - 14), Color.White);
                 }
                 else
-                    font6.Draw(spriteBatch, "R RETRY   ESC MAIN MENU", new Vector2(78, 148), Color.White);
+                    font6.Draw(spriteBatch, "R RETRY   ESC MAIN MENU", new Vector2(78, NATIVE_HEIGHT - 14), Color.White);
             }
             else
             {
                 string hint = "LEFT / RIGHT MODE   ESC BACK";
-                font6.Draw(spriteBatch, hint, new Vector2((NATIVE_WIDTH - hint.Length * Font6.Cell) / 2, 148), Color.White);
+                font6.Draw(spriteBatch, hint, new Vector2((NATIVE_WIDTH - hint.Length * Font6.Cell) / 2, NATIVE_HEIGHT - 14), Color.White);
             }
+        }
+
+        void DrawUfoScoreGuide()
+        {
+            string[] lines = {
+                "FLIGHT MANUAL", "", "ARROWS: FLY", "X/SPACE: FIRE", "Z/SHIFT: TRACTOR", "",
+                "SOLDIER: 100", "ENGINEER: 250", "ENGINEERS REPAIR", "CREW TARGET: UPGRADE", "MISSILE: 50", "MOVE TOO FAR: DROP"
+            };
+            for (int i = 0; i < lines.Length; i++)
+                font6.Draw(spriteBatch, lines[i], new Vector2(157, 32 + i * 7),
+                    i == 0 ? new Color(96, 230, 222) : Color.White);
         }
 
         const int ScoreEntryWidth = 17 * Font6.Cell;

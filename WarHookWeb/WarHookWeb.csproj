@@ -33,9 +33,11 @@
   <!-- Game sources shared with the desktop PyoroGL project. The web host
        supplies its own entry point; WineCompatibility stays desktop-only. -->
   <ItemGroup>
+    <Compile Include="..\PyoroGL\UfoGame.cs" Link="UfoGame.cs" />
     <Compile Include="..\PyoroGL\Game1.cs" Link="Game1.cs" />
     <Compile Include="..\PyoroGL\GameB.cs" Link="GameB.cs" />
     <Compile Include="..\PyoroGL\GameMenus.cs" Link="GameMenus.cs" />
+    <Compile Include="..\PyoroGL\GameKeyboard.cs" Link="GameKeyboard.cs" />
     <Compile Include="..\PyoroGL\ScoreMenus.cs" Link="ScoreMenus.cs" />
     <Compile Include="..\PyoroGL\HighScoreStore.cs" Link="HighScoreStore.cs" />
     <Compile Include="..\PyoroGL\MusicTracks.cs" Link="MusicTracks.cs" />
@@ -56,7 +58,7 @@
   <ItemGroup>
     <Content Include="..\PyoroGL\Assets\*.ogg" Link="wwwroot\Assets\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\PyoroGL\Assets\beam-audio.json;..\PyoroGL\Assets\parachute.png;..\PyoroGL\Assets\mainmenu.png;..\PyoroGL\Assets\tank-pixelart.png;..\PyoroGL\Assets\mortars-pixelart-cleaned.png;..\PyoroGL\Assets\framewide.png;..\PyoroGL\Assets\newbackdrop.png;..\PyoroGL\Assets\font8x8_atlas.png;..\PyoroGL\Assets\frame_panel.png;..\PyoroGL\Assets\block_atlas.png"
+    <Content Include="..\PyoroGL\Assets\ufo-atlas.png;..\PyoroGL\Assets\beam-audio.json;..\PyoroGL\Assets\parachute.png;..\PyoroGL\Assets\mainmenu.png;..\PyoroGL\Assets\tank-pixelart.png;..\PyoroGL\Assets\mortars-pixelart-cleaned.png;..\PyoroGL\Assets\framewide.png;..\PyoroGL\Assets\newbackdrop.png;..\PyoroGL\Assets\font8x8_atlas.png;..\PyoroGL\Assets\frame_panel.png;..\PyoroGL\Assets\block_atlas.png"
              Link="wwwroot\Assets\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

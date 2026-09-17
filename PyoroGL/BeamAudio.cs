@@ -498,7 +498,17 @@ namespace MonogameTest
             if (voices == null) return;
             if (paused)
             {
-                if (!suspended) foreach (var v in voices) if (v!=null && v.State==SoundState.Playing) v.Pause();
+                // Menus remain interactive while gameplay is suspended. Leave
+                // their navigation/confirm voices running: KNI's WebAudio
+                // backend removes a paused source node, so restarting that
+                // paused menu sound via Stop() throws and halts the web loop.
+                if (!suspended)
+                    for (int i = 0; i < voices.Length; i++)
+                    {
+                        if (i == 4 || i == 5) continue;
+                        var voice = voices[i];
+                        if (voice != null && voice.State == SoundState.Playing) voice.Pause();
+                    }
                 suspended=true; return;
             }
             if (suspended)

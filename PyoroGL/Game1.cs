@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -19,7 +19,7 @@ namespace MonogameTest
         RasterizerState playfieldRasterizer;
 
         const int NATIVE_WIDTH = 288;
-        const int NATIVE_HEIGHT = 162;
+        const int NATIVE_HEIGHT = 216;
         const int PLAYFIELD_LEFT = 8;
         const int PLAYFIELD_RIGHT = NATIVE_WIDTH - 8;
         const int PLAYFIELD_TOP = 8;
@@ -39,15 +39,14 @@ namespace MonogameTest
             string[] args = Environment.GetCommandLineArgs();
             foreach (string arg in args)
             {
-                // --shots: capture promo screenshots automatically (menu,
-                // Game A firing, Game B firing) then exit.
+                // --shots: verify UFO mechanics and capture screenshots, then exit.
                 if (arg == "--shots")
                     shotsMode = true;
             }
         }
 
         // Compute the largest integer scale factor that fits the current window,
-        // preserving the 288x162 aspect ratio. Also center the render target
+        // preserving the 288x216 aspect ratio. Also center the render target
         // destination and fill leftover space with the border colour.
         void computeIntegerScale()
         {
@@ -63,7 +62,7 @@ namespace MonogameTest
             }
 
             // Largest integer multiplier where both dimensions still fit,
-            // keeping the 16:9 aspect ratio.
+            // keeping the 4:3 aspect ratio.
             int s = Math.Min(winW / NATIVE_WIDTH, winH / NATIVE_HEIGHT);
             if (s < 1) s = 1;
             gameSize = s;
@@ -190,7 +189,7 @@ namespace MonogameTest
         int highScore = 10000;
         readonly HighScoreStore highScores = new HighScoreStore(System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Warhook", "highscores.json"));
+            "Warhook", "ufo-highscores.json"));
         
         int tmpspeed = 0x0;
         int randnum2 = 0x0;
@@ -238,8 +237,7 @@ namespace MonogameTest
         // Screenshot counter for Tab-key PNG saves.
         int screenshotCount = 0;
 
-        // Automated promo-screenshot capture (--shots): menu -> Game A firing
-        // -> Game B firing with a mortar explosion, then exit. See UpdateShots.
+        // UFO smoke checks and screenshot capture (--shots); see UfoGame.cs.
         bool shotsMode;
         int shotStage;
         double shotTimer;
@@ -466,7 +464,7 @@ namespace MonogameTest
             angelQueueTimer = 16;
         }
 
-        // Play a 3-frame 16x16 explosion animation at a native (288x162) position.
+        // Play a 3-frame 16x16 explosion animation at a native (288x216) position.
         // Mirrors the pico-8 smoke/burst used when a block or bean disappears.
         void spawnExplosion(float x, float y, bool playSound = true)
         {
@@ -631,7 +629,7 @@ namespace MonogameTest
         }
 
         // Add points to the running score and spawn a short-lived "+pts" popup
-        // at the given native (288x162) position, mirroring the pico-8 version.
+        // at the given native (288x216) position, mirroring the pico-8 version.
         void addScore(float x, float y, int pts)
         {
             // Background effects continue after game over, but the result is final.
@@ -730,6 +728,7 @@ namespace MonogameTest
                 graphics.PreferredBackBufferWidth = Math.Max(NATIVE_WIDTH, monitor.Width / 2);
                 graphics.PreferredBackBufferHeight = Math.Max(NATIVE_HEIGHT, monitor.Height / 2);
             }
+            Window.Title = "WarHook: UFO Abduction";
             graphics.ApplyChanges();
             computeIntegerScale();
             x = PLAYER_START_X;
@@ -806,8 +805,8 @@ namespace MonogameTest
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
             beamAudio = new BeamAudio(GameAssets.BeamAudioConfigPath());
-            OnlineScores.Initialize(highScores.PlayerId);
-            HighScoreStore.OnlineSubmitHook = OnlineScores.QueueSubmit;
+            // UFO rules are incompatible with the original online leaderboard.
+            HighScoreStore.OnlineSubmitHook = null;
             music = new MusicTracks(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets"));
             music.Request(MusicTracks.Track.Menu);
             ApplyVolumes();
@@ -837,6 +836,7 @@ namespace MonogameTest
             angelSprite = loadEffectSheet("parachute", 2);
             beamPixel = new Texture2D(GraphicsDevice, 1, 1);
             beamPixel.SetData(new[] { Color.White });
+            LoadUfoAssets();
             borderCamo = new Texture2D(GraphicsDevice, CAMO_WIDTH, CAMO_HEIGHT);
             // The widescreen playfield uses BLOCK_COUNT eight-pixel floor columns.
             // TODO: use this.Content to load your game content here
@@ -1121,6 +1121,7 @@ namespace MonogameTest
         protected override void UnloadContent()
         {
             highScores.Flush();
+            ufoAtlas.Dispose();
             beamAudio?.Dispose();
             foreach (Texture2D mortar in mortarFrames) mortar.Dispose();
             muzzleFlashSprite.Dispose();
@@ -1148,7 +1149,7 @@ namespace MonogameTest
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
-            KeyboardState beamKeys = Keyboard.GetState();
+            KeyboardState beamKeys = ReadGameKeyboard();
             if (shotsMode) { UpdateShots(gameTime); }
             if (updateMenus(gameTime, beamKeys))
             {
@@ -1163,773 +1164,8 @@ namespace MonogameTest
                 base.Update(gameTime);
                 return;
             }
-            KeyboardState gameplayKeys = screen == MenuScreen.Scores ? new KeyboardState() : beamKeys;
-            if (beamKeys.IsKeyDown(Keys.OemOpenBrackets) && previousBeamKeys.IsKeyUp(Keys.OemOpenBrackets)) BeamWidth--;
-            if (beamKeys.IsKeyDown(Keys.OemCloseBrackets) && previousBeamKeys.IsKeyUp(Keys.OemCloseBrackets)) BeamWidth++;
+            UpdateUfo(gameTime, beamKeys);
             previousBeamKeys = beamKeys;
-            //rand_number = (109 * rand_number) + 1021; // rand_number = (0x6D * rand_number) + 0x3FD;
-            /*rand_number = ((0x6D * rand_number) + 0x3FD);
-            rand_number = ((rand_number & 0x0000FFFF));
-            max_tmp = max_time << 14;
-            max_tmp = max_tmp >> 16;
-            rand_number = max_tmp * rand_number;
-            rand_number = rand_number << 16;
-            rand_number = rand_number >> 16;
-            tmp_number = max_tmp * rand_number;
-            tmp_number = ((tmp_number & 0x00FF0000)>>16);*/
-            //tmp_number = ((rand_number & 0x000000FF));
-
-
-            /*int max_speed = 0x40;
-            int tmpspeed = 0x0;
-            int randnum2 = 0x0;
-            int beanspeed = 0;
-
-            tmpspeed = max_speed << 14;
-            tmpspeed = tmpspeed >> 16;
-            tmpspeed = tmpspeed << 16;
-            tmpspeed = tmpspeed >> 16;
-            randnum = (0x6D * randnum) + 0x3FD;
-            randnum = (randnum & 0x0000FFFF);
-            tmpspeed = tmpspeed * randnum;
-            tmpspeed = tmpspeed >> 16;
-            tmpspeed = tmpspeed << 16;
-            tmpspeed = tmpspeed >> 16;
-            tmpspeed += 0x40;
-            beanspeed = tmpspeed;
-            /*tmpspeed = max_speed - tmpspeed;
-            tmpspeed = tmpspeed << 8;
-            beanspeed = tmpspeed / bigspeed;*/
-
-
-            if (paused == false)
-            {
-
-                
-                if (time_until_new_bean <= 0)
-                {
-                    /// TIME UNTIL NEW BEAN ////
-                    tmpmax = max_time << 14;
-                    tmpmax = tmpmax >> 16;
-                    tmpmax = tmpmax << 16;
-                    tmpmax = tmpmax >> 16;
-                    randnum = (0x6D * randnum) + 0x3FD;
-                    randnum = (randnum & 0x0000FFFF);
-                    tmpmax = tmpmax * randnum;
-                    tmpmax = tmpmax >> 16;
-                    tmpmax = tmpmax << 16;
-                    tmpmax = tmpmax >> 16;
-                    tmpmax = max_time - tmpmax;
-                    tmpmax = tmpmax << 8;
-                    time_until_new_bean = tmpmax / bigspeed;
-                    ////////////////////////////////////
-
-                    /*tmpspeed = max_speed << 14;
-                    tmpspeed = tmpspeed >> 16;*/
-                    //////// SPEED OF NEW BEAN ///////
-                    tmpspeed = 0x40 << 16;
-                    tmpspeed = tmpspeed >> 16;
-                    randnum2 = (0x6D * randnum2) + 0x3FD;
-                    randnum2 = (randnum2 & 0x0000FFFF);
-                    tmpspeed = tmpspeed * randnum2;
-                    tmpspeed = tmpspeed >> 16;
-                    tmpspeed = tmpspeed << 16;
-                    tmpspeed = tmpspeed >> 16;
-                    tmpspeed += 0x40;
-                    beanspeed = tmpspeed;
-                    //beanspeed = (beanspeed & 0x000000FF);
-                    //time_max_rand(max_time);
-                    ///// BEAN X 
-                    beanxrandom = (PLAYFIELD_RIGHT - PLAYFIELD_LEFT - 16) << 16;
-                    beanxrandom = beanxrandom >> 16;
-                    randnum3 = (0x6D * randnum3) + 0x3FD;
-                    randnum3 = (randnum3 & 0x0000FFFF);
-                    beanxrandom = beanxrandom * randnum3;
-                    beanxrandom = beanxrandom >> 16;
-                    beanxrandom = beanxrandom << 16;
-                    beanxrandom = beanxrandom >> 16;
-                    beanxrandom += PLAYFIELD_LEFT + 8;
-                    currentbeanx = beanxrandom;
-                    ///// BEAN TYPE 
-                    beantype = 0x09 << 16;
-                    beantype = beantype >> 16;
-                    randnum4 = (0x6D * randnum4) + 0x3FD;
-                    randnum4 = (randnum4 & 0x0000FFFF);
-                    beantype = beantype * randnum4;
-                    beantype = beantype >> 16;
-                    beantype = beantype << 16;
-                    beantype = beantype >> 19;
-                    currentbeantype = beantype;
-
-                    if (score >= risingscore)// && spawnedrainbowforever == 0)
-                    {
-                        currentbeantype = 2;
-                        beanspeed = 0x40;
-                        ///spawnedrainbowforever = 1;
-                        if (risingscore >= 5000 && risingscore < 7000)
-                        {
-                            risingscore = 7000;
-                        }
-                        else if (risingscore >= 7000 && risingscore < 9000)
-                        {
-                            risingscore = 9000;
-                        }
-                        else if (risingscore >= 9000 && risingscore < 10000)
-                        {
-                            risingscore = 10000;
-                        }
-                        else if (risingscore >= 10000)
-                        {
-                            risingscore += 1000;
-                        }
-                    }
-
-
-                    create_new_bean = false;
-                    for (int i = 0; i < max_amount_of_beans; i++)
-                    {
-                        if (bean_active[i] == false && create_new_bean == false)
-                        {
-                            bean_active[i] = true;
-                            create_new_bean = true;
-                            new_bean_number_debug = i;
-                            bean_speed[i] = beanspeed;
-                            bean_y[i] = -20;
-                            bean_x[i] = currentbeanx; // r.Next(PLAYFIELD_LEFT + 8, PLAYFIELD_RIGHT - 8);
-                            bean_type[i] = currentbeantype;                        //bean_type[i] = currentbeantype;
-                        }
-                    }
-                }
-                if (time_until_new_bean > 0)
-                {
-                    time_until_new_bean--;
-                }
-                int tmpy = 0;
-                float tmpfloat = 0;
-                int tmpbigspeed = 0;
-                for (int i = 0; i < max_amount_of_beans; i++)
-                {
-                    if (bean_active[i] == true)
-                    {
-                        //bean_y[i] = (bean_y[i] + ((bean_speed[i] * bigspeed)/256)/128);
-                        //bean_y[i] = (bean_y[i] + ((bean_speed[i] * (bigspeed/256))));
-                        if (bean_type[i] == 2)
-                        {
-                            tmpbigspeed = ((bigspeed + 0x200) / 3);
-                            tmpy = (((bean_speed[i] * tmpbigspeed) >> 8));// >> 16);
-                                                                          //tmpy = (tmpy & 0x000000FF);
-                            tmpfloat = tmpy / 256f;
-                            bean_y[i] = (bean_y[i] + tmpfloat);
-                        }
-                        else
-                        {
-                            tmpy = (((bean_speed[i] * bigspeed) >> 8));// >> 16);
-                                                                       //tmpy = (tmpy & 0x000000FF);
-                            tmpfloat = tmpy / 256f;
-                            bean_y[i] = (bean_y[i] + tmpfloat);
-                        }
-
-                    }
-                    int blocktocheckagainstbean = (int)System.Math.Ceiling((bean_x[i] - PLAYFIELD_LEFT) / 8);
-                    if (bean_y[i] > PLAYER_START_Y && blocks[blocktocheckagainstbean] == true && bean_active[i])
-                    {
-                        bean_active[i] = false;
-                        blocks[blocktocheckagainstbean] = false;
-                        bean_y[i] = -20;
-                        // Place the burst at the mortar impact on the top of the brick.
-                        spawnExplosion(bean_x[i] + current_bean_sprite[i].Width / 2f, BLOCK_FLOOR_Y);
-                    }
-                    if (bean_y[i] > NATIVE_HEIGHT + 20)
-                    {
-                        bean_active[i] = false;
-                        bean_y[i] = -20;
-                    }
-                }
-                //bean_animation();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                if(pyorodead==false)
-                {
-                    speedloop();
-                }
-
-                random_number_main();
-
-                bean_animation();
-                //float tempspeed = bigspeed;
-                speed = (float)bigspeed / 256;
-                bool tankMoving = false;
-                if (gameplayKeys.IsKeyDown(Keys.Left) && !pyorodead)// && x > PLAYFIELD_LEFT)
-                {
-                    tankMoving = true;
-                    if (spaceheld == 0)
-                    {
-                        pyorosquat++;
-                        if (pyorosquat > 5)
-                        {
-                            pyorosquat = 0;
-                        }
-                        if (pyorosquat < 2)
-                        {
-                            pyoro = pyorosquatleft;
-                        }
-                        if (pyorosquat >= 2)
-                        {
-                            pyoro = pyoroleft;
-                        }
-                        float tmp = x - speed;
-                        blocktocheck = (int)System.Math.Ceiling((x - speed - PLAYFIELD_LEFT) / 8);
-                        if (blocktocheck < 0)
-                        {
-                            blocktocheck = 0;
-                        }
-                        if (blocktocheck >= BLOCK_COUNT)
-                        {
-                            blocktocheck = BLOCK_COUNT - 1;
-                        }
-                        if (blocks[blocktocheck] == false)
-                        {
-                            x = ((blocktocheck) * 8) + PLAYFIELD_LEFT;
-                        }
-                        else
-                        {
-                            x = tmp;
-                        }
-                        //pyoro = pyoroleft;
-                        facingright = -1;
-                    }
-                }
-                if (gameplayKeys.IsKeyDown(Keys.Right) && !pyorodead)// && x < 184)
-                {
-                    tankMoving = true;
-                    if (spaceheld == 0)
-                    {
-
-                        /*float checkxhex = x + speed; // pyoro_x+current_movement_speed = current_x_in_memory
-                        int checkx = (int)System.Math.Floor(checkxhex); // current_x_in_memory>>8
-                        int subtract = checkx - PLAYFIELD_LEFT - 2; // ((current_x_in_memory>>8)-0x28)
-                        blocktocheck = (subtract >> 3) + 1;*/
-                        /*if (blocks[blocktocheck] == true)
-                        {
-                            x = checkxhex;
-                            pyoro = pyororight;
-                            facingright = 1;
-                        }
-                        else if (blocks[blocktocheck] == false)
-                        {
-                            x = blocktocheck*8;
-                            pyoro = pyororight;
-                            facingright = 1;
-                        }*/
-
-                        pyorosquat++;
-                        if (pyorosquat >= 5)
-                        {
-                            pyorosquat = 0;
-                        }
-                        if(pyorosquat < 2)
-                        {
-                            pyoro = pyorosquatright;
-                        }
-                        if (pyorosquat >= 2)
-                        {
-                            pyoro = pyororight;
-                        }
-                        float tmp = x + speed;
-                        blocktocheck = (int)System.Math.Ceiling((x + speed - PLAYFIELD_LEFT + 1) / 8);
-                        if (blocktocheck < 0)
-                        {
-                            blocktocheck = 0;
-                        }
-                        if (blocktocheck >= BLOCK_COUNT)
-                        {
-                            blocktocheck = BLOCK_COUNT - 1;
-                        }
-                        if (blocks[blocktocheck] == false)
-                        {
-                            x = ((blocktocheck - 1) * 8) + PLAYFIELD_LEFT - 1;
-                        }
-                        else
-                        {
-                            x = tmp;
-                        }
-                        
-                        facingright = 1;
-                        /*blocktocheck = (int)System.Math.Floor(((tmp - 36)/8)+1);
-                        if (blocks[blocktocheck] == true)
-                        {
-                            x = tmp;
-                            pyoro = pyororight;
-                            facingright = 1;
-                            rightmove = 1;
-                            leftmove = 1;
-                        }
-                        else if (blocks[blocktocheck] == false)
-                        {
-                            x = ((blocktocheck) * 10);
-                            pyoro = pyororight;
-                            facingright = 1;
-                            rightmove = 0;
-                            leftmove = 1;
-                        }*/
-
-                    }
-                }
-                // Drive the movement loop from actual key state so it always
-                // stops when the tank stops (release, fire, or death).
-                beamAudio?.SetTankMove(tankMoving && !pyorodead);
-                if (gameB)
-                    updateGameBShot(beamKeys);
-                else
-                {
-                if (!gameplayKeys.IsKeyDown(Keys.X) && !pyorodead) // !gameplayKeys.IsKeyDown(Keys.Left) && !gameplayKeys.IsKeyDown(Keys.Right) &&
-                {
-
-                    //tonguecount = 0;
-                    if (tonguecount <= 0)
-                    {
-                        recall = false;
-                        tonguecollide = false;
-                        caughtbean = 0;
-                        spaceheld = 0;
-                        tongueX = x;
-                        tongueY = y + tongueoffsetY;
-                    }
-                    if (tonguecount > 0)
-                    {
-                        recall = true;
-                        spaceheld = 1;
-                    }
-                    if (recall == true)
-                    {
-                        if (tonguecount > 0)
-                        {
-                            tonguecount -= 8 * speed;
-                        }
-                        if (tonguecount <= 0)
-                        {
-                            recall = false;
-                            tonguecollide = false;
-                            caughtbean = 0;
-                            spaceheld = 0;
-                            tongueX = x;
-                            tongueY = y + tongueoffsetY;
-                            tonguecount = 0;
-                        }
-                    }
-
-                    //tongueX = x + tongueoffsetX;// + (facingright * rightoffset);
-                    tongueY = y + tongueoffsetY;
-                    if (recall == false)
-                    {
-                        switch (facingright)
-                        {
-                            case -1:
-                                if (pyorosquat < 2)
-                                {
-                                    pyoro = pyorosquatleft;
-                                }
-                                if (pyorosquat >= 2)
-                                {
-                                    pyoro = pyoroleft;
-                                }
-                                break;
-                            case 1:
-                                if (pyorosquat < 2)
-                                {
-                                    pyoro = pyorosquatright;
-                                }
-                                if (pyorosquat >= 2)
-                                {
-                                    pyoro = pyororight;
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-                if (!gameplayKeys.IsKeyDown(Keys.X) && !pyorodead) // !gameplayKeys.IsKeyDown(Keys.Left) && !gameplayKeys.IsKeyDown(Keys.Right) &&
-                {
-                    if (spaceheld == 0)
-                    {
-                        if (tonguecount <= 0)
-                        {
-                            if (recall == true)
-                            {
-                                recall = false;
-                                spaceheld = 0;
-                                tongueX = x;
-                                tongueY = y + tongueoffsetY;
-                                caughtbean = 0;
-                                tonguecount = 0;
-                            }
-                        }
-                    }
-                    
-                }
-                if (gameplayKeys.IsKeyDown(Keys.X) && !pyorodead) // !gameplayKeys.IsKeyDown(Keys.Left) && !gameplayKeys.IsKeyDown(Keys.Right) &&
-                {
-
-                    if (recall == false)
-                    {
-                        spaceheld = 1;
-                        if ((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount+(2 * speed)) * facingright)) < PLAYFIELD_RIGHT + 2 && (float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)) > PLAYFIELD_LEFT - 3)
-                        {
-                            if (tongueY - tonguecount > PLAYFIELD_TOP)
-                            {
-                                tonguecount += 2 * speed; 
-                                for (int i = 0; i < max_amount_of_beans; i++)
-                                {
-                                    if (bean_active[i] == true)
-                                    {
-                                        if ((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount+(2*speed)) * facingright)) >= bean_x[i] )
-                                        {
-                                            if ((float)System.Math.Round((decimal)tongueX + ((decimal)(tonguecount + (2 * speed)) * facingright)) <= bean_x[i] + 16)
-                                            {
-                                                if ((tongueY - (tonguecount + (2 * speed))) >= bean_y[i] )
-                                                {
-                                                    if ((tongueY - (tonguecount + (2 * speed))) <= bean_y[i] + 16)
-                                                    {
-                                                        bean_active[i] = false;
-                                                        tonguecollide = true;
-                                                        recall = true;
-                                                        caughtbean = i;
-                                                        if(bean_y[i]>=35)
-                                                        {
-                                                            if (bean_y[i] >= 55)
-                                                            {
-                                                                if (bean_y[i] >= 87)
-                                                                {
-                                                                    if (bean_y[i] >= 115)
-                                                                    {
-                                                                            addScore(bean_x[i], bean_y[i], 10);
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        addScore(bean_x[i], bean_y[i], 50);
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    addScore(bean_x[i], bean_y[i], 100);
-                                                                }
-                                                            }
-                                                            else
-                                                            {
-                                                                addScore(bean_x[i], bean_y[i], 300);
-                                                            }
-                                                        }
-                                                        else
-                                                        {
-                                                            addScore(bean_x[i], bean_y[i], 1000);
-                                                        }
-                                                        if (bean_type[i] == 1)
-                                                        {
-                                                            block_recovery();
-                                                            /*int blocks_to_recover = 20;
-                                                            for (int j = 0; j < blocks_to_recover; j++)
-                                                            {
-                                                                block_recovery();
-                                                            }*/
-                                                        }
-                                                        if (bean_type[i] == 2)
-                                                        {
-                                                            queueRainbowClear();
-                                                            for (int j = 0; j < rainbowbeantotal; j++)
-                                                            {
-                                                                requestBlockRecovery(true);
-                                                            }
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        //tonguecollide = false;
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    //tonguecollide = false;
-                                                }
-                                            }
-                                            else
-                                            {
-                                                //tonguecollide = false;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            //tonguecollide = false;
-                                        }
-                                    }
-                                }
-                                //if ((float)System.Math.Round((decimal)tongueX + ((decimal)tonguecount * facingright)) >= leftx)
-                                //if ((float)System.Math.Round((decimal)tongueX + ((decimal)tonguecount * facingright)) <= rightx)
-                                /*
-                                if ((float)System.Math.Round((decimal)tongueX + ((decimal)tonguecount * facingright)) >= ((float)System.Math.Floor(((decimal)mouseState.X / gameSize) / 8) * 8) - 1)
-                                {
-                                    if ((float)System.Math.Round((decimal)tongueX + ((decimal)tonguecount * facingright)) <= ((float)System.Math.Floor(((decimal)mouseState.X / gameSize) / 8) * 8) + 7)
-                                    {
-
-                                        if ((tongueY - tonguecount) >= ((float)System.Math.Floor(((decimal)mouseState.Y / gameSize) / 8) * 8) - 1)
-                                         {
-                                             if ((tongueY - tonguecount) <= ((float)System.Math.Floor(((decimal)mouseState.Y / gameSize) / 8) * 8) + 7)
-                                             {
-                                                 tonguecollide = true;
-                                                 recall = true;
-                                             }
-                                             else
-                                             {
-                                                 tonguecollide = false;
-                                             }
-                                             //if (tongueY + tonguecount < ((float)System.Math.Floor(((decimal)mouseState.Y / gameSize) / 8) * 8) + 8)
-                                             //{
-                                             //    tonguecollide = true;
-                                             //}
-                                         }
-                                         else
-                                         {
-                                             tonguecollide = false;
-                                         }
-                                    }
-                                    else
-                                    {
-                                        tonguecollide = false;
-                                    }
-
-                                }                                
-                                else
-                                {
-                                    tonguecollide = false;
-                                }*/
-                            }
-                            else
-                            {
-                                recall = true;
-                            }
-                        }
-                        else
-                        {
-                            recall = true;
-                            /*if(tonguecount>0)
-                            {
-                                tonguecount -= 2;
-                            }*/
-                        }
-                    }
-                    else
-                    {
-                        if (tonguecount > 0)
-                        {
-                            tonguecount -= 8 * speed;
-                        }
-                        else if (tonguecount <= 0)
-                        {
-                            //spaceheld = 0;
-                            //recall = false;
-                            spaceheld = 0;
-                            tongueX = x;
-                            tongueY = y + tongueoffsetY;
-                            tonguecount = 0;                
-                            switch (facingright)
-                            {
-                                case -1:
-                                    pyoro = pyoroleft;
-                                    break;
-                                case 1:
-                                    pyoro = pyororight;
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
-                    }
-
-                    if (tonguecount > 0)
-                    {
-
-                        switch (facingright)
-                        {
-                            case -1:
-                                pyoro = pyoroopenleft;
-                                break;
-                            case 1:
-                                pyoro = pyoroopenright;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                        /*if(recall = false && tonguecount == 0)
-                        {
-                            switch (facingright)
-                            {
-                                case -1:
-                                    pyoro = pyoroleft;
-                                    break;
-                                case 1:
-                                    pyoro = pyororight;
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }*/
-                    }
-
-                }
-
-                //check bean and pyoro collision (skipped in --shots so a stray
-                // mortar can't ruin a capture)
-                for (int i = 0; i < max_amount_of_beans && !shotsMode; i++)
-                {
-                    if (x+16 >= bean_x[i] && bean_active[i])
-                    {
-                        if (x <= bean_x[i] + 16 && bean_active[i])
-                        {
-                            if (y+16 >= bean_y[i] && bean_active[i])
-                            {
-                                if (y <= bean_y[i] + 14 && bean_active[i])
-                                {
-                                    bean_active[i] = false;
-                                    if (!pyorodead)
-                                    {
-                                        // Tank hit: explosion sprite + boom, kill the
-                                        // tank-movement loop, and cut the music fast.
-                                        pyorodead = true;
-                                        beamAudio?.SetTankMove(false);
-                                        // Blast centred on the actual collision point
-                                        // (midpoint of the overlapping tank/mortar
-                                        // boxes) and drawn above the tank.
-                                        float hitX = (x + 8 + bean_x[i] + 8) / 2f;
-                                        float hitY = (y + 8 + bean_y[i] + 8) / 2f;
-                                        spawnTankExplosion(hitX, hitY);
-                                        music?.StartFastFadeOut();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-
-                switch (facingright)
-                {
-                    case -1:
-                        tongueX = x + tongueoffsetX;
-                        break;
-                    case 1:
-                        tongueX = x + tongueoffsetX + rightoffset;
-                        break;
-                    default:
-                        break;
-                }
-                if (x < PLAYFIELD_LEFT)
-                {
-                    x = PLAYFIELD_LEFT;
-                }
-                if (x > PLAYFIELD_RIGHT - 17)
-                {
-                    x = PLAYFIELD_RIGHT - 17;
-                }
-                if (gameplayKeys.IsKeyDown(Keys.Add))
-                {
-                    bigspeed += 0x100;
-                }
-                if (gameplayKeys.IsKeyDown(Keys.Subtract))
-                {
-                    bigspeed -= 0x100;
-                }
-                if(bigspeed<0x100)
-                {
-                    bigspeed = 0x100;
-                }
-                if (bigspeed > 0x800)
-                {
-                    bigspeed = 0x800;
-                }
-                if (score == 0)
-                {
-                    max_time = 0xB4;
-                    score = 0;
-                }
-                if (score >= 1000 && score < 2999)
-                {
-                    max_time = 0x78;
-                }
-                if (score >= 3000 && score < 4999)
-                {
-                    max_time = 0x5F;
-                }
-                if(score >= 5000 && score < 7999)
-                {
-                    max_time = 0x50;
-                }
-                if (score >= 8000 && score < 9999)
-                {
-                    max_time = 0x41;
-                }
-                if (score >= 10000)
-                {
-                    max_time = 0x32;
-                }
-                mouseState = Mouse.GetState();
-                updates = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-                if(pyorodead)
-                {
-                    y+=speed/4;
-                    if (facingright == 1)
-                    {
-                        pyoro = pyorodeadright;
-                    }
-                    if (facingright == -1)
-                    {
-                        pyoro = pyorodeadleft;
-                    }
-                    if(y > NATIVE_HEIGHT)
-                    {
-                        if (!gameover)
-                        {
-                            gameover = true;
-                            // Fade from gameplay music into the game-over jingle.
-                            gameoverMusicPlaying = true;
-                            music?.Request(MusicTracks.Track.Gameover);
-                        }
-                    }
-                }
-
-
-
-                // Retry is handled by the game-over overlay (music picker +
-                // Enter/X) in updateMenus; R is no longer a shortcut.
-
-
-
-            }
-            //test = ((((int)x << 8 + bigspeed) - 0x28) >> 3);
-            updateScorePopups();
-            updateExplosions();
-            updateAngelQueue();
-            updateAngels();
-            updateRainbowClear();
-            // On death/game over silence the beam and tank voices but leave
-            // one-shot effects (explosion) alone so they can finish playing.
-            if (pyorodead || gameover) beamAudio?.StopTankAndBeamVoices();
-            beamAudio?.Update(tonguecount > 0 && !pyorodead && !gameover, recall, tonguecollide, false, gameTime.ElapsedGameTime.TotalSeconds);
-            music?.Update(gameTime.ElapsedGameTime.TotalSeconds);
             base.Update(gameTime);
         }
 
@@ -1937,168 +1173,7 @@ namespace MonogameTest
         /// This is called when the game should draw itself.
         /// </summary>
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
-        void drawGameplay(GameTime gameTime)
-        {
-            frameRate = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
-            // Clip every game sprite to the inside edge, including wide beams and effects.
-            GraphicsDevice.ScissorRectangle = new Rectangle(PLAYFIELD_LEFT, PLAYFIELD_TOP,
-                PLAYFIELD_RIGHT - PLAYFIELD_LEFT, BLOCK_FLOOR_Y + BLOCK_SIZE - PLAYFIELD_TOP);
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer);
-            drawScenery();
-            /*spriteBatch.DrawString(arial, string.Format("FPS {0:0.00}/s\nUPDATES: {1:0.00000}/s", frameRate, updates), new Vector2(40, 20), Color.White);
-            spriteBatch.DrawString(arial, string.Format("X: {0}\nY: {1}\nSPEED: 0x{2:0.0000}", recall, spaceheld, speed), new Vector2(40, 50), Color.White);
-            spriteBatch.DrawString(arial, string.Format("MouseX: {0}\nMosueY: {1}\nPyoroBoxX: {2}\nTongueX: {3} Space: {4} TC: {5}", mouseState.X/gameSize, mouseState.Y / gameSize, System.Math.Ceiling((x+speed - PLAYFIELD_LEFT)/8), tongueY - (tonguecount), spaceheld, tonguecollide), new Vector2(40, 90), Color.White); // ((mouseState.X / gameSize - PLAYFIELD_LEFT)/8) mouse on small rendertarget
-            */
-
-            //spriteBatch.Draw(current_bean_sprite, new Vector2(160,120), Color.White);
-
-            drawTractorBeam();
-            // Angels descending to restore blocks (drawn behind existing blocks)
-            drawAngels(spriteBatch);
-
-            for (int i = 0; i < blockamount; i++)
-            {
-                int blockx = PLAYFIELD_LEFT + (i * 8);
-                int blocky = BLOCK_FLOOR_Y;
-
-                if (blocks[i])
-                {
-                    spriteBatch.Draw(blockAtlas, new Vector2(blockx, blocky), Color.White);
-                }
-            }
-            //}
-            // Center the native-size tank over the existing collision box, with treads on the floor.
-            Texture2D tankSprite = gameB ? (facingright == 1 ? yellowTankRight : yellowTankLeft) : pyoro;
-            spriteBatch.Draw(tankSprite, new Vector2((float)Math.Round(x) + (16 - pyoro.Width) / 2,
-                (float)Math.Round(y) + 16 - pyoro.Height), Color.White);
-            //spriteBatch.Draw(collisionblock, new Vector2((float)System.Math.Round((decimal)x), y), Color.White);
-
-            for (int i = 0; i < max_amount_of_beans; i++)
-            {
-                if (bean_active[i] == true)
-                {
-                    spriteBatch.Draw(current_bean_sprite[i], new Vector2((float)Math.Round((decimal)bean_x[i]), (float)Math.Round((decimal)bean_y[i])), Color.White);
-                    //spriteBatch.DrawString(arial, string.Format("{0}", bean_type[i]), new Vector2((float)Math.Round((decimal)bean_x[i]), (float)Math.Round((decimal)bean_y[i])), Color.White);
-                    //spriteBatch.DrawString(arial, string.Format("{0}", bean_rainbow_counter[i]), new Vector2((float)Math.Round((decimal)bean_x[i]+10), (float)Math.Round((decimal)bean_y[i])), Color.White);
-
-                    //spriteBatch.Draw(collisionblock, new Vector2((float)Math.Round((decimal)bean_x[i]), (float)Math.Round((decimal)bean_y[i])), Color.White);
-
-
-
-                    //bean_y[i];
-                }
-                //temp_bean_sprite = current_bean_sprite[i];
-            }
-            if (tonguecollide && recall && tonguecount > 0 && !pyorodead)
-            {
-                spriteBatch.Draw(current_bean_sprite[caughtbean],
-                    new Vector2((float)Math.Round(tongueX + tonguecount * facingright) - 8,
-                        (float)Math.Round(tongueY - tonguecount) - 8), Color.White);
-            }
-
-            drawMuzzleFlash();
-
-            // Every explosion draws after the tank and mortars, before the HUD and frame.
-            drawExplosions(spriteBatch);
-            drawOverlayExplosions(spriteBatch);
-
-            if(gameover && screen != MenuScreen.Scores)
-            {
-                // Bitmap-font "GAME OVER" centred in the playfield.
-                string gameOverText = "GAME OVER";
-                float goWidth = MeasureStringBitmap(gameOverText).X;
-                DrawStringBitmap(spriteBatch, gameOverText, new Vector2((NATIVE_WIDTH - goWidth) / 2f, NATIVE_HEIGHT / 2), Color.White);
-                // Small centred hint below the game-over text: first R, then
-                // the picker with Game A/B on one row and Music 1-5 below.
-                if (retryMusicVisible)
-                {
-                    var amber = new Color(255, 225, 145);
-                    var white = Color.White;
-                    // Draw each picker item separately so only the highlighted
-                    // one is amber; everything else is white.
-
-                    // Game row.
-                    string gameLeft, gameMid, gameRight;
-                    Color gameLeftC, gameMidC, gameRightC;
-                    if (selectedGame == 0)
-                    {
-                        gameLeft = "[GAME A]"; gameLeftC = retryRow == 0 ? amber : white;
-                        gameMid = "    "; gameMidC = white;
-                        gameRight = "GAME B"; gameRightC = retryRow == 0 ? white : white;
-                    }
-                    else
-                    {
-                        gameLeft = "GAME A"; gameLeftC = white;
-                        gameMid = "    "; gameMidC = white;
-                        gameRight = "[GAME B]"; gameRightC = retryRow == 0 ? amber : white;
-                    }
-                    string gameAll = gameLeft + gameMid + gameRight;
-                    float gx = (NATIVE_WIDTH - MeasureStringBitmap(gameAll).X) / 2f;
-                    DrawStringBitmap(spriteBatch, gameLeft, new Vector2(gx, NATIVE_HEIGHT / 2 + 12), gameLeftC);
-                    DrawStringBitmap(spriteBatch, gameMid, new Vector2(gx + gameLeft.Length * FONT_CELL, NATIVE_HEIGHT / 2 + 12), gameMidC);
-                    DrawStringBitmap(spriteBatch, gameRight, new Vector2(gx + (gameLeft.Length + gameMid.Length) * FONT_CELL, NATIVE_HEIGHT / 2 + 12), gameRightC);
-
-                    // Music row: "MUSIC" label then one item per track.
-                    string label = "MUSIC";
-                    int items = 5;
-                    string numbers = "";
-                    for (int i = 1; i <= items; i++)
-                        numbers += i == retryMusic ? " [ ] " : "     ";
-                    float mx = (NATIVE_WIDTH - MeasureStringBitmap(label + numbers).X) / 2f;
-                    float cursorX = mx + label.Length * FONT_CELL;
-                    DrawStringBitmap(spriteBatch, label, new Vector2(mx, NATIVE_HEIGHT / 2 + 24), white);
-                    for (int i = 1; i <= items; i++)
-                    {
-                        string item = i == retryMusic ? $"[{i}]" : $"{i}";
-                        // Slot width is 5 chars; centre the item inside it.
-                        float slotX = cursorX + (i - 1) * 5 * FONT_CELL;
-                        float itemX = slotX + (5 - item.Length) * FONT_CELL / 2f;
-                        DrawStringBitmap(spriteBatch, item, new Vector2(itemX, NATIVE_HEIGHT / 2 + 24),
-                            retryRow == 1 && i == retryMusic ? amber : white);
-                    }
-                }
-                else
-                {
-                    string retry = "Press R to Retry";
-                    float retryWidth = MeasureStringBitmap(retry).X;
-                    DrawStringBitmap(spriteBatch, retry, new Vector2((NATIVE_WIDTH - retryWidth) / 2f, NATIVE_HEIGHT / 2 + 12), Color.White);
-                }
-            }
-            
-            
-
-
-            // HUD labels and counters use the pixel-perfect 8x8 bitmap font.
-            DrawStringBitmap(spriteBatch, "SCORE", new Vector2(PLAYFIELD_LEFT + 4, 10), Color.White);
-            DrawStringBitmap(spriteBatch, score.ToString("D6"), new Vector2(PLAYFIELD_LEFT + 4 + 6 * FONT_CELL, 10), Color.White);
-            DrawStringBitmap(spriteBatch, "HIGH", new Vector2(PLAYFIELD_RIGHT - 4 - (4 + 6 + 2) * FONT_CELL, 10), Color.White);
-            DrawStringBitmap(spriteBatch, highScore.ToString("D6"), new Vector2(PLAYFIELD_RIGHT - 4 - 6 * FONT_CELL, 10), Color.White);
-            //spriteBatch.DrawString(arial, string.Format("tonguecollide {0}\nrecall {1}\ntonguecount {2}\n{3}", tonguecollide, recall, tonguecount,dissappearcounter), new Vector2(0, 0), Color.White);
-            //spriteBatch.DrawString(arial, string.Format("smlspeed: 0x{0:X2}\nbigspeed: 0x{1:X2}", smallspeed, bigspeed), new Vector2(150, 10), Color.White);
-            //spriteBatch.DrawString(arial, string.Format("max_time: 0x{0:X2}\ntmpmax: 0x{1:X2}\nrandnum: 0x{2:X2}\ntime_until_new_bean: 0x{3:X2}\nscore: {4}\nbigspeed: {5:X2}\nbeanspeed: {6:X2}\nnew_bean_number_debug: {7}", max_time, tmpmax, randnum, time_until_new_bean, score, bigspeed, beanspeed, new_bean_number_debug), new Vector2(50, 10), Color.White);
-            //spriteBatch.DrawString(arial, string.Format(" rightblockcount {0} \n leftblockcount {1} \n rightblocktorecover {2} \n leftblocktorecover {3}", rightblockcount, leftblockcount, rightblocktorecover, leftblocktorecover), new Vector2(50, 10), Color.White);
-
-            // Score popups: render "+pts" in the 6x6 pixel font, drifting up
-            // from where the bean was caught and fading out near the end.
-            foreach (ScorePopup p in scorePopups)
-                DrawScorePopup6(spriteBatch, p);
-
-            // Show the selected gameplay music track in the 6x6 font, centred
-            // between the SCORE and HIGH readouts.
-            string musicLabel = "MUSIC: " + gameplayMusic;
-            Vector2 musicSize = font6.Measure(musicLabel);
-            font6.Draw(spriteBatch, musicLabel,
-                new Vector2((NATIVE_WIDTH - musicSize.X) / 2f, 11), new Color(240, 218, 160));
-
-            drawPauseOverlay();
-            if (screen == MenuScreen.Scores && scoresAfterGame) drawScores();
-            spriteBatch.End();
-
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone);
-            drawFrame();
-            spriteBatch.End();
-
-        }
+        void drawGameplay(GameTime gameTime) => DrawUfoGameplay();
 
         protected override void Draw(GameTime gameTime)
         {
@@ -2146,85 +1221,6 @@ namespace MonogameTest
         }
 
         void NextShotStage() { shotStage++; shotTimer = 0; }
-
-        // Scripted capture: stage 0 waits on the main menu, then starts Game A
-        // with the beam frozen mid-fire, then Game B firing at a placed mortar
-        // so the explosion is visible. Saves screenshot_0/1/2.png and exits.
-        void UpdateShots(GameTime gameTime)
-        {
-            shotTimer += gameTime.ElapsedGameTime.TotalSeconds;
-            switch (shotStage)
-            {
-                case 0: // main menu
-                    if (shotTimer > 1.2) { SaveScreenshot(); NextShotStage(); }
-                    break;
-                case 1: // pick Game A + Music 1 and start
-                    selectedGame = 0; selectedMusic = 1; gameplayMusic = 1;
-                    beginTransition(MenuScreen.Playing, true);
-                    NextShotStage();
-                    break;
-                case 2: // wait for the start transition to finish
-                    if (transition != MenuTransition.None || screen != MenuScreen.Playing || gameover)
-                    { shotTimer = 0; break; }
-                    if (shotTimer > 0.8)
-                    {
-                        // Freeze the beam mid-fire for the shot.
-                        facingright = 1;
-                        tongueX = x + tongueoffsetX + rightoffset;
-                        tongueY = y + tongueoffsetY;
-                        tonguecount = 34;
-                        spaceheld = 1; recall = false; tonguecollide = false;
-                        NextShotStage();
-                    }
-                    break;
-                case 3: // hold the beam pose (recall logic decays it) and capture
-                    facingright = 1;
-                    tongueX = x + tongueoffsetX + rightoffset;
-                    tongueY = y + tongueoffsetY;
-                    tonguecount = 34;
-                    spaceheld = 1; recall = false; tonguecollide = false;
-                    if (shotTimer > 0.4) { SaveScreenshot(); NextShotStage(); }
-                    break;
-                case 4: // switch to Game B (transition resets the game)
-                    selectedGame = 1;
-                    beginTransition(MenuScreen.Playing, false);
-                    NextShotStage();
-                    break;
-                case 5: // wait until Game B is live
-                    if (transition != MenuTransition.None || screen != MenuScreen.Playing || !gameB || gameover)
-                    { shotTimer = 0; break; }
-                    if (shotTimer > 0.8)
-                    {
-                        facingright = 1;
-                        // Clear other mortars, place one on the 45-degree shot
-                        // path, then fire so the explosion is in frame.
-                        float ox = x + tongueoffsetX + rightoffset;
-                        float oy = y + tongueoffsetY;
-                        for (int i = 0; i < max_amount_of_beans; i++) bean_active[i] = false;
-                        for (int i = 0; i < max_amount_of_beans; i++)
-                        {
-                            if (!bean_active[i])
-                            {
-                                bean_active[i] = true;
-                                bean_x[i] = ox + 26; bean_y[i] = oy - 26;
-                                bean_speed[i] = 0x40; bean_type[i] = 0;
-                                current_bean_sprite[i] = bean_centre;
-                                break;
-                            }
-                        }
-                        fireGameBShot();
-                        NextShotStage();
-                    }
-                    break;
-                case 6: // capture at muzzle flash + explosion peak
-                    if (shotTimer > 0.12) { SaveScreenshot(); NextShotStage(); }
-                    break;
-                default:
-                    shotsMode = false;
-                    Exit();
-                    break;
-            }
-        }
 
         KeyboardState previousTabKeys;
         int screenshotPending;
@@ -2296,9 +1292,9 @@ namespace MonogameTest
                 {
                     double shade = (hue == 1 ? 0.55 : 0.10) + level * 0.45 / 7.0;
                     palette[hue * 8 + level] = new Color(
-                        (byte)((hue == 1 ? 118 : 56) * shade),
-                        (byte)((hue == 1 ? 94 : 60) * shade),
-                        (byte)((hue == 1 ? 54 : 32) * shade));
+                        (byte)((hue == 1 ? 24 : 12) * shade),
+                        (byte)((hue == 1 ? 74 : 28) * shade),
+                        (byte)((hue == 1 ? 98 : 53) * shade));
                 }
             return palette;
         }
@@ -2370,7 +1366,7 @@ namespace MonogameTest
         // side-by-side (48x16), mirroring the pico-8 spritesheet burst effect.
         class Explosion
         {
-            public float x, y;      // native (288x162) centre position
+            public float x, y;      // native (288x216) centre position
             public int timer;           // elapsed frames
             public int frameDuration;   // frames per sprite frame
 

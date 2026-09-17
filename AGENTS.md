@@ -98,8 +98,17 @@ from reading the code or `git log`.
   or cone separation drops the person. Rockets are never affected by suction.
   People fall and resume their paused run-in from their shifted X. The two-layer
   skyline is background scenery for altitude reference, with no building collisions.
-- UFO spawns reuse the original 60 Hz bean RNG, timer, score thresholds, and
-  `speedloop`. Each event has a fixed 3-second run-in to its assigned X;
+- UFO spawns reuse the original 60 Hz bean RNG, spawn arithmetic, score
+  thresholds, and `speedloop`. ResetUfo starts bigspeed at 0x600 and caps
+  max_time at 0x78 (0.25–0.33s opening spawn intervals, subject to the
+  16-slot pool). Missile velocity uses a separate missileDifficultySpeed,
+  starting at 0x180 (1.5x original speed). Both speeds advance on the same
+  smallspeed rollover; missiles continue scaling after spawn speed caps.
+  UpdateUfoDifficulty advances fractional 60 Hz difficulty ticks at
+  1 + 0.10 * roundAbductions; both soldier and engineer deliveries count.
+  It does not advance spawns, movement, or the separate survival/reward clock.
+  The original replay test explicitly restores the old starting constants.
+  Each event has a fixed 3-second run-in to its assigned X;
   ordinary beans fire once, special beans become non-firing engineers. The
   16-slot pool counts approaching soldiers, missiles, and engineers;
   departing soldiers do not occupy a second slot. Rockets aim at the ship's

@@ -13,6 +13,8 @@ namespace MonogameTest
         void VerifyBeanSpawnSchedule()
         {
             resetGame();
+            // Isolate the original arithmetic from the UFO's harder opening.
+            bigspeed = 0x100; smallspeed = 0xFF; max_time = 0xB4;
             if (people.Count != 0 || missiles.Count != 0)
                 throw new InvalidOperationException("Round started with unscheduled enemies");
             randnum = 0x1234; randnum2 = 0x5678; randnum3 = 0x9ABC; randnum4 = 0xDEF0;
@@ -37,7 +39,7 @@ namespace MonogameTest
             }
             if (events != 99 || hash != 0x1689FA91 || bigspeed != 503 || time_until_new_bean != 19)
                 throw new InvalidOperationException("UFO spawn schedule diverged from original bean replay");
-            bigspeed = 0x100;
+            bigspeed = missileDifficultySpeed = 0x100;
             if (BeanMissileSpeed(0x40) != 15 || BeanMissileSpeed(0x7F) != 29.765625f)
                 throw new InvalidOperationException("Rocket lost original bean speed");
             bigspeed = 0x7F0; smallspeed = 1;
@@ -83,6 +85,63 @@ namespace MonogameTest
             UpdateBeanSpawns();
             if (ActiveBeanSpawnCount() != 16 || people.Count != 17)
                 throw new InvalidOperationException("Freed bean slot was not reused");
+            resetGame();
+        }
+
+        void VerifyUfoDifficulty()
+        {
+            void Require(bool condition, string message)
+            { if (!condition) throw new InvalidOperationException(message); }
+            resetGame(); screen = MenuScreen.Playing;
+            Require(BeanMissileSpeed(64) == 22.5f && max_time == 120,
+                "Harder opening speed/spawn interval was lost");
+            randnum = 0;
+            UpdateBeanSpawns();
+            Require(time_until_new_bean >= 14 && time_until_new_bean <= 19,
+                "Opening spawn cadence is not 0.25 to 0.33 seconds");
+            people.Clear();
+            UpdateUfoDifficulty(16);
+            int ordinaryGain = bigspeed - StartingUfoSpeed;
+            Require(ordinaryGain == 60 && max_time == 120 && missileDifficultySpeed == StartingMissileSpeed + 60, "Base ramp or harder interval failed");
+            resetGame();
+            for (int i = 0; i < 10; i++)
+            {
+                SpawnPerson(shipX, i == 9, 1);
+                DeliverPerson(people[people.Count - 1]);
+            }
+            Require(roundAbductions == 10 && roundSoldiers == 9,
+                "Soldiers and engineers must accelerate difficulty; only soldiers earn currency");
+            UpdateUfoDifficulty(16);
+            Require(bigspeed - StartingUfoSpeed == ordinaryGain * 2
+                && missileDifficultySpeed - StartingMissileSpeed == ordinaryGain * 2,
+                "Ten abductions did not double the difficulty ramp");
+            Require(roundSeconds == 0 && RoundMultiplier == 1 && RoundReward == 9,
+                "Difficulty clock advanced survival rewards");
+            int before = bigspeed, spawnTimer = time_until_new_bean;
+            paused = true;
+            UpdateUfo(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), new KeyboardState());
+            Require(bigspeed == before && time_until_new_bean == spawnTimer && roundSeconds == 0,
+                "Pause advanced difficulty");
+            resetGame();
+            Require(roundAbductions == 0 && difficultyTickRemainder == 0 && bigspeed == StartingUfoSpeed,
+                "New round retained accelerated difficulty");
+            // Fractional rates must not round away at 60 Hz.
+            roundAbductions = 1;
+            for (int i = 0; i < 960; i++) UpdateUfoDifficulty(1f / 60);
+            Require(bigspeed - StartingUfoSpeed == 66, "Fractional difficulty ticks were lost");
+            score = 10000;
+            UpdateUfoDifficulty(1);
+            Require(max_time == 0x32, "Score-based spawn tiers stopped working");
+            bigspeed = 0x7F0; smallspeed = 1;
+            UpdateUfoDifficulty(1);
+            Require(bigspeed == 0x7F0, "Accelerated difficulty exceeded original speed cap");
+            int previousMissileSpeed = missileDifficultySpeed;
+            UpdateUfoDifficulty(16);
+            Require(missileDifficultySpeed > previousMissileSpeed,
+                "Missile ramp stopped when spawn difficulty reached its cap");
+            missileDifficultySpeed = 0x7F0;
+            UpdateUfoDifficulty(1);
+            Require(missileDifficultySpeed == 0x7F0, "Missile speed exceeded its cap");
             resetGame();
         }
 
@@ -440,6 +499,7 @@ namespace MonogameTest
             else if (shotStage == 1 && shotTimer > 1)
             {
                 VerifyBeanSpawnSchedule();
+                VerifyUfoDifficulty();
                 VerifyUfoFlight();
                 VerifyUpgradeRewards();
                 Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent soldier currency, survival multiplier, upgrade tree purchases and multi-person beams; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");

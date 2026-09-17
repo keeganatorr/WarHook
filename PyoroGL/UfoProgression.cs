@@ -35,29 +35,38 @@ namespace MonogameTest
             new("engine3", "WARP THRUSTERS", "WARP", "20% MORE BASE FLIGHT SPEED PER RANK", UfoUpgradeEffect.Engine, 55, 5, 14),
             new("start2", "COLONY DIVIDEND", "BONUS II", "START MULTIPLIER 0.10X HIGHER PER RANK", UfoUpgradeEffect.StartingBonus, 65, 5, 15)
         };
-        const string SaveKey = "warhook.ufo.progression.v1";
+        readonly string saveKey;
         readonly bool memoryOnly;
         readonly string path;
         Dictionary<string, int> ranks = new();
         string lastRound = "";
         public double Balance { get; private set; }
+        public bool Exists { get; private set; }
+        public int GameMode { get; private set; }
+        public int Music { get; private set; } = 1;
         public string Error { get; private set; } = "";
 
-        public UfoProgression(bool memoryOnly = false, string savePath = null)
+        public UfoProgression(bool memoryOnly = false, string savePath = null, int slot = 0)
         {
             this.memoryOnly = memoryOnly;
-            path = savePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Warhook", "ufo-progression.json");
+            if (slot < 0 || slot > 3) throw new ArgumentOutOfRangeException(nameof(slot));
+            saveKey = slot == 0 ? "warhook.ufo.progression.v1" : $"warhook.ufo.save.{slot}.v1";
+            path = savePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Warhook",
+                slot == 0 ? "ufo-progression.json" : $"ufo-save-{slot}.json");
             if (memoryOnly) return;
             try
             {
 #if WEB
-                string saved = WebInterop.LoadSave(SaveKey);
+                string saved = WebInterop.LoadSave(saveKey);
 #else
                 string saved = File.Exists(path) ? File.ReadAllText(path) : null;
 #endif
                 if (string.IsNullOrWhiteSpace(saved)) return;
+                Exists = true;
                 using var json = JsonDocument.Parse(saved);
                 var root = json.RootElement;
+                if (root.TryGetProperty("mode", out var mode) && mode.TryGetInt32(out int gameMode)) GameMode = Math.Clamp(gameMode, 0, 1);
+                if (root.TryGetProperty("music", out var track) && track.TryGetInt32(out int music)) Music = Math.Clamp(music, 1, 5);
                 if (root.TryGetProperty("balance", out var balance) && balance.TryGetDouble(out double amount) && double.IsFinite(amount))
                     Balance = Math.Clamp(Math.Round(amount, 2), 0, 1_000_000_000);
                 if (root.TryGetProperty("lastRound", out var last) && last.ValueKind == JsonValueKind.String) lastRound = last.GetString();
@@ -68,6 +77,11 @@ namespace MonogameTest
             }
             catch (Exception) { Error = "COULD NOT READ UPGRADE SAVE"; }
         }
+
+        public bool StartNew() => Commit(0, new Dictionary<string, int>(), "", 0, 1);
+        public bool SavePreferences(int mode, int music) => Commit(Balance, ranks, lastRound, mode, music);
+        public bool Import(UfoProgression source) => Commit(source.Balance,
+            new Dictionary<string, int>(source.ranks), source.lastRound, source.GameMode, source.Music);
 
         public int Rank(int index) => ranks.TryGetValue(Nodes[index].Id, out int rank) ? rank : 0;
         public int Total(UfoUpgradeEffect effect)
@@ -90,8 +104,9 @@ namespace MonogameTest
             if (lastRound == roundId) return true;
             return Commit(Math.Min(1_000_000_000, Balance + Math.Max(0, reward)), ranks, roundId);
         }
-        bool Commit(double balance, Dictionary<string, int> levels, string roundId)
+        bool Commit(double balance, Dictionary<string, int> levels, string roundId, int? mode = null, int? music = null)
         {
+            int nextMode = Math.Clamp(mode ?? GameMode, 0, 1), nextMusic = Math.Clamp(music ?? Music, 1, 5);
             balance = Math.Round(balance, 2, MidpointRounding.AwayFromZero);
             try
             {
@@ -101,13 +116,14 @@ namespace MonogameTest
                     using (var json = new Utf8JsonWriter(stream))
                     {
                         json.WriteStartObject(); json.WriteNumber("version", 1); json.WriteNumber("balance", balance);
+                        json.WriteNumber("mode", nextMode); json.WriteNumber("music", nextMusic);
                         json.WriteString("lastRound", roundId); json.WriteStartObject("ranks");
                         foreach (var rank in levels) json.WriteNumber(rank.Key, rank.Value);
                         json.WriteEndObject(); json.WriteEndObject();
                     }
                     string saved = Encoding.UTF8.GetString(stream.ToArray());
 #if WEB
-                    WebInterop.SaveSave(SaveKey, saved);
+                    WebInterop.SaveSave(saveKey, saved);
 #else
                     Directory.CreateDirectory(Path.GetDirectoryName(path));
                     File.WriteAllText(path + ".tmp", saved);
@@ -115,6 +131,7 @@ namespace MonogameTest
 #endif
                 }
                 Balance = balance; ranks = levels; lastRound = roundId; Error = "";
+                Exists = true; GameMode = nextMode; Music = nextMusic;
                 return true;
             }
             catch (Exception) { Error = "SAVE FAILED - RETRY"; return false; }

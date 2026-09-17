@@ -62,8 +62,10 @@ Web progress is saved in `warhook.ufo.progression.v1` in browser localStorage;
 desktop progress uses `Warhook/ufo-progression.json` in your user data folder.
 Friendly bullets do not occupy enemy spawn slots.
 
-Both **Abduct** and **Siege** now use the original bean spawn timing, random
-positions, per-projectile speeds, 16-slot limit, and difficulty progression.
+Both **Abduct** and **Siege** use the original bean spawn arithmetic, random
+positions, and 16-slot limit, with separate spawn and missile difficulty: missiles start at 1.5× original
+speed while spawn difficulty starts at 6×. Spawn events start every 0.25–0.33 seconds,
+subject to the 16-slot pool limit.
 The original white/special bean events produce engineers. There are no extra
 opening enemies, replacement engineers, or repeat-fire timers. Each runner
 has a 3-second run-in, preserving the spacing between scheduled shots;
@@ -71,7 +73,10 @@ engineers and soldiers abducted before firing do not produce a rocket.
 After reaching their target, they walk offscreen at 24 native pixels per second.
 
 Spawn intervals tighten at the original score thresholds (1,000, 3,000,
-5,000, 8,000, 10,000). Rocket speeds use the original gradual speed ramp.
+5,000, 8,000, 10,000). Rocket speed and spawn frequency use the original speed ramp, but each person
+delivered (soldier or engineer) adds 10% to its clock rate for that round:
+5 abductions = 1.5×, 10 = 2×. The survival/reward timer still counts real play
+time. Pausing freezes both clocks; a new round resets the difficulty bonus.
 Approaching soldiers reserve a spawn slot and transfer it to their rocket;
 engineers reserve theirs until abducted or offscreen. Soldiers running away
 after firing do not consume an additional slot.

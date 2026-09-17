@@ -43,7 +43,8 @@ namespace MonogameTest
                 if (arg == "--shots")
                     shotsMode = true;
             }
-            progression = new UfoProgression(shotsMode);
+            progression = new UfoProgression(true);
+            LoadSaveSlots();
         }
 
         // Compute the largest integer scale factor that fits the current window,

@@ -39,7 +39,11 @@ faster multiplier growth, and higher starting multipliers. Costs grow by rank.
 Arrows/WASD select, Enter/X buys, R starts the next flight. Mouse clicks select
 nodes/buttons; wheel or dragging scrolls. Controller: D-pad select, A buy,
 Start launches. Purchases apply next flight and persist between sessions.
-Abduct and Siege retain the original bean spawn timing and difficulty ramp.
+Both modes start with 1.5x original missile speed and 6x spawn difficulty:
+spawn events every 0.25–0.33 seconds, subject to the 16-slot pool.
+Each abducted person, including engineers, makes the difficulty clock advance
+10% faster for that round (10 people = 2x). Survival rewards still use actual
+play time. Difficulty bonuses reset each round; pause freezes both clocks.
 
 Controls
   Arrows, WASD     fly horizontally and descend to rooftop height

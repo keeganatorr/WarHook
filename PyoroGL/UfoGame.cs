@@ -15,6 +15,9 @@ namespace MonogameTest
         const float EnemyRunInSeconds = 3f, EnemyExitSpeed = 24;
         const float LiftSpeed = 30, TractorCenterSpeed = 15, BulletSpeed = 160;
         const int SoldierMaxHealth = 100, BulletDamage = SoldierMaxHealth;
+        const int StartingUfoSpeed = 0x600, StartingUfoSpawnInterval = 0x78;
+        const int StartingMissileSpeed = 0x180;
+        const double DifficultyRatePerAbduction = .10;
         Texture2D ufoAtlas;
         readonly Rectangle[] ufoSprites = new Rectangle[16];
         readonly List<GroundPerson> people = new List<GroundPerson>();
@@ -25,6 +28,9 @@ namespace MonogameTest
         int shipHealth, weaponLevel, tractorLevel, engineLevel;
         UfoProgression progression;
         int roundSoldiers, hullLevel, beamCapacity, repairLevel, widthLevel;
+        int roundAbductions;
+        int missileDifficultySpeed;
+        double difficultyTickRemainder;
         double roundSeconds, roundGrowth, roundStartMultiplier;
         string roundId;
         bool roundActive, roundBanked;
@@ -105,6 +111,10 @@ namespace MonogameTest
             beamCapacity = 1 + progression.Total(UfoUpgradeEffect.Capacity);
             shipHealth = MaxShipHealth;
             roundSoldiers = 0; roundSeconds = 0;
+            roundAbductions = 0; difficultyTickRemainder = 0;
+            bigspeed = StartingUfoSpeed; smallspeed = 0x10;
+            missileDifficultySpeed = StartingMissileSpeed;
+            max_time = StartingUfoSpawnInterval;
             roundStartMultiplier = 1 + progression.Total(UfoUpgradeEffect.StartingBonus) * .1;
             roundGrowth = (1 + progression.Total(UfoUpgradeEffect.Growth) * .25) / 600;
             roundId = Guid.NewGuid().ToString("N");
@@ -186,7 +196,26 @@ namespace MonogameTest
             if (score >= 10000) max_time = 0x32;
         }
 
-        float BeanMissileSpeed(int beanSpeed) => ((beanSpeed * bigspeed) >> 8) / 256f * targetFPS;
+        void UpdateUfoDifficulty(float dt)
+        {
+            // Advance only the original difficulty clock, never enemy movement,
+            // spawn rolls, or the survival/reward timer. Preserve fractional ticks.
+            difficultyTickRemainder += dt * targetFPS * (1 + roundAbductions * DifficultyRatePerAbduction);
+            int ticks = (int)difficultyTickRemainder;
+            difficultyTickRemainder -= ticks;
+            for (int i = 0; i < ticks; i++)
+            {
+                UpdateBeanDifficulty();
+                // speedloop resets this counter to 16 whenever speed advances.
+                // Keep missile speed independent of the denser spawn baseline,
+                // and let it keep rising after spawn difficulty reaches its cap.
+                if (smallspeed == 0x10)
+                    missileDifficultySpeed = Math.Min(0x7F0, missileDifficultySpeed + 1);
+            }
+            max_time = Math.Min(max_time, StartingUfoSpawnInterval);
+        }
+
+        float BeanMissileSpeed(int beanSpeed) => ((beanSpeed * missileDifficultySpeed) >> 8) / 256f * targetFPS;
 
         void UpdateGroundPeople(float dt)
         {
@@ -296,6 +325,7 @@ namespace MonogameTest
         void DeliverPerson(GroundPerson person)
         {
             people.Remove(person); abductees.Remove(person);
+            roundAbductions++;
             addScore(shipX - 8, shipY + 20, person.Engineer ? 250 : 100);
             if (person.Engineer)
             {
@@ -504,7 +534,7 @@ namespace MonogameTest
                 if (!gameover)
                 {
                     UpdateShipWeapon(dt, fire);
-                    UpdateBeanDifficulty();
+                    UpdateUfoDifficulty(dt);
                 }
             }
             beamAudio?.Update(tractorActive && !gameover, false, abductees.Count > 0, false, dt);

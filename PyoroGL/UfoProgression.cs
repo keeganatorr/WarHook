@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework;
 
 namespace MonogameTest
 {
-    enum UfoUpgradeEffect { Fire, Tractor, Engine, Hull, Capacity, Growth, StartingBonus, BeamWidth, Repair,
+    enum UfoUpgradeEffect { Fire, Tractor, Engine, Hull, Capacity, Growth, StartingBonus, BeamWidth, Repair, SoldierValue,
         Core, TwinShot, TripleShot, PointDefense, Plasma, Focus, Matrix, Warp, Nanohull, AutoRepair,
         LongHaul, Interest, Exponential, Mothership, FlightClearance }
     enum UfoBranch { Core, Weapons, Beam, Ship, Hull, Yield, Hybrid }
@@ -53,6 +53,10 @@ namespace MonogameTest
             new("exponential", "EXPONENTIAL YIELD", "EXPONENT", UfoUpgradeEffect.Exponential, 0.05f, 160, 3, UfoBranch.Yield, new Vector2(395, 75), new UfoPrerequisite[] { new("growth3", 1), new("interest", 1) }),
             new("mothership", "MOTHERSHIP LINK", "MOTHERSHIP", UfoUpgradeEffect.Mothership, 0.25f, 500, 1, UfoBranch.Hybrid, new Vector2(0, 225), new UfoPrerequisite[] { new("fire3", 1), new("capacity5", 1), new("auto", 1), new("exponential", 3) }, 3),
             new("clearance", "FLIGHT CLEARANCE", "CLEARANCE", UfoUpgradeEffect.FlightClearance, 14f, 8, 5, UfoBranch.Ship, new Vector2(-155, 85), new UfoPrerequisite[] { new("engine", 1) }),
+            // A costly yield branch upgrade: each rank adds one more base
+            // crew unit to the value of future soldiers, while staying
+            // reachable from the early Survival Dividend route in existing saves.
+            new("soldier-value", "SOLDIER VALUE", "SOLDIER PAY", UfoUpgradeEffect.SoldierValue, 1f, 100, 5, UfoBranch.Yield, new Vector2(76, 106), new UfoPrerequisite[] { new("growth", 1) }),
         };
         readonly string saveKey;
         readonly bool memoryOnly;

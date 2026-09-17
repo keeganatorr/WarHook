@@ -32,7 +32,7 @@ namespace MonogameTest
         Vector2 shipVelocity;
         double longHaulBonus, exponentialRate, interestBonus;
         UfoProgression progression;
-        int roundSoldiers, hullLevel, beamCapacity, repairLevel, widthLevel;
+        int roundSoldiers, hullLevel, beamCapacity, repairLevel, widthLevel, soldierValueLevel;
         int roundAbductions;
         int missileDifficultySpeed;
         double difficultyTickRemainder;
@@ -50,7 +50,7 @@ namespace MonogameTest
                 return Math.Min(1_000_000, (roundStartMultiplier + roundGrowth * growthTime) * (1 + interestBonus) * globalBonus);
             }
         }
-        double RoundReward => Math.Floor(roundSoldiers * RoundMultiplier * 100 + .000001) / 100;
+        double RoundReward => Math.Floor(roundSoldiers * soldierValueLevel * RoundMultiplier * 100 + .000001) / 100;
         int MaxShipHealth => (int)((100 + hullLevel * 25 + nanoHull * 50) * globalBonus);
         bool tractorActive, ufoShotFrozen;
         readonly List<GroundPerson> abductees = new();
@@ -88,6 +88,19 @@ namespace MonogameTest
             int filled = (int)Math.Round(width * progress);
             if (filled > 0)
                 spriteBatch.Draw(beamPixel, new Rectangle(x, y, filled, height), tint);
+        }
+
+        void DrawHullMeter(int x)
+        {
+            const int y = 3, width = 62, height = 6;
+            float fraction = Math.Clamp(shipHealth / (float)Math.Max(1, MaxShipHealth), 0, 1);
+            Color fill = Color.Lerp(new Color(248, 62, 67), new Color(65, 183, 255), fraction);
+            Color border = new Color(72, 165, 235);
+            spriteBatch.Draw(beamPixel, new Rectangle(x - 1, y - 1, width + 2, height + 2), border);
+            spriteBatch.Draw(beamPixel, new Rectangle(x, y, width, height), new Color(12, 27, 43));
+            int filled = (int)Math.Round(width * fraction);
+            if (filled > 0)
+                spriteBatch.Draw(beamPixel, new Rectangle(x, y, filled, height), fill);
         }
 
         sealed class GroundPerson
@@ -152,6 +165,7 @@ namespace MonogameTest
             hullLevel = progression.Total(UfoUpgradeEffect.Hull);
             repairLevel = progression.Total(UfoUpgradeEffect.Repair);
             widthLevel = progression.Total(UfoUpgradeEffect.BeamWidth);
+            soldierValueLevel = 1 + progression.Total(UfoUpgradeEffect.SoldierValue);
             beamCapacity = progression.Capacity;
             fireBonus = progression.Bonus(UfoUpgradeEffect.Fire);
             engineBonus = progression.Bonus(UfoUpgradeEffect.Engine);
@@ -400,16 +414,18 @@ namespace MonogameTest
         {
             people.Remove(person); abductees.Remove(person);
             roundAbductions++;
-            addScore(shipX - 8, shipY + 20, person.Engineer ? 250 : 100);
             if (person.Engineer)
             {
-                shipHealth = Math.Min(MaxShipHealth, shipHealth + repairLevel * 5);
+                int repairValue = repairLevel * 5;
+                shipHealth = Math.Min(MaxShipHealth, shipHealth + repairValue);
+                AddUfoRewardPopup(shipX - 8, shipY + 20, repairValue, new Color(98, 190, 255));
                 repairTime = .7f;
                 SetUfoMessage("ENGINEER ABOARD - SHIP REPAIRED");
                 beamAudio?.PlayParachute();
             }
             else
             {
+                AddUfoRewardPopup(shipX - 8, shipY + 20, soldierValueLevel, Color.White);
                 roundSoldiers++;
                 SetUfoMessage("SOLDIER COLLECTED", .7f);
                 beamAudio?.PlayMenuBlip();
@@ -544,11 +560,10 @@ namespace MonogameTest
                             float shipContact = SweptContactTime(nearby.Position - PreviousShipPosition,
                                 nearby.Position + nearby.Velocity * travelTime - Vector2.Lerp(PreviousShipPosition, ShipPosition, dt > 0 ? travelTime / dt : 0), ShipCollisionHalfSize);
                             if (shipContact >= first && Vector2.Distance(atImpact, blast) <= pointDefenseLevel * 8)
-                            { missiles.RemoveAt(m); addScore(atImpact.X - 8, atImpact.Y, 50); }
+                            { missiles.RemoveAt(m); }
                         }
                     shipBullets.RemoveAt(i);
                     spawnExplosion(impact.X, impact.Y, false);
-                    addScore(Math.Clamp(impact.X - 5, 10, 250), impact.Y, 50);
                 }
                 else if (hit != null)
                 {
@@ -557,7 +572,6 @@ namespace MonogameTest
                     if (hit.Health == 0)
                     {
                         people.Remove(hit);
-                        addScore(Math.Clamp(hit.X - 5, 10, 250), hit.Y - PersonHeight, 50);
                         spawnExplosion(hit.X, hit.Y - PersonHeight / 2f, false);
                     }
                     shipBullets.RemoveAt(i);
@@ -812,16 +826,18 @@ namespace MonogameTest
             if (screen != MenuScreen.Scores)
             {
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, 12), new Color(6, 12, 22));
-                font6.Draw(spriteBatch, "SCORE " + score.ToString("D6"), new Vector2(8, 3), Color.White);
-                font6.Draw(spriteBatch, "HULL " + shipHealth, new Vector2(119, 3), new Color(96, 230, 222));
-                font6.Draw(spriteBatch, "BEST " + highScore.ToString("D6"), new Vector2(214, 3), new Color(255, 215, 128));
+                string hullLabel = "HULL " + shipHealth;
+                int hullGroupWidth = 62 + 5 + (int)font6.Measure(hullLabel).X;
+                int hullGroupX = (NATIVE_WIDTH - hullGroupWidth) / 2;
+                DrawHullMeter(hullGroupX);
+                font6.Draw(spriteBatch, hullLabel, new Vector2(hullGroupX + 67, 3), new Color(96, 230, 222));
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 12, NATIVE_WIDTH, 9), new Color(6, 12, 22));
                 font6.Draw(spriteBatch, "TIME " + FormatRoundTime(roundSeconds), new Vector2(8, 13), Color.White);
                 DrawMultiplierMeter();
                 font6.Draw(spriteBatch, RoundMultiplier.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "X",
                     new Vector2(190, 13), MultiplierBandColor((int)Math.Floor(RoundMultiplier)));
                 font6.Draw(spriteBatch, "BEAM " + abductees.Count + "/" + beamCapacity, new Vector2(225, 13), new Color(96, 230, 222));
-                font6.Draw(spriteBatch, "CREW " + roundSoldiers,
+                font6.Draw(spriteBatch, "CREW " + (roundSoldiers * soldierValueLevel),
                     new Vector2(8, NATIVE_HEIGHT - 10), new Color(95, 245, 255));
                 font6.Draw(spriteBatch, "X/SPACE FIRE Z/SHIFT BEAM", new Vector2(132, NATIVE_HEIGHT - 10), new Color(180, 210, 220));
             }

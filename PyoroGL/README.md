@@ -64,14 +64,16 @@ one-second grace period between hits. Losing all hull health ends the run.
 Engineer Tools rank 1 unlocks engineers after Hull Plating rank 2. Until then,
 their scheduled spawns are ordinary soldiers. Engineers wear yellow hardhats
 and orange overalls; delivering one restores 5 hull at rank 1, plus 5 per
-additional Engineer Tools rank (25 at rank 5), capped at maximum hull, and
-earns 250 points. Existing Engineer Tools purchases retain the unlock.
+additional Engineer Tools rank (25 at rank 5),
+capped at maximum hull. Existing Engineer Tools purchases retain the unlock.
 
-Delivering a soldier earns 100 score points and one unit of **CREW** currency.
+Delivering a soldier adds one unit of **CREW** currency at the base value.
+The Soldier Value upgrade raises that value to 2, 3, and so on per rank.
 The survival timer starts at zero and the reward multiplier at **1.00×**,
 growing by **0.50× per minute** before upgrades. Pausing freezes the timer.
 When the hull is destroyed, or you choose **End Round** from pause, your
-collected soldiers × the current multiplier are banked (to two decimal places).
+collected soldiers × their current value × the multiplier are banked (to two
+decimal places).
 Engineers and shooting enemies do not earn currency.
 The results screen reveals crew collected, multiplier, and total reward in
 sequence, counting each up with a small bounce. After the tally finishes,
@@ -80,7 +82,7 @@ are already saved during the animation.
 The tally overlays the gameplay scene while the destroyed UFO crash-lands
 with smoke and fire.
 
-The end-of-round **Tech Web** has 32 nodes, including the owned UFO Core.
+The end-of-round **Tech Web** has 33 nodes, including the owned UFO Core.
 Routes fork and reconnect through multiple prerequisites. Weapon nodes are
 coral, beam nodes cyan, flight nodes blue, hull nodes green, and yield nodes
 gold. Mothership Link is a purple hybrid requiring any three completed branch

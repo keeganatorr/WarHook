@@ -87,9 +87,9 @@ from reading the code or `git log`.
   ground people, missiles, and engineer repairs; it is linked by the web
   csproj. `--shots` exercises the mechanics in the running game and captures
   screenshots. Atlas regions are alpha-trimmed at load time from a 4x4 grid.
-- UFO scores use `Warhook/ufo-highscores.json` / `warhook.ufo.highscores` and
-  do not initialize the original online leaderboard. Abduct/Siege retain the
-  save model's A/B slots, with distinct rules from the original game.
+- UFO gameplay has no score or high-score submission; its persistent currency
+  is the round-end crew reward. Abduct/Siege retain the original score model
+  and save slots.
 - UFO playfield is 288×216; the ship is 44×20 and its centre moves within
   Y=34..159 (GroundY - 38 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
   feed missile collision sweeps; firing and tractor origins follow altitude. X/Space (pad A) fires downward; Z/Shift (pad Y)
@@ -98,8 +98,8 @@ from reading the code or `git log`.
   or cone separation drops the person. Rockets are never affected by suction.
   People fall and resume their paused run-in from their shifted X. The two-layer
   skyline is background scenery for altitude reference, with no building collisions.
-- UFO spawns reuse the original 60 Hz bean RNG, spawn arithmetic, score
-  thresholds, and `speedloop`. ResetUfo starts bigspeed at 0x600 and caps
+- UFO spawns reuse the original 60 Hz bean RNG, spawn arithmetic, and
+  `speedloop`; score is not shown or awarded in UFO play. ResetUfo starts bigspeed at 0x600 and caps
   max_time at 0x78 (0.25–0.33s opening spawn intervals, subject to the
   16-slot pool). Missile velocity uses a separate missileDifficultySpeed,
   starting at 0x180 (1.5x original speed). Both speeds advance on the same
@@ -119,9 +119,10 @@ from reading the code or `git log`.
   The cone narrows toward the UFO; horizontal pull is slower than ship movement,
   so moving too far away still drops people. Bullets sweep predicted missile
   motion before ship impacts and consume themselves on the first target.
-- Incremental progression lives in `UfoProgression.cs`; the pannable 32-node
+- Incremental progression lives in `UfoProgression.cs`; the pannable 33-node
   tech web is `UfoUpgradeMap.cs`. Soldier deliveries earn currency at round end:
-  floor(soldiers × multiplier × 100) / 100. The timer counts active play only;
+  floor(soldiers × soldier value × multiplier × 100) / 100. The timer counts
+  active play only;
   base multiplier is 1 + seconds / 120. Death and pause End Round show the
   timed tally in UfoRoundResults.cs before the map. Bank immediately on round
   end; the tally only animates a snapshot. Require released confirm controls
@@ -129,6 +130,8 @@ from reading the code or `git log`.
   Permanent ranks apply in ResetUfo, including beam capacity (1..5), hull,
   repair, cone width, and multiplier growth/start bonuses. Held people remain
   in the spawn pool and drop independently; releasing the beam drops all.
+  Pickup feedback uses white `+value` soldier popups and blue `+repair` popups
+  for engineers; these do not affect the legacy score field.
   The gameplay HUD renders multiplier progress as a color-cycling 1x-wide bar
   with the numeric multiplier beside it; each integer band resets the fill.
 - Options volume sliders use ten percentage steps mapped across -20..0 dB;

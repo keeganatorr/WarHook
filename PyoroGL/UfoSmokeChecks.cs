@@ -176,7 +176,7 @@ namespace MonogameTest
             SpawnPerson(shipX, false, 1);
             UpdateTractor(dt, true);
             for (int i = 0; i < 120 && SmokeAbductee != null; i++) UpdateTractor(dt, true);
-            Require(SmokeAbductee == null && roundSoldiers == 1 && score == 100,
+            Require(SmokeAbductee == null && roundSoldiers == 1 && score == 0,
                 "Low-altitude tractor failed to deliver a person");
             UpdateShipWeapon(dt, true);
             Require(shipBullets[0].Position.Y == ShipMaxY + 11,
@@ -253,13 +253,13 @@ namespace MonogameTest
             Require(SmokeAbductee == soldier && !soldier.Falling, "Falling unit could not be caught again");
             shotCooldown = .6f;
             for (int i = 0; i < 400 && SmokeAbductee != null; i++) UpdateTractor(dt, true);
-            Require(SmokeAbductee == null && people.Count == 0 && score == 100 && weaponLevel == 1 && roundSoldiers == 1
+            Require(SmokeAbductee == null && people.Count == 0 && score == 0 && weaponLevel == 1 && roundSoldiers == 1
                 && Math.Abs(shotCooldown - .6f) < .0001f, "Soldier pickup changed gun before an upgrade choice");
             shipHealth = 50; repairLevel = 1;
             SpawnPerson(shipX, true, 1);
             UpdateTractor(.3f, true);
             for (int i = 0; i < 400 && SmokeAbductee != null; i++) UpdateTractor(dt, true);
-            Require(shipHealth == 55 && score == 350 && weaponLevel == 1 && roundSoldiers == 1, "Engineer did not repair ship");
+            Require(shipHealth == 55 && score == 0 && weaponLevel == 1 && roundSoldiers == 1, "Engineer did not repair ship");
             SpawnPerson(shipX, true, 1);
             UpdateTractor(.3f, true);
             shipHealth = 98;
@@ -338,13 +338,13 @@ namespace MonogameTest
             soldier = people[0];
             shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, GroundY - 30), Velocity = Vector2.UnitY * BulletSpeed });
             UpdateShipBullets(.3f);
-            Require(soldier.Health == 0 && shipBullets.Count == 0 && score == 50,
-                "One UFO bullet did not instantly kill the soldier for 50 points");
+            Require(soldier.Health == 0 && shipBullets.Count == 0 && score == 0,
+                "One UFO bullet did not instantly kill the soldier");
             Require(people.Count == 1 && people[0].Engineer && people[0].Health == 100,
                 "Bullet pierced its first target");
             shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, GroundY - 30), Velocity = Vector2.UnitY * BulletSpeed });
             UpdateShipBullets(.3f);
-            Require(people.Count == 0 && score == 100 && shipBullets.Count == 0,
+            Require(people.Count == 0 && score == 0 && shipBullets.Count == 0,
                 "Engineer did not die from one bullet");
 
             // Opposing fast projectiles cross between frames; the bullet
@@ -353,7 +353,7 @@ namespace MonogameTest
             missiles.Add(new UfoMissile { Position = new Vector2(shipX, 130), Velocity = new Vector2(0, -500) });
             shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 60), Velocity = Vector2.UnitY * BulletSpeed });
             UpdateShipBullets(.2f); UpdateMissiles(.2f);
-            Require(missiles.Count == 0 && shipBullets.Count == 0 && shipHealth == 100 && score == 50,
+            Require(missiles.Count == 0 && shipBullets.Count == 0 && shipHealth == 100 && score == 0,
                 "Bullet failed to destroy a crossing missile before ship impact");
 
             // Consume the shot on its first target, regardless of list order.
@@ -365,12 +365,12 @@ namespace MonogameTest
             shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 60), Velocity = Vector2.UnitY * BulletSpeed });
             UpdateShipBullets(1);
             Require(missiles.Count == 1 && missiles[0] == fartherRocket && people.Count == 1
-                && shipBullets.Count == 0 && score == 50, "Bullet pierced a missile or chose the wrong first target");
+                && shipBullets.Count == 0 && score == 0, "Bullet pierced a missile or chose the wrong first target");
             missiles.Clear();
             SmokeAbductee = people[0];
             shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 60), Velocity = Vector2.UnitY * BulletSpeed });
             UpdateShipBullets(1);
-            Require(missiles.Count == 0 && people.Count == 1 && score == 50,
+            Require(missiles.Count == 0 && people.Count == 1 && score == 0,
                 "Friendly bullet destroyed a held person");
 
             resetGame();
@@ -527,7 +527,7 @@ namespace MonogameTest
                 while (progression.Rank(index) < rank) Require(progression.Buy(index), "Cannot reach " + id);
             }
             progression = new UfoProgression(true); progression.Bank("web-funds", 1000000);
-            Require(UfoProgression.Nodes.Length == 32 && progression.Rank("core") == 1
+            Require(UfoProgression.Nodes.Length == 33 && progression.Rank("core") == 1
                 && !progression.Buy(UfoProgression.Index("core")), "Core must be owned and non-purchasable");
             var seen = new System.Collections.Generic.HashSet<int> { UfoProgression.Index("core") };
             var queue = new System.Collections.Generic.Queue<int>(seen);
@@ -548,6 +548,16 @@ namespace MonogameTest
                 "Twin cannons failed to split the shot");
             BuyTo("point", 1);
             Require(progression.Unlocked(UfoProgression.Index("plasma")), "Merge remained locked with both parents");
+            BuyTo("soldier-value", 2);
+            resetGame();
+            Require(soldierValueLevel == 3 && RoundReward == 0,
+                "Soldier value ranks did not apply at flight start");
+            roundSoldiers = 2;
+            Require(RoundReward == 6, "Soldier value upgrade did not increase round currency");
+            OpenRoundResults();
+            Require(resultsCrew == 6 && resultsReward == 6,
+                "Round results did not snapshot the value-adjusted soldier total");
+            screen = MenuScreen.Playing;
             BuyTo("plasma", 1); resetGame();
             Require(ShipBulletSpeed > BulletSpeed, "Plasma did not speed bullets");
             shipBullets.Add(new ShipBullet { Position = new Vector2(shipX, 80), Velocity = Vector2.UnitY * BulletSpeed });
@@ -555,7 +565,7 @@ namespace MonogameTest
             missiles.Add(new UfoMissile { Position = new Vector2(shipX + 13, 110) });
             missiles.Add(new UfoMissile { Position = new Vector2(shipX + 40, 110) });
             UpdateShipBullets(.3f);
-            Require(missiles.Count == 1 && score == 100, "Point defence radius/blast failed");
+            Require(missiles.Count == 1 && score == 0, "Point defence radius/blast failed");
             BuyTo("fire3", 1); BuyTo("capacity5", 1);
             Require(!progression.Unlocked(UfoProgression.Index("mothership")), "Mothership unlocked before three capstones");
             resetGame(); UpdateShipWeapon(.1f, true);
@@ -703,7 +713,7 @@ namespace MonogameTest
             missiles.Add(new UfoMissile { Position = new Vector2(120, 120), Velocity = -Vector2.UnitY * 90, AltitudeDefense = true });
             shipBullets.Add(new ShipBullet { Position = new Vector2(120, 110), Velocity = Vector2.UnitY * 160 });
             UpdateShipBullets(.1f);
-            Require(missiles.Count == 0 && score == 50, "Side rockets cannot be shot down");
+            Require(missiles.Count == 0 && score == 0, "Side rockets cannot be shot down");
             progression.Bank("clearance-test", 10000);
             int clearance = UfoProgression.Index("clearance");
             Require(!progression.Buy(clearance) && progression.Buy(UfoProgression.Index("engine")),
@@ -778,7 +788,8 @@ namespace MonogameTest
             updateMenus(tick, new KeyboardState(Keys.X));
             Require(screen == MenuScreen.RoundResults && !roundActive && roundBanked && progression.Balance == 30,
                 "Death must show results and bank the exact reward immediately");
-            Require(resultsCrew == 12 && resultsMultiplier == 2.5 && resultsReward == 30 && resultsSurvival == 180,
+            Require(resultsCrew == 12 && resultsMultiplier == 2.5
+                && resultsReward == 30 && resultsSurvival == 180,
                 "Results must snapshot final round statistics");
             Require(ResultsLineAge(0) < 0, "Results tally started without an opening delay");
             UpdateRoundResults(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), false, true);
@@ -825,7 +836,7 @@ namespace MonogameTest
                 VerifyAltitudeDefense();
                 VerifyImpactEffects();
                 VerifyRoundResults();
-                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 32-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
+                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 33-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
                 resetGame();
                 shipX = previousShipX = 146; shipY = previousShipY = ShipMaxY - 16;
                 shipTilt = .13f; shipHealth = 75; weaponLevel = 3;

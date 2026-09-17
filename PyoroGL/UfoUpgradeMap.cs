@@ -74,8 +74,6 @@ namespace MonogameTest
             if (roundActive)
             {
                 roundActive = false;
-                if (!shotsMode && highScores.Qualifies(gameB, score))
-                    highScores.Submit(gameB, new string(scoreInitials), score);
                 gameover = pyorodead = true;
                 paused = false; tractorActive = false;
                 DropPayload();
@@ -229,6 +227,7 @@ namespace MonogameTest
                 UfoUpgradeEffect.Hull or UfoUpgradeEffect.Nanohull => "HULL +" + (int)(node.Amount * rank),
                 UfoUpgradeEffect.Repair => rank == 0 ? "ENGINEERS LOCKED"
                     : rank == 1 ? "UNLOCK ENGINEERS: REPAIR 5 HULL" : "ENGINEERS REPAIR " + (int)(node.Amount * rank) + " HULL",
+                UfoUpgradeEffect.SoldierValue => "SOLDIER VALUE X" + (rank + 1),
                 UfoUpgradeEffect.BeamWidth => "CONE WIDTH " + percent,
                 UfoUpgradeEffect.Growth => "REWARD GROWTH " + percent,
                 UfoUpgradeEffect.StartingBonus => "START +" + (node.Amount * rank).ToString("F2", CultureInfo.InvariantCulture) + "X",
@@ -440,6 +439,8 @@ namespace MonogameTest
                     break;
                 case UfoUpgradeEffect.Repair:
                     L(-6, 5, 3, -4); L(-5, 5, 4, -4); P(1, -7, 2, 4); P(5, -7, 2, 4); P(2, -3, 4, 2); break;
+                case UfoUpgradeEffect.SoldierValue:
+                    Person(-1, -7); P(-7, 2, 14, 2); P(-5, 5, 10, 2); P(-2, 8, 4, 2); break;
                 case UfoUpgradeEffect.AutoRepair:
                     P(-2, -7, 4, 13); P(-7, -2, 14, 4); break;
                 case UfoUpgradeEffect.LongHaul:

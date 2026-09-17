@@ -57,15 +57,19 @@ namespace MonogameTest
         void DrawAltitudeLine()
         {
             bool below = shipY > altitudeLineY;
-            Color color = below ? new Color(255, 113, 86) : new Color(147, 143, 96);
+            bool warning = below || altitudeShotsRemaining > 0;
+            float pulse = warning ? .55f + .45f * (float)Math.Abs(Math.Sin(altitudePulse * 14)) : 1;
+            Color color = warning ? new Color(255, 113, 86) : new Color(147, 143, 96);
             int y = (int)altitudeLineY;
+            float lineAlpha = warning ? .35f + .6f * pulse : .55f;
             for (int x = 4; x < NATIVE_WIDTH - 4; x += 10)
-                spriteBatch.Draw(beamPixel, new Rectangle(x, y, 6, 1), color * (below ? .85f : .55f));
+                spriteBatch.Draw(beamPixel, new Rectangle(x, y, 6, 1), color * lineAlpha);
             const string label = "DANGER BELOW";
-            Vector2 size = font6.Measure(label);
+            float textScale = warning ? 1 + .08f * pulse : 1;
+            Vector2 size = font6.Measure(label) * textScale;
             Vector2 position = new Vector2((NATIVE_WIDTH - size.X) / 2, y - 9);
             spriteBatch.Draw(beamPixel, new Rectangle((int)position.X - 3, y - 10, (int)size.X + 6, 9), new Color(7, 13, 30) * .8f);
-            font6.Draw(spriteBatch, label, position, color);
+            font6.Draw(spriteBatch, label, position, color * (warning ? .7f + .3f * pulse : 1), textScale);
         }
 
         void DrawAltitudeWarnings()

@@ -648,7 +648,13 @@ namespace MonogameTest
         {
             float alpha = MathHelper.Clamp(p.timer / 30f, 0f, 1f);
             Vector2 size = font6.Measure(p.points.ToString());
-            font6.Draw(batch, p.points.ToString(), new Vector2(p.x , p.y), Color.White * alpha);
+            font6.Draw(batch, "+" + p.points.ToString(), new Vector2(p.x , p.y), p.color * alpha);
+        }
+
+        void AddUfoRewardPopup(float x, float y, int value, Color color)
+        {
+            if (gameover) return;
+            scorePopups.Add(new ScorePopup(x, y, value, color));
         }
 
         // Update active score popups: drift upward slightly and expire by timer.
@@ -1347,18 +1353,23 @@ namespace MonogameTest
             spriteBatch.End();
         }
 
-        // A short-lived "+points" indicator shown where a bean was caught.
+        // A short-lived "+value" indicator shown where a pickup or hit occurs.
         class ScorePopup
         {
             public float x, y;
             public int points;
+            public Color color;
             public float timer; // remaining lifetime (frames)
 
             public ScorePopup(float x, float y, int points)
+                : this(x, y, points, Color.White) { }
+
+            public ScorePopup(float x, float y, int points, Color color)
             {
                 this.x = x;
                 this.y = y;
                 this.points = points;
+                this.color = color;
                 // Longer display time for bigger scores, mirroring the pico-8 version.
                 if (points >= 1000) timer = 108;
                 else if (points >= 300) timer = 84;

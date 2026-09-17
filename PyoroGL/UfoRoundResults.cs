@@ -25,7 +25,7 @@ namespace MonogameTest
             resultsTime = 0;
             resultsInputReady = false;
             resultsPreviousMouse = Mouse.GetState();
-            resultsCrew = roundSoldiers;
+            resultsCrew = roundSoldiers * soldierValueLevel;
             resultsMultiplier = RoundMultiplier;
             resultsReward = RoundReward;
             resultsSurvival = roundSeconds;

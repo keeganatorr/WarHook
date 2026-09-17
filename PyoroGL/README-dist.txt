@@ -33,16 +33,17 @@ fall and resume running, and can be caught again. Rockets ignore the tractor
 beam: dodge them or shoot them down.
 
 The UFO starts with 100 hull health; missile hits cost 25. An abducted engineer
-scores 250. Engineer Tools rank 1 unlocks engineers and their 5-health repair;
+repairs 5 hull at rank 1. Engineer Tools rank 1 unlocks engineers and their 5-health repair;
 each further rank adds 5 repair, up to 25 at rank 5. Hull Plating rank 2 is
 required to buy the unlock. Before unlocking, engineer spawns are ordinary
-soldiers. Soldiers score 100 and add one CREW currency.
+soldiers. Soldiers add one CREW currency at base value; the Soldier Value
+upgrade raises that value by one per rank.
 The survival timer starts at zero. The reward multiplier starts at 1.00x and
 increases by 0.50x per minute; both freeze while paused. Death or End Round
-from the pause menu banks soldiers times multiplier, retaining hundredths.
+from the pause menu banks soldiers times their value times multiplier, retaining hundredths.
 Engineers and kills do not earn currency.
 
-Spend currency on the permanent 32-node tech web between rounds. Routes fork
+Spend currency on the permanent 33-node tech web between rounds. Routes fork
 and merge across weapons, beams, flight/hull and yield. Unlock twin/triple
 guns, missile interception blasts, five-person beams, auto-repair and
 compounding reward growth. Mothership Link needs any three branch capstones.

@@ -9,7 +9,7 @@ namespace MonogameTest
 {
     enum UfoUpgradeEffect { Fire, Tractor, Engine, Hull, Capacity, Growth, StartingBonus, BeamWidth, Repair, SoldierValue,
         Core, TwinShot, TripleShot, PointDefense, Plasma, Focus, Matrix, Warp, Nanohull, AutoRepair,
-        LongHaul, Interest, Exponential, Mothership, FlightClearance }
+        LongHaul, Interest, Exponential, Mothership, FlightClearance, Shield }
     enum UfoBranch { Core, Weapons, Beam, Ship, Hull, Yield, Hybrid }
     sealed record UfoPrerequisite(string Node, int Rank = 1);
     sealed record UfoUpgrade(string Id, string Title, string ShortName, UfoUpgradeEffect Effect,
@@ -57,6 +57,7 @@ namespace MonogameTest
             // crew unit to the value of future soldiers, while staying
             // reachable from the early Survival Dividend route in existing saves.
             new("soldier-value", "SOLDIER VALUE", "SOLDIER PAY", UfoUpgradeEffect.SoldierValue, 1f, 100, 5, UfoBranch.Yield, new Vector2(76, 106), new UfoPrerequisite[] { new("growth", 1) }),
+            new("shield", "SHIELD ARRAY", "SHIELD", UfoUpgradeEffect.Shield, .25f, 18, 5, UfoBranch.Hull, new Vector2(-235, 164), new UfoPrerequisite[] { new("hull", 2) }),
         };
         readonly string saveKey;
         readonly bool memoryOnly;

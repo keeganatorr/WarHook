@@ -527,7 +527,7 @@ namespace MonogameTest
                 while (progression.Rank(index) < rank) Require(progression.Buy(index), "Cannot reach " + id);
             }
             progression = new UfoProgression(true); progression.Bank("web-funds", 1000000);
-            Require(UfoProgression.Nodes.Length == 33 && progression.Rank("core") == 1
+            Require(UfoProgression.Nodes.Length == 34 && progression.Rank("core") == 1
                 && !progression.Buy(UfoProgression.Index("core")), "Core must be owned and non-purchasable");
             var seen = new System.Collections.Generic.HashSet<int> { UfoProgression.Index("core") };
             var queue = new System.Collections.Generic.Queue<int>(seen);
@@ -548,6 +548,25 @@ namespace MonogameTest
                 "Twin cannons failed to split the shot");
             BuyTo("point", 1);
             Require(progression.Unlocked(UfoProgression.Index("plasma")), "Merge remained locked with both parents");
+            BuyTo("shield", 1);
+            resetGame();
+            Require(shieldLevel == 1 && shieldActive && Math.Abs(ShieldRegenDelay - 2f) < .001f,
+                "Shield upgrade did not activate at flight start");
+            missiles.Add(new UfoMissile {
+                Position = new Vector2(shipX, shipY + 28),
+                Velocity = -Vector2.UnitY * 100,
+                Heading = -Vector2.UnitY
+            });
+            UpdateMissiles(.4f);
+            Require(!shieldActive && shieldRegenTimer > 1.5f && shipHealth == MaxShipHealth,
+                "Shield did not absorb the first rocket");
+            UpdateShield(1.99f);
+            Require(!shieldActive, "Shield regenerated too early");
+            UpdateShield(.02f);
+            Require(shieldActive, "Shield did not regenerate");
+            BuyTo("shield", 3);
+            resetGame();
+            Require(shieldLevel == 3 && ShieldRegenDelay < 2f, "Shield ranks did not improve regeneration");
             BuyTo("soldier-value", 2);
             resetGame();
             Require(soldierValueLevel == 3 && RoundReward == 0,
@@ -589,6 +608,7 @@ namespace MonogameTest
             shipHealth = 50;
             UpdateAutoRepair(5); Require(shipHealth == 50, "Auto repair started before five safe seconds");
             UpdateAutoRepair(1); Require(shipHealth == 52, "Auto repair rate incorrect");
+            shieldActive = false; shieldRegenTimer = ShieldRegenDelay;
             DamageShip(); UpdateAutoRepair(4); Require(shipHealth == 27, "Hit did not reset auto repair delay");
             UpdateAutoRepair(2); Require(shipHealth == 29, "Auto repair failed to restart after safety delay");
             Require(progression.Buy(UfoProgression.Index("mothership")), "Mothership purchase failed");
@@ -836,7 +856,7 @@ namespace MonogameTest
                 VerifyAltitudeDefense();
                 VerifyImpactEffects();
                 VerifyRoundResults();
-                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 33-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
+                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 34-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, shield, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
                 resetGame();
                 shipX = previousShipX = 146; shipY = previousShipY = ShipMaxY - 16;
                 shipTilt = .13f; shipHealth = 75; weaponLevel = 3;

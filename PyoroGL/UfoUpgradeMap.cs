@@ -236,6 +236,9 @@ namespace MonogameTest
                 UfoUpgradeEffect.TripleShot => rank > 0 ? "THREE PARALLEL SHOTS" : "TWO SHOTS",
                 UfoUpgradeEffect.Plasma => "FIRE/BULLET SPEED " + percent,
                 UfoUpgradeEffect.PointDefense => "INTERCEPT +" + rank * 3 + "PX / BLAST " + rank * 8 + "PX",
+                UfoUpgradeEffect.Shield => rank > 0
+                    ? "SHIELD REGEN " + Math.Max(.5, 2 - Math.Max(0, rank - 1) * node.Amount).ToString("F2", CultureInfo.InvariantCulture) + " SEC"
+                    : "SHIELD OFFLINE",
                 UfoUpgradeEffect.Focus => "PULL NEAR UFO " + percent,
                 UfoUpgradeEffect.Matrix => "CONE WHEN CARRYING " + percent,
                 UfoUpgradeEffect.Warp => "ACCEL/VERTICAL SPEED " + percent,
@@ -424,6 +427,10 @@ namespace MonogameTest
                 case UfoUpgradeEffect.PointDefense:
                     L(-4, -5, 4, -5); L(-4, 4, 4, 4); L(-5, -4, -5, 3); L(5, -4, 5, 3);
                     L(-8, 0, -2, 0); L(2, 0, 8, 0); L(0, -8, 0, -2); L(0, 2, 0, 7); P(-1, -1, 2, 2); break;
+                case UfoUpgradeEffect.Shield:
+                    L(-7, -3, -4, -7); L(-4, -7, 4, -7); L(4, -7, 7, -3);
+                    L(7, -3, 7, 3); L(7, 3, 4, 7); L(4, 7, -4, 7);
+                    L(-4, 7, -7, 3); L(-7, 3, -7, -3); P(-2, -1, 4, 2); break;
                 case UfoUpgradeEffect.Engine:
                 case UfoUpgradeEffect.Warp:
                     for (int i = 0; i < 3; i++) { L(-6 + i * 4, -5, -2 + i * 4, -1); L(-2 + i * 4, -1, -6 + i * 4, 3); }

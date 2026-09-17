@@ -37,6 +37,9 @@ namespace MonogameTest
         double longHaulBonus, exponentialRate, interestBonus;
         UfoProgression progression;
         int roundSoldiers, hullLevel, beamCapacity, repairLevel, widthLevel, soldierValueLevel;
+        int shieldLevel;
+        float shieldRegenTimer;
+        bool shieldActive;
         int roundAbductions;
         int missileDifficultySpeed;
         double difficultyTickRemainder;
@@ -62,12 +65,14 @@ namespace MonogameTest
         Vector2 ShipPosition => new Vector2(shipX, shipY);
         Vector2 PreviousShipPosition => new Vector2(previousShipX, previousShipY);
         Vector2 ShipCollisionHalfSize => new Vector2(19, 10);
+        Vector2 ShieldCollisionHalfSize => new Vector2(28, 18);
         Vector2 TractorOrigin => new Vector2(shipX, shipY + 8);
         float ShotInterval => .8f / ((1 + fireBonus + plasmaBonus) * globalBonus);
         float ShipBulletSpeed => BulletSpeed * (1 + plasmaBonus);
         float FlightSpeed => ShipSpeed * (1 + engineBonus) * globalBonus;
         float TractorLiftSpeed => LiftSpeed * (1 + tractorBonus) * globalBonus;
         float TractorPullSpeed => TractorCenterSpeed * (1 + tractorBonus) * globalBonus;
+        float ShieldRegenDelay => Math.Max(.5f, 2f - Math.Max(0, shieldLevel - 1) * .25f);
         bool CriticalHullFlash => shipHealth <= 25 && ((int)(roundSeconds * 8) & 1) == 0;
 
         Color MultiplierBandColor(int band)
@@ -218,11 +223,14 @@ namespace MonogameTest
             globalBonus = 1 + progression.Bonus(UfoUpgradeEffect.Mothership);
             nanoHull = progression.Total(UfoUpgradeEffect.Nanohull);
             pointDefenseLevel = progression.Total(UfoUpgradeEffect.PointDefense);
+            shieldLevel = progression.Total(UfoUpgradeEffect.Shield);
             shotCount = progression.Total(UfoUpgradeEffect.TripleShot) > 0 ? 3 : progression.Total(UfoUpgradeEffect.TwinShot) > 0 ? 2 : 1;
             autoRepairRate = progression.Bonus(UfoUpgradeEffect.AutoRepair);
             timeWithoutDamage = autoRepairFraction = 0;
             shipVelocity = Vector2.Zero;
             shipHealth = MaxShipHealth;
+            shieldRegenTimer = 0;
+            shieldActive = shieldLevel > 0;
             roundSoldiers = 0; roundSeconds = 0;
             roundAbductions = 0; difficultyTickRemainder = 0;
             bigspeed = StartingUfoSpeed; smallspeed = 0x10;
@@ -411,7 +419,17 @@ namespace MonogameTest
 
         void DamageShip(Vector2? impactDirection = null)
         {
-            if (gameover || hurtTime > 0) return;
+            if (gameover) return;
+            if (shieldActive)
+            {
+                shieldActive = false;
+                shieldRegenTimer = ShieldRegenDelay;
+                TriggerRocketImpact(impactDirection ?? -Vector2.UnitY);
+                spawnExplosion(shipX, shipY + 6, false);
+                SetUfoMessage("SHIELD BREAK - REGENERATING");
+                return;
+            }
+            if (hurtTime > 0) return;
             shipHealth = Math.Max(0, shipHealth - 25);
             TriggerRocketImpact(impactDirection ?? -Vector2.UnitY);
             timeWithoutDamage = autoRepairFraction = 0;
@@ -533,8 +551,9 @@ namespace MonogameTest
                 UfoMissile missile = missiles[i];
                 Vector2 start = missile.Position;
                 Vector2 end = start + missile.Velocity * dt;
+                Vector2 collisionSize = shieldActive ? ShieldCollisionHalfSize : ShipCollisionHalfSize;
                 float contact = SweptContactTime(start - PreviousShipPosition,
-                    end - ShipPosition, ShipCollisionHalfSize);
+                    end - ShipPosition, collisionSize);
                 missile.Position = end;
                 if (!float.IsPositiveInfinity(contact))
                 {
@@ -545,6 +564,13 @@ namespace MonogameTest
                 else if (end.Y < -12 || end.Y > NATIVE_HEIGHT + 12 || end.X < -12 || end.X > NATIVE_WIDTH + 12)
                     missiles.RemoveAt(i);
             }
+        }
+
+        void UpdateShield(float dt)
+        {
+            if (shieldLevel <= 0 || shieldActive) return;
+            shieldRegenTimer = Math.Max(0, shieldRegenTimer - dt);
+            if (shieldRegenTimer <= 0) shieldActive = true;
         }
 
         void UpdateShipBullets(float dt)
@@ -686,6 +712,7 @@ namespace MonogameTest
                 UpdateBeanSpawns();
                 UpdateGroundPeople(dt);
                 UpdateAltitudeDefense(dt);
+                UpdateShield(dt);
                 foreach (UfoMissile missile in missiles)
                     if (missile.BeanSpeed > 0)
                         missile.Velocity = missile.Heading * BeanMissileSpeed(missile.BeanSpeed);
@@ -814,6 +841,26 @@ namespace MonogameTest
                 new Vector2(5f / source.Width, 12f / source.Height), SpriteEffects.None, 0);
         }
 
+        void DrawUfoShield()
+        {
+            if (!shieldActive || shieldLevel <= 0) return;
+            float pulse = 1 + .04f * (float)Math.Sin(roundSeconds * 5);
+            Vector2 center = ShipPosition;
+            float radiusX = 28 * pulse, radiusY = 18 * pulse;
+            Color glow = new Color(42, 143, 255) * .25f;
+            Color edge = new Color(92, 215, 255) * .9f;
+            const int segments = 24;
+            Vector2 previous = center + new Vector2(radiusX, 0);
+            for (int i = 1; i <= segments; i++)
+            {
+                float angle = MathHelper.TwoPi * i / segments;
+                Vector2 next = center + new Vector2((float)Math.Cos(angle) * radiusX, (float)Math.Sin(angle) * radiusY);
+                drawBeamStroke(previous, next, 3, glow);
+                drawBeamStroke(previous, next, 1, edge);
+                previous = next;
+            }
+        }
+
         void DrawTractor()
         {
             if (!tractorActive || gameover) return;
@@ -857,6 +904,7 @@ namespace MonogameTest
             }
             if (!gameover)
             {
+                DrawUfoShield();
                 Rectangle source = ufoSprites[0];
                 Color shipColor = CriticalHullFlash ? new Color(255, 74, 74)
                     : hurtTime > 0 && (int)(hurtTime * 12) % 2 == 0

@@ -4,9 +4,9 @@ auto fire?
 auto fire auto targeting
 upgrade defence from rockets (percentage)
 
-shiled with regen
 
 
+remove seige mode, allow music selection on continue
 
 
 
@@ -14,6 +14,8 @@ shiled with regen
 ---
 done
 ---
+shield with regen
+
 make dudes flail
 
 

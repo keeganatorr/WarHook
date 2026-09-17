@@ -951,10 +951,8 @@ namespace MonogameTest
                 DrawStringBitmap(spriteBatch, "SHIP DISABLED", new Vector2(92, 90), Color.White);
                 if (retryMusicVisible)
                 {
-                    DrawModeItem("ABDUCT", selectedGame == 0, retryRow == 0 && selectedGame == 0, 40, 106);
-                    DrawModeItem("SIEGE", selectedGame == 1, retryRow == 0 && selectedGame == 1, 166, 106);
-                    font6.Draw(spriteBatch, "MUSIC " + retryMusic + "   UP/DOWN PICK ROW", new Vector2(48, 122), retryRow == 1 ? Color.Yellow : Color.White);
-                    font6.Draw(spriteBatch, "LEFT/RIGHT CHANGE   ENTER LAUNCH", new Vector2(48, 136), Color.White);
+                    font6.Draw(spriteBatch, "MUSIC " + retryMusic, new Vector2(106, 108), Color.Yellow);
+                    font6.Draw(spriteBatch, "LEFT/RIGHT CHANGE   ENTER LAUNCH", new Vector2(48, 124), Color.White);
                 }
             }
 

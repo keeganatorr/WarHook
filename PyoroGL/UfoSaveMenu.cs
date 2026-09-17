@@ -56,15 +56,14 @@ namespace MonogameTest
             }
             progression = slot;
             activeSaveSlot = saveSelection;
-            selectedGame = previousGame = slot.GameMode;
             selectedMusic = previousMusic = gameplayMusic = retryMusic = slot.Music;
+            musicSelectionForContinue = !create;
             roundId = null; roundActive = roundBanked = false;
             roundSoldiers = 0; roundSeconds = 0;
             paused = gameover = pyorodead = false;
             mapSelection = UfoProgression.Index("core"); mapCamera = Vector2.Zero; mapZoom = 1;
             saveMenuError = ""; confirmReplace = false;
-            if (create) { modeSelection = 0; screen = MenuScreen.ModeSelect; }
-            else OpenUpgradeMap();
+            screen = MenuScreen.ModeSelect;
         }
 
         static Rectangle SaveSlotRect(int slot) => new Rectangle(18, 42 + slot * 43, 252, 38);

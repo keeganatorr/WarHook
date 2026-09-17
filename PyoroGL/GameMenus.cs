@@ -16,15 +16,12 @@ namespace MonogameTest
         double transitionTime;
         const double BLINK_INTERVAL = 0.15;
         const double FADE_SECONDS = 0.45;
-        int mainSelection, pauseSelection, optionsSelection, modeSelection;
-        // Mode-select choices: 0 = Abduct, 1 = Siege; music 1..5. Defaults
-        // start with Abduct and Music 1. modeSelection is the
-        // row cursor (0 = games, 1 = music).
-        int selectedGame, selectedMusic = 1, previousGame, previousMusic = 1;
+        int mainSelection, pauseSelection, optionsSelection;
+        // The UFO variant has one game mode; this row now chooses launch music.
+        int selectedMusic = 1, previousMusic = 1;
+        bool musicSelectionForContinue;
         // Music track picked on the game-over screen (Enter/X restarts).
         int retryMusic = 1;
-        // Cursor row on the game-over picker: 0 = game, 1 = music.
-        int retryRow;
         // False until the player presses R at game over; then the picker shows.
         bool retryMusicVisible;
         // Chosen music track for gameplay (1..5), applied on game start.
@@ -42,8 +39,8 @@ namespace MonogameTest
         GamePadState previousMenuPad;
         Texture2D mainMenuBackground, mainMenuTitle;
         static readonly string[] mainItems = GameAssets.IsWeb
-            ? new[] { "NEW GAME", "CONTINUE", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE" }
-            : new[] { "NEW GAME", "CONTINUE", "OPTIONS", "SCORES: ABDUCT", "SCORES: SIEGE", "EXIT" };
+            ? new[] { "NEW GAME", "CONTINUE", "OPTIONS", "SCORES: ABDUCT" }
+            : new[] { "NEW GAME", "CONTINUE", "OPTIONS", "SCORES: ABDUCT", "EXIT" };
         static readonly string[] pauseItems = GameAssets.IsWeb
             ? new[] { "RESUME", "END ROUND", "OPTIONS", "MAIN MENU" }
             : new[] { "RESUME", "END ROUND", "OPTIONS", "MAIN MENU", "EXIT" };
@@ -145,42 +142,41 @@ namespace MonogameTest
                     if (mainSelection == 0) OpenSaveSlots(true);
                     else if (mainSelection == 1) OpenSaveSlots(false);
                     else if (mainSelection == 2) openOptions(MenuScreen.Main);
-                    else if (mainSelection == 3 || mainSelection == 4) openScores(mainSelection == 4, false);
+                    else if (mainSelection == 3) openScores(false, false);
                     else Exit();
                 }
             }
             else if (screen == MenuScreen.ModeSelect)
             {
-                // modeSelection is just the cursor (row: 0 = games, 1 = music).
-                // Chosen game and music persist independently of the cursor.
-                int previous = modeSelection;
-                if (pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp)) modeSelection = 0;
-                if (pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown)) modeSelection = 1;
-                if (modeSelection == 0) // games row: pick A or B
-                {
-                    if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedGame = 0;
-                    if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedGame = 1;
-                }
-                else // music row: pick 1..5
-                {
-                    if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedMusic--;
-                    if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedMusic++;
-                    selectedMusic = Math.Clamp(selectedMusic, 1, 5);
-                }
-                if (modeSelection != previous ||
-                    selectedGame != previousGame || selectedMusic != previousMusic)
+                if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedMusic--;
+                if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedMusic++;
+                selectedMusic = Math.Clamp(selectedMusic, 1, 5);
+                if (selectedMusic != previousMusic)
                     beamAudio?.PlayMenuBlip();
-                previousGame = selectedGame;
                 previousMusic = selectedMusic;
                 gameplayMusic = selectedMusic;
-                if (cancel) screen = MenuScreen.Main;
+                if (cancel)
+                {
+                    if (musicSelectionForContinue)
+                    {
+                        musicSelectionForContinue = false;
+                        screen = MenuScreen.SaveSlots;
+                        savePreviousMouse = Mouse.GetState();
+                    }
+                    else screen = MenuScreen.Main;
+                }
                 else if (accept)
                 {
-                    if (!progression.SavePreferences(selectedGame, selectedMusic))
+                    if (!progression.SavePreferences(0, selectedMusic))
                     { saveMenuError = progression.Error; return true; }
                     saveMenuError = "";
                     gameoverMusicPlaying = false;
-                    beginTransition(MenuScreen.Playing, true);
+                    if (musicSelectionForContinue)
+                    {
+                        musicSelectionForContinue = false;
+                        OpenUpgradeMap();
+                    }
+                    else beginTransition(MenuScreen.Playing, true);
                 }
             }
             else if (screen == MenuScreen.Pause)
@@ -239,7 +235,7 @@ namespace MonogameTest
         }
 
         // Game-over overlay input: stage 1 waits for R, stage 2 lets you pick
-        // Game A/B (row 0) and music 1-5 (row 1) with Up/Down, then Enter/X.
+        // music 1-5, then Enter/X.
         void UpdateGameoverOverlay(Func<Keys, bool> pressed, bool accept, Func<Buttons, bool> padPressed)
         {
             if (!retryMusicVisible)
@@ -248,27 +244,16 @@ namespace MonogameTest
                 {
                     retryMusicVisible = true;
                     retryMusic = gameplayMusic; // start from the current track
-                    retryRow = 0;               // cursor starts on the game row
                     beamAudio?.PlayMenuBlip();
                 }
                 return;
             }
-            int prevRow = retryRow, prevMusic = retryMusic, prevGame = selectedGame;
-            if (pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp)) retryRow = 0;
-            if (pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown)) retryRow = 1;
-            if (retryRow == 0)
-            {
-                if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) selectedGame = 0;
-                if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) selectedGame = 1;
-            }
-            else
-            {
-                if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) retryMusic--;
-                if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) retryMusic++;
-                retryMusic = Math.Clamp(retryMusic, 1, 5);
-                gameplayMusic = retryMusic;
-            }
-            if (retryRow != prevRow || retryMusic != prevMusic || selectedGame != prevGame)
+            int prevMusic = retryMusic;
+            if (pressed(Keys.Left) || padPressed(Buttons.DPadLeft)) retryMusic--;
+            if (pressed(Keys.Right) || padPressed(Buttons.DPadRight)) retryMusic++;
+            retryMusic = Math.Clamp(retryMusic, 1, 5);
+            gameplayMusic = retryMusic;
+            if (retryMusic != prevMusic)
                 beamAudio?.PlayMenuBlip();
             if (accept || pressed(Keys.X) || padPressed(Buttons.A))
             {
@@ -400,20 +385,14 @@ namespace MonogameTest
             else if (screen == MenuScreen.ModeSelect)
             {
                 spriteBatch.Draw(beamPixel, new Rectangle(12, 90, 244, 86), Color.Black * 0.78f);
-                DrawStringBitmap(spriteBatch, "SELECT MODE", new Vector2(20, 96), new Color(255, 221, 134));
-                // Top row: Game A / Game B side by side. Brackets always mark
-                // the chosen game; amber marks the chosen item of the row the
-                // cursor is on, so both selections show brackets at once.
-                bool onGames = modeSelection == 0;
-                DrawModeItem("ABDUCT", selectedGame == 0, onGames && selectedGame == 0, 28, 112);
-                DrawModeItem("SIEGE", selectedGame == 1, onGames && selectedGame == 1, 152, 112);
-                DrawStringBitmap(spriteBatch, "MUSIC", new Vector2(20, 134), new Color(240, 218, 160));
-                // Bottom row: Music 1..5. Brackets mark the chosen music.
-                bool onMusic = modeSelection == 1;
+                DrawStringBitmap(spriteBatch, "SELECT MUSIC", new Vector2(20, 96), new Color(255, 221, 134));
+                font6.Draw(spriteBatch, musicSelectionForContinue ? "CHOOSE MUSIC FOR THIS SAVE" : "CHOOSE A SOUNDTRACK",
+                    new Vector2(20, 106), Color.White);
+                DrawStringBitmap(spriteBatch, "MUSIC", new Vector2(20, 128), new Color(240, 218, 160));
                 for (int i = 0; i < 5; i++)
-                    DrawModeItem($"{i + 1}", i + 1 == selectedMusic, onMusic && i + 1 == selectedMusic, 76 + i * 28, 134);
-                font6.Draw(spriteBatch, string.IsNullOrEmpty(saveMenuError) ? "ABDUCTIONS INCREASE DIFFICULTY" : saveMenuError,
-                    new Vector2(20, 156), new Color(120, 231, 224));
+                    DrawModeItem($"{i + 1}", i + 1 == selectedMusic, i + 1 == selectedMusic, 76 + i * 28, 128);
+                font6.Draw(spriteBatch, string.IsNullOrEmpty(saveMenuError) ? "LEFT/RIGHT TO CHANGE TRACK" : saveMenuError,
+                    new Vector2(20, 151), new Color(120, 231, 224));
             }
             else
             {
@@ -423,7 +402,7 @@ namespace MonogameTest
                         i != 0 || startBracketsVisible());
             }
             string hint = screen == MenuScreen.ModeSelect
-                ? "ARROWS  SPACE FIRE  SHIFT BEAM"
+                ? "LEFT/RIGHT MUSIC  ENTER SELECT"
                 : "UP/DOWN  ENTER/X SELECT";
             spriteBatch.Draw(beamPixel, new Rectangle(10, NATIVE_HEIGHT - 18, hint.Length * FONT_CELL + 8, FONT_CELL + 8),
                 Color.Black * 0.7f);
@@ -495,7 +474,7 @@ namespace MonogameTest
         {
             retryMusicVisible = false;
             enteringInitials = false;
-            gameB = selectedGame == 1;
+            gameB = false;
             highScore = highScores.Get(gameB);
             muzzleFlashFrames = 0;
             previousShotDown = Keyboard.GetState().IsKeyDown(Keys.X);

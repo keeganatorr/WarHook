@@ -91,8 +91,8 @@ from reading the code or `git log`.
   `Assets/ufo-abducted-soldier.png` and `Assets/ufo-abducted-engineer.png`
   sheets, alpha-trimmed per frame and animated independently from the walking atlas.
 - UFO gameplay has no score or high-score submission; its persistent currency
-  is the round-end crew reward. Abduct/Siege retain the original score model
-  and save slots.
+  is the round-end crew reward. Siege mode is removed from the visible UFO
+  menus; older mode values in saves migrate to the remaining UFO mode.
 - UFO playfield is 288×216; the ship is 44×20 and its centre moves within
   Y=34..159 (GroundY - 38 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
   feed missile collision sweeps; firing and tractor origins follow altitude. X/Space (pad A) fires downward; Z/Shift (pad Y)

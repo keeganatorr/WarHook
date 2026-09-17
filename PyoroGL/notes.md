@@ -5,8 +5,10 @@ auto fire auto targeting
 upgrade defence from rockets (percentage)
 
 
+orbiting defense drone blocking closest missle to drone (moves slowly can upgrade)
 
-remove seige mode, allow music selection on continue
+remove iframes
+
 
 
 
@@ -14,6 +16,9 @@ remove seige mode, allow music selection on continue
 ---
 done
 ---
+remove seige mode, allow music selection on continue
+
+
 shield with regen
 
 make dudes flail

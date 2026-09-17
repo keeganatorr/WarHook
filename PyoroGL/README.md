@@ -6,8 +6,8 @@ The namespace `MonogameTest` and executable name `WarHook` are retained.
 ## Saves
 
 Choose **New Game** to start fresh in one of three save slots, or **Continue**
-to select an existing save and open its upgrade map. Each slot keeps its own
-currency, upgrades, mode, and launch music. Continue resumes progression
+to select an existing save and choose its launch music before opening the
+upgrade map. Each slot keeps its own currency, upgrades, and launch music. Continue resumes progression
 between rounds; an unfinished flight is not restored. End the round from
 pause to bank its rewards before leaving.
 
@@ -82,7 +82,7 @@ are already saved during the animation.
 The tally overlays the gameplay scene while the destroyed UFO crash-lands
 with smoke and fire.
 
-The end-of-round **Tech Web** has 33 nodes, including the owned UFO Core.
+The end-of-round **Tech Web** has 34 nodes, including the owned UFO Core.
 Routes fork and reconnect through multiple prerequisites. Weapon nodes are
 coral, beam nodes cyan, flight nodes blue, hull nodes green, and yield nodes
 gold. Mothership Link is a purple hybrid requiring any three completed branch
@@ -95,7 +95,9 @@ capstones. Already purchased upgrades remain usable when loading older saves.
   stronger horizontal pull within 64px of the UFO, and a wider occupied cone.
 - Ship: Thrusters/Ion Engines (+15% movement), hull plating, engineer tools,
   Warp Core (+25% acceleration/vertical speed), Nanohull (+50 hull), and
-  Auto Repair (2 hull/second after five seconds without a hit).
+  Auto Repair (2 hull/second after five seconds without a hit). Shield Array
+  absorbs one rocket and regenerates after two seconds, with faster recharge
+  at higher ranks.
 - Yield: +20% multiplier growth per Survival/Compound rank; Launch/Colony
   starting bonuses; Long Haul boosts growth after two minutes; Interest adds
   +1% rewards per 100 unspent CREW per rank (capped at +10% per rank), fixed
@@ -121,8 +123,8 @@ browser localStorage; desktop slots use `Warhook/ufo-save-1.json` through
 `ufo-save-3.json` in your user data folder.
 Friendly bullets do not occupy enemy spawn slots.
 
-Both **Abduct** and **Siege** use the original bean spawn arithmetic, random
-positions, and 16-slot limit, with separate spawn and missile difficulty: missiles start at 1.5× original
+UFO rounds use the original bean spawn arithmetic, random positions, and
+16-slot limit, with separate spawn and missile difficulty: missiles start at 1.5× original
 speed while spawn difficulty starts at 6×. Spawn events start every 0.25–0.33 seconds,
 subject to the 16-slot pool limit.
 The original white/special bean events produce engineers once unlocked,
@@ -157,8 +159,7 @@ remain consistent on AZERTY, QWERTZ, Dvorak and non-Latin layouts. **Space**
 (fire), **Shift** (tractor) and the arrow keys are layout-independent alternatives.
 Score initials still follow the letters typed with your keyboard layout.
 
-Local scores are separate for Abduct and Siege and save automatically with
-your current initials when the round ends. Continue from the results tally to the upgrade map.
+The UFO variant has no score table; continue from the results tally to the upgrade map.
 Desktop saves use `Warhook/ufo-highscores.json` under the OS local application
 data directory. Web saves use `warhook.ufo.highscores` in localStorage.
 The original WarHook saves are preserved. This variant does not connect to

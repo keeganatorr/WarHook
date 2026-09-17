@@ -19,7 +19,7 @@ namespace MonogameTest
 
         void openScores(bool modeB, bool afterGame)
         {
-            scoresGameB = modeB;
+            scoresGameB = false;
             scoresAfterGame = afterGame;
             if (afterGame) completedScore = score;
             scoreScrollTime = afterGame ? 0 : 2;
@@ -40,8 +40,6 @@ namespace MonogameTest
             bool back = pressed(Keys.Escape) || padPressed(Buttons.B) || padPressed(Buttons.Back);
             if (!scoresAfterGame)
             {
-                if (pressed(Keys.Left) || pressed(Keys.Right) || padPressed(Buttons.DPadLeft) || padPressed(Buttons.DPadRight))
-                    scoresGameB = !scoresGameB;
                 if (back || pressed(Keys.Enter) || padPressed(Buttons.A)) screen = MenuScreen.Main;
                 return;
             }
@@ -83,7 +81,6 @@ namespace MonogameTest
                 screen = MenuScreen.Playing;
                 retryMusicVisible = true;
                 retryMusic = gameplayMusic;
-                retryRow = 0;
             }
             else if (back)
             {
@@ -100,7 +97,7 @@ namespace MonogameTest
                 DrawUfoLandscape();
             DrawStringBitmap(spriteBatch, scoresAfterGame ? "GAME OVER" : "HIGH SCORES",
                 new Vector2(scoresAfterGame ? 108 : 100, 8), new Color(255, 225, 145));
-            string mode = scoresGameB ? "SIEGE" : "ABDUCT";
+            const string mode = "ABDUCT";
             font6.Draw(spriteBatch, mode, new Vector2((NATIVE_WIDTH - mode.Length * Font6.Cell) / 2, 22), Color.White);
 
             // The ranked list rises from below the screen and settles below its heading.

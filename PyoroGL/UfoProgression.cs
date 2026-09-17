@@ -89,7 +89,8 @@ namespace MonogameTest
                 Exists = true;
                 using var json = JsonDocument.Parse(saved);
                 var root = json.RootElement;
-                if (root.TryGetProperty("mode", out var mode) && mode.TryGetInt32(out int gameMode)) GameMode = Math.Clamp(gameMode, 0, 1);
+                // Siege mode was removed; older saves are treated as the UFO mode.
+                GameMode = 0;
                 if (root.TryGetProperty("music", out var track) && track.TryGetInt32(out int music)) Music = Math.Clamp(music, 1, 5);
                 if (root.TryGetProperty("balance", out var balance) && balance.TryGetDouble(out double amount) && double.IsFinite(amount))
                     Balance = Math.Clamp(Math.Round(amount, 2), 0, 1_000_000_000);
@@ -111,9 +112,9 @@ namespace MonogameTest
         }
 
         public bool StartNew() => Commit(0, new Dictionary<string, int>(), "", 0, 1);
-        public bool SavePreferences(int mode, int music) => Commit(Balance, ranks, lastRound, mode, music);
+        public bool SavePreferences(int mode, int music) => Commit(Balance, ranks, lastRound, 0, music);
         public bool Import(UfoProgression source) => Commit(source.Balance,
-            new Dictionary<string, int>(source.ranks), source.lastRound, source.GameMode, source.Music);
+            new Dictionary<string, int>(source.ranks), source.lastRound, 0, source.Music);
 
         public static int Index(string id) => Array.FindIndex(Nodes, n => n.Id == id);
         public int Rank(string id) => Rank(Index(id));
@@ -164,7 +165,7 @@ namespace MonogameTest
         }
         bool Commit(double balance, Dictionary<string, int> levels, string roundId, int? mode = null, int? music = null)
         {
-            int nextMode = Math.Clamp(mode ?? GameMode, 0, 1), nextMusic = Math.Clamp(music ?? Music, 1, 5);
+            int nextMode = 0, nextMusic = Math.Clamp(music ?? Music, 1, 5);
             balance = Math.Round(balance, 2, MidpointRounding.AwayFromZero);
             try
             {

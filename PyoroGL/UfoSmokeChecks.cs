@@ -495,7 +495,7 @@ namespace MonogameTest
                     Require(slot.SavePreferences(1, 4), "Save preferences failed");
                     var resumed = new UfoProgression(false, slotPath);
                     Require(resumed.Exists && resumed.Balance == 13.25 && resumed.Rank(1) == 1
-                        && resumed.GameMode == 1 && resumed.Music == 4, "Save slot did not preserve progress/settings");
+                        && resumed.GameMode == 0 && resumed.Music == 4, "Save slot did not preserve progress/settings");
                     Require(resumed.StartNew() && resumed.Balance == 0 && resumed.Rank(1) == 0
                         && resumed.GameMode == 0 && resumed.Music == 1, "New game retained previous progression");
                     var original = new UfoProgression(false, path);

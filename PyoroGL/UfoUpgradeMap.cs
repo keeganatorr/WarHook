@@ -340,7 +340,7 @@ namespace MonogameTest
             // research surface, then let the C64-style starfield drift over it.
             // A dark base keeps the plasma subdued enough for the web to read.
             spriteBatch.Draw(beamPixel, UpgradeMapView, UpgradeBase);
-            spriteBatch.Draw(borderCamo, UpgradeMapView, Color.White * .72f);
+            spriteBatch.Draw(borderCamo, UpgradeMapView, Color.White * .34f);
             DrawUpgradeStarfield();
             for (int y = 2; y < UpgradeMapView.Height; y += 2)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, y, UpgradeMapView.Width, 1), UpgradeStructureDim * .35f);

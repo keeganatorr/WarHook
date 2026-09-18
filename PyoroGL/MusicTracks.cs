@@ -59,10 +59,10 @@ namespace MonogameTest
 
         public MusicTracks(string assetsDir)
         {
-            // Attempt web autoplay as soon as the track is ready. Browsers
-            // may reject audible autoplay; UnlockRetry below then retries the
-            // same track after the first permitted page interaction.
-            audioUnlocked = true;
+            // Browsers require a user gesture before starting audible media.
+            // Keep web music queued until Index.razor reports that gesture;
+            // desktop builds can start immediately.
+            audioUnlocked = !GameAssets.IsWeb;
             // Songs are decoded lazily by MediaPlayer; construct off-thread.
             pending = Task.Run(() =>
             {

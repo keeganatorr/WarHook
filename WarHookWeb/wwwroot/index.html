@@ -50,8 +50,33 @@
             window.warhookUnlockAudio = function () {
                 for (var i = 0; i < contexts.length; i++) {
                     try {
-                        if (contexts[i].state === 'suspended') contexts[i].resume();
+                        if (contexts[i].state === 'suspended') {
+                            var resume = contexts[i].resume();
+                            // resume() is promise based; a browser can still
+                            // reject it if the gesture is not accepted.
+                            if (resume && resume.catch) resume.catch(function () { });
+                        }
                     } catch (e) { }
+                }
+            };
+        })();
+
+        // nkast.Wasm.Dom's media bridge calls HTMLMediaElement.play() without
+        // observing its promise. Autoplay policy therefore reports a rejected
+        // promise as an uncaught browser error. Attach a rejection handler at
+        // the platform boundary while preserving the native return value.
+        (function () {
+            if (!window.HTMLMediaElement || !HTMLMediaElement.prototype.play) return;
+            var nativePlay = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function () {
+                try {
+                    var result = nativePlay.call(this);
+                    if (result && result.catch) result.catch(function () { });
+                    return result;
+                } catch (e) {
+                    // Keep the bridge non-throwing for browsers that reject
+                    // synchronously; the next user gesture will retry music.
+                    return Promise.resolve();
                 }
             };
         })();
@@ -181,7 +206,9 @@
             // Browsers start with audio suspended until a user gesture. On the
             // first click/keypress, resume the WebAudio context and let the
             // game retry its active music track if autoplay was blocked.
+            var audioGestureSeen = false;
             var unlock = function () {
+                audioGestureSeen = true;
                 if (window.warhookUnlockAudio) window.warhookUnlockAudio();
                 if (window.theInstance)
                     window.theInstance.invokeMethod('UnlockAudioDotNet');
@@ -192,9 +219,14 @@
             // gesture can happen before the music file has finished loading.
             document.addEventListener('pointerdown', unlock, true);
             document.addEventListener('keydown', unlock, true);
-            window.addEventListener('focus', unlock);
+            // A tab may suspend media after it has been backgrounded. Retry
+            // only after an actual gesture has already unlocked the page;
+            // focus/visibility alone must never start autoplay.
+            window.addEventListener('focus', function () {
+                if (audioGestureSeen) unlock();
+            });
             document.addEventListener('visibilitychange', function () {
-                if (document.visibilityState === 'visible') unlock();
+                if (audioGestureSeen && document.visibilityState === 'visible') unlock();
             });
         };
 

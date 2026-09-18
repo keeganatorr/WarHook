@@ -40,6 +40,10 @@
     <!-- Run inside Content/ so /outputDir:. resolves next to the .mgcb, not in
          the project root (mgcb resolves relative paths from the CWD). -->
     <Exec Command="$(MGCBExe) Content.mgcb" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
+    <!-- DesktopGL effects carry OpenGL shader bytecode. Build the CRT pass
+         separately so the checked-in SpriteFont XNBs keep their established
+         platform format. -->
+    <Exec Command="$(MGCBExe) /platform:DesktopGL /outputDir:. /intermediateDir:obj/Crt /importer:EffectImporter /processor:EffectProcessor /build:crt.fx" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
   </Target>
 
   <!-- Single-file publish settings for win-x64 / linux-x64 -->

@@ -17,6 +17,7 @@ namespace MonogameTest
         SpriteBatch spriteBatch;
         RenderTarget2D _nativeRenderTarget;
         RenderTarget2D _upgradeRenderTarget;
+        Effect crtEffect;
         RasterizerState playfieldRasterizer;
 
         const int NATIVE_WIDTH = 288;
@@ -33,6 +34,10 @@ namespace MonogameTest
         public Game1()
         {
             graphics = new GraphicsDeviceManager(this);
+            // CRT post-processing uses the HiDef shader profile on the
+            // upgrade render target. Keep the device profile aligned with the
+            // compiled effect on DesktopGL and KNI.
+            graphics.GraphicsProfile = GraphicsProfile.HiDef;
             graphics.SynchronizeWithVerticalRetrace = true;
             Content.RootDirectory = "Content";
             Window.AllowUserResizing = true;
@@ -825,6 +830,7 @@ namespace MonogameTest
             playfieldRasterizer = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
+            crtEffect = Content.Load<Effect>("crt");
             fontAtlas = loadPng("font8x8_atlas");
             font6 = new Font6(GraphicsDevice);
             loadPlayerTank();
@@ -1150,6 +1156,7 @@ namespace MonogameTest
             playfieldRasterizer.Dispose();
             _nativeRenderTarget.Dispose();
             _upgradeRenderTarget?.Dispose();
+            crtEffect?.Dispose();
             spriteBatch.Dispose();
         }
 
@@ -1210,8 +1217,20 @@ namespace MonogameTest
             // Dynamic animated border fills the whole window behind the game.
             drawDynamicBorder();
 
-            // DRAW _nativeRenderTarget TO SCREEN at the integer scale
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            // Draw the research target through the CRT pass only. Gameplay and
+            // the other menus retain their clean pixel presentation.
+            Effect presentationEffect = null;
+            if (highResolutionUpgradeMap && crtEffect != null)
+            {
+                // SpriteBatch also binds this parameter by convention, but set
+                // it explicitly so the pass remains correct across DesktopGL
+                // and KNI's SpriteBatch implementations.
+                crtEffect.Parameters["SpriteTexture"]?.SetValue(frameTarget);
+                crtEffect.Parameters["TextureSize"]?.SetValue(new Vector2(frameTarget.Width, frameTarget.Height));
+                crtEffect.Parameters["Time"]?.SetValue((float)gameTime.TotalGameTime.TotalSeconds);
+                presentationEffect = crtEffect;
+            }
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, effect: presentationEffect);
             
             spriteBatch.Draw(frameTarget, rect, Color.White);
             float fade = transitionOpacity();

@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "WarHookWeb",
   "resources": {
-    "hash": "sha256-gx3+xfMV4DbXxQ/jJ7/cudx1lEaD7/owM6rDPZyxTqM=",
+    "hash": "sha256-c0PkV02tM4jl7CEETJPVvTFVN9XyEfg2bUWWltWWTao=",
     "jsModuleNative": {
       "dotnet.native.8.0.30.gdxuvdaivk.js": "sha256-dexsp+9ih2C28zVhNnPXUbkz2QCq7lHpkyDcmaLl7NQ="
     },
@@ -56,12 +56,12 @@
       "System.Text.RegularExpressions.wasm": "sha256-8nU4zdtEAJQrvf7oTy2sutuHlvsiiKpBdnWFUJhmnn4=",
       "System.Threading.Thread.wasm": "sha256-H+ua0SokKrJNBfNs0yTXhoCr+JwHMw39/s60XFsV0x4=",
       "System.Threading.wasm": "sha256-GzvCqMJVYRVrC58R4PTRT9900JWsdtwsn8i0zDV1rmA=",
-      "WarHookWeb.wasm": "sha256-qQTeMc9GtxPidqCnp/AqLpf3Po21dQq+WHUZSczridM=",
+      "WarHookWeb.wasm": "sha256-L+H5fqZ1eE+ZOH3l7MR9OuFL/ilFle5Rd0uFAvLGLd0=",
       "Xna.Framework.Audio.wasm": "sha256-CpqTt9d/+1eI66ljOpbam1g565at6MqYq+iQ7/RSRD8=",
       "Xna.Framework.Content.wasm": "sha256-iu7A5uy0xK0ctZQAGFIgGtVDUEf+rIwBlA9mzXlA5xQ=",
       "Xna.Framework.Devices.wasm": "sha256-4j6N+7wdnhpp/6gJ6UmEwNz+cCWQuz1PET35vsrZvRw=",
       "Xna.Framework.Game.wasm": "sha256-9BoH/BE1bctjSpSOCC2xaFMDrDmbdp2RV9He7+w2GAA=",
-      "Xna.Framework.Graphics.wasm": "sha256-lDNR/T+uk6LpUFfIXU/Fe5tgtPqgrbn+8OeBXDpV6HE=",
+      "Xna.Framework.Graphics.wasm": "sha256-WSP/qVDSN+czP6ccfKSyexDrNVBz0xr4IB+XKlvHATk=",
       "Xna.Framework.Input.wasm": "sha256-cMFWG5U08e90j7TJSuPB3sAyzwRnGLZzWxWU8+xr9Y0=",
       "Xna.Framework.Media.wasm": "sha256-ni27aYivAQsnGl9xdW+5VJlINqGRJdXwimNKuis/RaQ=",
       "Xna.Framework.Storage.wasm": "sha256-OPDrOG2f85JsjBSsaP+7AJC/YywnJu9ojrs4ZzvD+XM=",

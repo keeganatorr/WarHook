@@ -721,7 +721,7 @@ namespace MonogameTest
             highScore = highScores.Get(gameB);
             // TODO: Add your initialization logic here
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
-            _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH * 2, NATIVE_HEIGHT * 2);
+            _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH * UpgradeRenderScale, NATIVE_HEIGHT * UpgradeRenderScale);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
             if (GameAssets.IsWeb)

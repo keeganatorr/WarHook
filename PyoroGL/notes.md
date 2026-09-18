@@ -9,9 +9,11 @@ orbiting defense drone blocking closest missle to drone (moves slowly can upgrad
 
 remove iframes
 
+bombs???
 
+increase abduct amount endlessly
 
-
+make the node map only show locked one next to unlocked ones, if locked is not next to any unlocked it should be completely hidden (maybe just a dotted line not sure yet)
 
 ---
 done

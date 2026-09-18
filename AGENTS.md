@@ -186,8 +186,10 @@ from reading the code or `git log`.
 - UfoUpgradeMap uses world coordinates, spatial keyboard selection, free drag,
   discrete .5/1/2 zoom and a clickable overview. Icons are code-drawn pixels
   (existing UFO atlas for core/capstone); no additional raster assets required.
-  The upgrade map uses a dedicated 576×432 render target with a 2× transform;
-  gameplay remains on the 288×216 target and map mouse coordinates stay native.
+  The upgrade screen uses a dedicated 1152×864 render target and a full 576×432
+  logical research canvas at 2×, while gameplay remains on the 288×216 target.
+  Map mouse coordinates are promoted into the graph canvas. Keep map geometry
+  aligned to that 2× graph transform so Font6 stays crisp.
   --shots checks graph reachability, multi-parent gates, any-three capstones,
   new effects and rank-refund migration in addition to the gameplay checks.
 - UfoAltitudeDefense.cs owns the fixed Y=64 danger line and side volleys.

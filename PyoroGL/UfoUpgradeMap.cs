@@ -8,18 +8,27 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        static readonly Rectangle UpgradeMapView = new Rectangle(4, 28, 280, 128);
-        static readonly Rectangle UpgradeLaunchButton = new Rectangle(7, 200, 91, 13);
-        static readonly Rectangle UpgradeBuyButton = new Rectangle(106, 200, 82, 13);
-        static readonly Rectangle UpgradeMenuButton = new Rectangle(197, 200, 47, 13);
-        static readonly Rectangle UpgradeMiniMap = new Rectangle(238, 32, 42, 26);
-        static readonly Rectangle UpgradeZoomButton = new Rectangle(253, 18, 29, 9);
-        const float MapNodeVisualScale = .84f;
-        const float MapConnectorScale = .78f;
-        const float MapLabelScale = .88f;
+        // The research graph uses a 576x432 logical canvas rendered at 2x.
+        // These controls live in that larger coordinate space as well.
+        static readonly Rectangle UpgradeMapView = new Rectangle(0, 0, 576, 432);
+        static readonly Rectangle UpgradeLaunchButton = new Rectangle(450, 382, 110, 34);
+        static readonly Rectangle UpgradeBuyButton = new Rectangle(18, 382, 150, 34);
+        static readonly Rectangle UpgradeMenuButton = new Rectangle(530, 10, 32, 28);
+        static readonly Rectangle UpgradeMiniMap = new Rectangle(496, 50, 66, 42);
+        static readonly Rectangle UpgradeZoomButton = new Rectangle(458, 18, 28, 22);
+        // The research map is rendered above the native game resolution so its
+        // dense graph and bitmap type stay crisp when shown in the menu.
+        const int UpgradeRenderScale = 4;
+        // Keep map geometry on whole pixels at the 4x render scale. The
+        // smaller logical footprint leaves room for the complete web and
+        // prevents labels from crowding the connectors at the default view.
+        const float MapNodeVisualScale = 1.6f;
+        const float MapConnectorScale = .9f;
+        const float MapLabelScale = 1f;
+        const int UpgradeMapRenderScale = 2;
         int mapSelection = UfoProgression.Index("core");
         Vector2 mapCamera, mapDragCamera, mapDragStart;
-        float mapZoom = 1;
+        float mapZoom = .5f;
         double mapPulse;
         bool mapInputReady, mapDragging;
         MouseState mapPreviousMouse;
@@ -29,7 +38,7 @@ namespace MonogameTest
             : value.ToString("F2", CultureInfo.InvariantCulture);
         static string FormatRoundTime(double seconds) => ((int)seconds / 60).ToString("D2") + ":" + ((int)seconds % 60).ToString("D2");
         static Vector2 MapViewCenter => new Vector2(UpgradeMapView.Center.X, UpgradeMapView.Center.Y);
-        float MapWorldScale => mapZoom * .625f;
+        float MapWorldScale => mapZoom * 1.2f;
         Vector2 MapToScreen(Vector2 world) => MapViewCenter + (world - mapCamera) * MapWorldScale;
         Vector2 UpgradeNodePosition(int index) => MapToScreen(UfoProgression.Nodes[index].Position);
         void ClampMapCamera() => mapCamera = Vector2.Clamp(mapCamera, new Vector2(-430, -185), new Vector2(430, 260));
@@ -134,33 +143,37 @@ namespace MonogameTest
             MouseState mouse = Mouse.GetState();
             Vector2 pointer = new Vector2((mouse.X - rect.X) * NATIVE_WIDTH / (float)Math.Max(1, rect.Width),
                 (mouse.Y - rect.Y) * NATIVE_HEIGHT / (float)Math.Max(1, rect.Height));
-            Point point = new Point((int)pointer.X, (int)pointer.Y);
+            // Header buttons use the compact 288x216 shell. The graph is a
+            // separate 576x432 logical surface, so promote map input before
+            // hit testing, panning, and node selection.
+            Vector2 mapPointer = pointer * UpgradeMapRenderScale;
+            Point mapPoint = new Point((int)mapPointer.X, (int)mapPointer.Y);
             bool down = mouse.LeftButton == ButtonState.Pressed && mapPreviousMouse.LeftButton == ButtonState.Released;
             bool up = mouse.LeftButton == ButtonState.Released && mapPreviousMouse.LeftButton == ButtonState.Pressed;
-            bool inMap = UpgradeMapView.Contains(point);
-            if (down && mapZoom > .5f && UpgradeMiniMap.Contains(point))
+            bool inMap = UpgradeMapView.Contains(mapPoint);
+            if (down && mapZoom > .5f && UpgradeMiniMap.Contains(mapPoint))
             {
-                mapCamera = new Vector2((pointer.X - UpgradeMiniMap.X) / UpgradeMiniMap.Width * 860 - 430,
-                    (pointer.Y - UpgradeMiniMap.Y) / UpgradeMiniMap.Height * 445 - 185);
+                mapCamera = new Vector2((mapPointer.X - UpgradeMiniMap.X) / UpgradeMiniMap.Width * 860 - 430,
+                    (mapPointer.Y - UpgradeMiniMap.Y) / UpgradeMiniMap.Height * 445 - 185);
                 ClampMapCamera();
             }
-            else if (down && inMap) { mapDragging = true; mapDragStart = pointer; mapDragCamera = mapCamera; }
+            else if (down && inMap) { mapDragging = true; mapDragStart = mapPointer; mapDragCamera = mapCamera; }
             if (mapDragging && mouse.LeftButton == ButtonState.Pressed)
-            { mapCamera = mapDragCamera - (pointer - mapDragStart) / MapWorldScale; ClampMapCamera(); }
+            { mapCamera = mapDragCamera - (mapPointer - mapDragStart) / MapWorldScale; ClampMapCamera(); }
             if (up && mapDragging)
             {
-                if (Vector2.Distance(pointer, mapDragStart) < 4 && inMap)
+                if (Vector2.Distance(mapPointer, mapDragStart) < 8 && inMap)
                     for (int i = 0; i < UfoProgression.Nodes.Length; i++)
-                        if (UpgradeNodeRect(i).Contains(point)) { mapSelection = i; beamAudio?.PlayMenuBlip(); break; }
+                        if (UpgradeNodeRect(i).Contains(mapPoint)) { mapSelection = i; beamAudio?.PlayMenuBlip(); break; }
                 mapDragging = false;
             }
             int wheel = mouse.ScrollWheelValue - mapPreviousMouse.ScrollWheelValue;
-            if (inMap && wheel != 0) ZoomUpgradeMap(wheel > 0 ? Math.Min(2, mapZoom * 2) : Math.Max(.5f, mapZoom / 2), pointer);
-            if ((down && UpgradeZoomButton.Contains(point)) || padPressed(Buttons.RightShoulder))
+            if (inMap && wheel != 0) ZoomUpgradeMap(wheel > 0 ? Math.Min(2, mapZoom * 2) : Math.Max(.5f, mapZoom / 2), mapPointer);
+            if ((down && UpgradeZoomButton.Contains(mapPoint)) || padPressed(Buttons.RightShoulder))
                 ZoomUpgradeMap(mapZoom >= 2 ? .5f : mapZoom * 2, MapViewCenter);
-            bool buy = down && UpgradeBuyButton.Contains(point);
-            bool launch = down && UpgradeLaunchButton.Contains(point);
-            cancel |= down && UpgradeMenuButton.Contains(point);
+            bool buy = down && UpgradeBuyButton.Contains(mapPoint);
+            bool launch = down && UpgradeLaunchButton.Contains(mapPoint);
+            cancel |= down && UpgradeMenuButton.Contains(mapPoint);
             mapPreviousMouse = mouse;
             if (buy || (mapInputReady && accept)) PurchaseUpgrade();
             if (launch || pressed(Keys.R) || padPressed(Buttons.Start) || cancel)
@@ -178,11 +191,31 @@ namespace MonogameTest
             UfoBranch.Yield => new Color(255, 216, 83), UfoBranch.Hybrid => new Color(213, 141, 255),
             _ => new Color(116, 250, 249)
         };
+        void RoundedBox(Rectangle box, Color color, int radius = 2)
+        {
+            if (box.Width <= 0 || box.Height <= 0) return;
+            radius = Math.Min(radius, Math.Min(box.Width, box.Height) / 2);
+            if (radius <= 0)
+            {
+                spriteBatch.Draw(beamPixel, box, color);
+                return;
+            }
+
+            // Pixel-cut corners keep the box native-pixel sharp while giving
+            // the dense map a softer silhouette than a square rectangle.
+            spriteBatch.Draw(beamPixel,
+                new Rectangle(box.X + radius, box.Y, Math.Max(1, box.Width - radius * 2), box.Height), color);
+            spriteBatch.Draw(beamPixel,
+                new Rectangle(box.X, box.Y + radius, radius, Math.Max(1, box.Height - radius * 2)), color);
+            spriteBatch.Draw(beamPixel,
+                new Rectangle(box.Right - radius, box.Y + radius, radius, Math.Max(1, box.Height - radius * 2)), color);
+        }
+
         void TechBox(Rectangle box, Color border, Color fill, int thickness = 1)
         {
-            spriteBatch.Draw(beamPixel, box, border);
-            spriteBatch.Draw(beamPixel, new Rectangle(box.X + thickness, box.Y + thickness,
-                Math.Max(1, box.Width - thickness * 2), Math.Max(1, box.Height - thickness * 2)), fill);
+            RoundedBox(box, border, 2);
+            RoundedBox(new Rectangle(box.X + thickness, box.Y + thickness,
+                Math.Max(1, box.Width - thickness * 2), Math.Max(1, box.Height - thickness * 2)), fill, 1);
         }
         void TechLine(Vector2 from, Vector2 to, Color color, bool dashed, float fraction = 1)
         {
@@ -269,28 +302,24 @@ namespace MonogameTest
 
         void DrawUpgradeMap()
         {
-            spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), new Color(5, 12, 24));
-            DrawStringBitmap(spriteBatch, "UPGRADES", new Vector2(7, 5), new Color(130, 250, 244));
-            int owned = 0; for (int i = 0; i < UfoProgression.Nodes.Length; i++) if (progression.Rank(i) > 0) owned++;
-            font6.Draw(spriteBatch, owned + "/" + UfoProgression.Nodes.Length, new Vector2(99, 7), new Color(137, 171, 197));
-            string wallet = "CREW " + Money(progression.Balance);
-            font6.Draw(spriteBatch, wallet, new Vector2(281 - font6.Measure(wallet).X, 7), new Color(255, 220, 128));
-            string status = "SAVE " + (activeSaveSlot + 1) + "  UFO RESEARCH & DEVELOPMENT";
-            if (roundId != null && !roundActive)
-                status = FormatRoundTime(roundSeconds) + "  " + RoundMultiplier.ToString("F2", CultureInfo.InvariantCulture) + "X  +" + Money(RoundReward) + (roundBanked ? " CREW" : " UNSAVED");
-            font6.Draw(spriteBatch, status, new Vector2(7, 20), new Color(127, 163, 188));
-            TechBox(UpgradeZoomButton, new Color(35, 87, 109), new Color(10, 31, 47));
-            font6.Draw(spriteBatch, mapZoom.ToString("0.#", CultureInfo.InvariantCulture) + "X", new Vector2(257, 20), Color.Cyan);
+            // drawTitleScene starts a compact batch for the other menu scenes.
+            // The research screen replaces it with a full 576x432 canvas.
             spriteBatch.End();
-            GraphicsDevice.ScissorRectangle = new Rectangle(UpgradeMapView.X * 2, UpgradeMapView.Y * 2,
-                UpgradeMapView.Width * 2, UpgradeMapView.Height * 2);
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH * UpgradeRenderScale, NATIVE_HEIGHT * UpgradeRenderScale);
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer,
-                transformMatrix: Matrix.CreateScale(2f));
-            spriteBatch.Draw(beamPixel, UpgradeMapView, new Color(6, 16, 30));
+                transformMatrix: Matrix.CreateScale(UpgradeMapRenderScale));
+
+            // Deep blue scan-lined space gives the tree a dedicated research
+            // surface, with a quiet frame instead of a stack of menu strips.
+            spriteBatch.Draw(beamPixel, UpgradeMapView, new Color(5, 9, 38));
+            for (int y = 2; y < UpgradeMapView.Height; y += 2)
+                spriteBatch.Draw(beamPixel, new Rectangle(0, y, UpgradeMapView.Width, 1), new Color(20, 26, 84, 52));
             for (int i = 0; i < 180; i++)
             {
-                var star = MapToScreen(new Vector2((i * 127 % 860) - 430, (i * 73 % 445) - 185));
-                spriteBatch.Draw(beamPixel, new Rectangle((int)star.X, (int)star.Y, 1, 1), i % 7 == 0 ? new Color(62, 130, 173) : new Color(21, 49, 71));
+                int x = (i * 97) % UpgradeMapView.Width;
+                int y = (i * 53) % UpgradeMapView.Height;
+                int size = i % 11 == 0 ? 2 : 1;
+                spriteBatch.Draw(beamPixel, new Rectangle(x, y, size, size), i % 7 == 0 ? new Color(40, 52, 107) : new Color(17, 24, 72));
             }
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
                 foreach (var req in UfoProgression.Nodes[i].Requires) DrawTechEdge(UfoProgression.Index(req.Node), i, req.Rank);
@@ -336,40 +365,35 @@ namespace MonogameTest
             }
             void Label(string label, Vector2 world, Vector2 overview, UfoBranch branch)
             {
-                Vector2 pos = mapZoom == .5f ? overview : MapToScreen(world);
+                Vector2 pos = mapZoom == .5f ? overview * UpgradeMapRenderScale : MapToScreen(world);
                 var size = font6.Measure(label) * MapLabelScale;
-                spriteBatch.Draw(beamPixel, new Rectangle((int)pos.X - 2, (int)pos.Y - 1, (int)size.X + 4, 8), new Color(6, 16, 30));
+                spriteBatch.Draw(beamPixel, new Rectangle((int)pos.X - 3, (int)pos.Y - 2, (int)size.X + 6, 10), new Color(5, 9, 38));
                 font6.Draw(spriteBatch, label, pos, BranchColor(branch) * .8f, MapLabelScale);
             }
-            Label("WEAPONS", new Vector2(-295, -130), new Vector2(10, 30), UfoBranch.Weapons);
-            Label("BEAM SYSTEMS", new Vector2(210, -182), new Vector2(166, 30), UfoBranch.Beam);
-            Label("SHIP SYSTEMS", new Vector2(-293, 207), new Vector2(10, 146), UfoBranch.Ship);
-            Label("YIELD SYSTEMS", new Vector2(210, 177), new Vector2(202, 146), UfoBranch.Yield);
-            // A clickable overview keeps far-away branches discoverable.
-            if (mapZoom > .5f)
-            {
-                TechBox(UpgradeMiniMap, new Color(42, 92, 119), new Color(4, 10, 20));
-                foreach (var node in UfoProgression.Nodes)
-                {
-                    int x = UpgradeMiniMap.X + 1 + (int)((node.Position.X + 430) / 860 * (UpgradeMiniMap.Width - 2));
-                    int y = UpgradeMiniMap.Y + 1 + (int)((node.Position.Y + 185) / 445 * (UpgradeMiniMap.Height - 2));
-                    spriteBatch.Draw(beamPixel, new Rectangle(x, y, 1, 1), BranchColor(node.Branch));
-                }
-                int cameraX = UpgradeMiniMap.X + (int)((mapCamera.X + 430) / 860 * UpgradeMiniMap.Width);
-                int cameraY = UpgradeMiniMap.Y + (int)((mapCamera.Y + 185) / 445 * UpgradeMiniMap.Height);
-                spriteBatch.Draw(beamPixel, new Rectangle(cameraX - 1, cameraY - 1, 3, 3), Color.White);
-            }
-            spriteBatch.End();
-            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, NATIVE_WIDTH * 2, NATIVE_HEIGHT * 2);
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: Matrix.CreateScale(2f));
-            font6.Draw(spriteBatch, "DRAG PAN  WHEEL ZOOM  C CORE  ARROWS SELECT", new Vector2(7, 158), new Color(103, 143, 167));
+            Label("WEAPONS", new Vector2(-295, -130), new Vector2(12, 18), UfoBranch.Weapons);
+            Label("BEAM SYSTEMS", new Vector2(210, -182), new Vector2(410, 18), UfoBranch.Beam);
+            Label("SHIP SYSTEMS", new Vector2(-293, 207), new Vector2(12, 390), UfoBranch.Ship);
+            Label("YIELD SYSTEMS", new Vector2(210, 177), new Vector2(410, 390), UfoBranch.Yield);
+
+            // Header and wallet follow the reference's quiet, information-first
+            // layout. The selected node becomes a compact purchase tooltip.
+            font6.Draw(spriteBatch, "UFO RESEARCH", new Vector2(18, 12), new Color(175, 188, 238));
+            string wallet = "CREW " + Money(progression.Balance);
+            TechBox(new Rectangle(18, 48, 108, 28), new Color(176, 184, 224), new Color(16, 19, 56));
+            font6.Draw(spriteBatch, wallet, new Vector2(28, 59), new Color(255, 224, 138));
+            TechBox(UpgradeMenuButton, new Color(255, 100, 93), new Color(82, 18, 29));
+            font6.Draw(spriteBatch, "X", new Vector2(541, 18), Color.White, 2);
+            TechBox(UpgradeZoomButton, new Color(75, 110, 193), new Color(14, 22, 67));
+            font6.Draw(spriteBatch, mapZoom.ToString("0.#", CultureInfo.InvariantCulture) + "X", new Vector2(463, 25), Color.White);
+
             var selectedNode = UfoProgression.Nodes[mapSelection];
             Color selectedTint = BranchColor(selectedNode.Branch);
-            TechBox(new Rectangle(4, 166, 280, 31), new Color(38, 74, 98), new Color(11, 27, 42));
+            TechBox(new Rectangle(190, 18, 210, 78), new Color(153, 161, 191), new Color(30, 31, 47));
+            spriteBatch.Draw(beamPixel, new Rectangle(190, 76, 210, 20), selectedTint * .65f);
             int current = progression.Rank(mapSelection);
-            font6.Draw(spriteBatch, selectedNode.Title, new Vector2(8, 169), selectedTint);
+            font6.Draw(spriteBatch, selectedNode.Title, new Vector2(202, 27), Color.White);
             string level = "LV " + current + "/" + selectedNode.MaxRank;
-            font6.Draw(spriteBatch, level, new Vector2(280 - font6.Measure(level).X, 169), new Color(190, 227, 237));
+            font6.Draw(spriteBatch, level, new Vector2(202, 39), new Color(215, 221, 250));
             string effect = UpgradeEffectAt(mapSelection, current);
             if (current < selectedNode.MaxRank)
             {
@@ -379,13 +403,18 @@ namespace MonogameTest
                 effect = plus >= 0 && effect.Contains('+') ? effect + " > " + next.Substring(plus) : "NEXT: " + next;
             }
             if (effect.Length > 44) effect = "NEXT: " + UpgradeEffectAt(mapSelection, Math.Min(selectedNode.MaxRank, current + 1));
-            font6.Draw(spriteBatch, effect, new Vector2(8, 178), Color.White);
-            font6.Draw(spriteBatch, mapMessageTime > 0 ? mapMessage : UpgradeRequirementText(mapSelection), new Vector2(8, 188), new Color(152, 183, 201));
+            if (effect.Length > 29) effect = effect.Substring(0, 29);
+            font6.Draw(spriteBatch, effect, new Vector2(202, 51), Color.White);
+            string requirement = mapMessageTime > 0 ? mapMessage : UpgradeRequirementText(mapSelection);
+            if (requirement.Length > 30) requirement = requirement.Substring(0, 30);
+            font6.Draw(spriteBatch, requirement, new Vector2(202, 64), new Color(194, 201, 220));
+            font6.Draw(spriteBatch, "COST " + progression.Cost(mapSelection) + " CREW", new Vector2(202, 82), Color.White);
+
+            TechBox(UpgradeBuyButton, progression.CanBuy(mapSelection) ? selectedTint : new Color(78, 82, 112), new Color(17, 20, 57));
+            font6.Draw(spriteBatch, mapInputReady ? "ENTER BUY" : "RELEASE", new Vector2(35, 395), Color.White);
             TechBox(UpgradeLaunchButton, new Color(75, 141, 200), new Color(23, 59, 91));
-            font6.Draw(spriteBatch, "R NEXT FLIGHT", new Vector2(13, 204), Color.White);
-            TechBox(UpgradeBuyButton, progression.CanBuy(mapSelection) ? selectedTint : new Color(46, 73, 88), new Color(15, 46, 48));
-            font6.Draw(spriteBatch, mapInputReady ? "ENTER/X BUY" : "RELEASE FIRE", new Vector2(112, 204), Color.White);
-            font6.Draw(spriteBatch, "ESC MENU", new Vector2(198, 204), new Color(141, 176, 195));
+            font6.Draw(spriteBatch, "START", new Vector2(480, 395), Color.White, 1.5f);
+            font6.Draw(spriteBatch, "DRAG  WHEEL ZOOM  ARROWS SELECT", new Vector2(194, 404), new Color(116, 133, 190));
         }
 
         void DrawTechIcon(UfoUpgrade node, Vector2 center, float scale, Color tint)

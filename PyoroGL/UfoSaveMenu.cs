@@ -61,7 +61,7 @@ namespace MonogameTest
             roundId = null; roundActive = roundBanked = false;
             roundSoldiers = 0; roundSeconds = 0;
             paused = gameover = pyorodead = false;
-            mapSelection = UfoProgression.Index("core"); mapCamera = Vector2.Zero; mapZoom = 1;
+            mapSelection = UfoProgression.Index("core"); mapCamera = Vector2.Zero; mapZoom = .5f;
             saveMenuError = ""; confirmReplace = false;
             screen = MenuScreen.ModeSelect;
         }

@@ -361,7 +361,7 @@ namespace MonogameTest
         void drawTitleScene()
         {
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone,
-                transformMatrix: screen == MenuScreen.Upgrades ? Matrix.CreateScale(2f) : Matrix.Identity);
+                transformMatrix: screen == MenuScreen.Upgrades ? Matrix.CreateScale(UpgradeRenderScale) : Matrix.Identity);
             if (screen == MenuScreen.SaveSlots)
             {
                 DrawSaveSlots(); spriteBatch.End(); return;

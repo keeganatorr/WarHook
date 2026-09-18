@@ -336,9 +336,11 @@ namespace MonogameTest
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer,
                 transformMatrix: Matrix.CreateScale(UpgradeMapRenderScale));
 
-            // Dark space and a moving C64-style starfield replace the old blue
-            // panel behind the research web.
+            // Layer the same animated plasma used by the outer frame into the
+            // research surface, then let the C64-style starfield drift over it.
+            // A dark base keeps the plasma subdued enough for the web to read.
             spriteBatch.Draw(beamPixel, UpgradeMapView, UpgradeBase);
+            spriteBatch.Draw(borderCamo, UpgradeMapView, Color.White * .72f);
             DrawUpgradeStarfield();
             for (int y = 2; y < UpgradeMapView.Height; y += 2)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, y, UpgradeMapView.Width, 1), UpgradeStructureDim * .35f);

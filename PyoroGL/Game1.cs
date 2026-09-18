@@ -116,6 +116,8 @@ namespace MonogameTest
         private Texture2D pyorodeadleft;
         private Texture2D pyorodeadright;
         private Texture2D frame;
+        // 64px source atlas for the high-resolution upgrade web.
+        private Texture2D upgradeIcons;
         // 4-variant 8x8 brick-face atlas (Assets/block_atlas.png) for floor blocks.
         private Texture2D blockAtlas;
         private int beamWidth = 3;
@@ -726,7 +728,8 @@ namespace MonogameTest
             highScore = highScores.Get(gameB);
             // TODO: Add your initialization logic here
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
-            _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH * UpgradeRenderScale, NATIVE_HEIGHT * UpgradeRenderScale);
+            _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice,
+                UpgradeLogicalWidth * UpgradeMapRenderScale, UpgradeLogicalHeight * UpgradeMapRenderScale);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
             if (GameAssets.IsWeb)
@@ -832,6 +835,7 @@ namespace MonogameTest
             smallfont = Content.Load<SpriteFont>("smallfont");
             crtEffect = Content.Load<Effect>("crt");
             fontAtlas = loadPng("font8x8_atlas");
+            upgradeIcons = loadPng("upgrade-icons");
             font6 = new Font6(GraphicsDevice);
             loadPlayerTank();
             loadMuzzleFlash();
@@ -1156,6 +1160,7 @@ namespace MonogameTest
             playfieldRasterizer.Dispose();
             _nativeRenderTarget.Dispose();
             _upgradeRenderTarget?.Dispose();
+            upgradeIcons?.Dispose();
             crtEffect?.Dispose();
             spriteBatch.Dispose();
         }
@@ -1231,8 +1236,9 @@ namespace MonogameTest
                 presentationEffect = crtEffect;
             }
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, effect: presentationEffect);
-            
-            spriteBatch.Draw(frameTarget, rect, Color.White);
+
+            Rectangle presentationRect = highResolutionUpgradeMap ? UpgradePresentationRect() : rect;
+            spriteBatch.Draw(frameTarget, presentationRect, Color.White);
             float fade = transitionOpacity();
             if (fade > 0)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * fade);
@@ -1324,9 +1330,9 @@ namespace MonogameTest
                 {
                     double shade = (hue == 1 ? 0.55 : 0.10) + level * 0.45 / 7.0;
                     palette[hue * 8 + level] = new Color(
-                        (byte)((hue == 1 ? 24 : 12) * shade),
-                        (byte)((hue == 1 ? 74 : 28) * shade),
-                        (byte)((hue == 1 ? 98 : 53) * shade));
+                        (byte)((hue == 1 ? 14 : 7) * shade),
+                        (byte)((hue == 1 ? 48 : 19) * shade),
+                        (byte)((hue == 1 ? 68 : 35) * shade));
                 }
             return palette;
         }

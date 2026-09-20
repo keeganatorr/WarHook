@@ -87,10 +87,10 @@ float3 Nebula(float2 p)
 
     // Two broad, offset ribbons leave large gaps while reaching across almost
     // the full playfield. Their masks are shaped by the animated noise below.
-    float ribbonA = exp(-pow(abs(across) / 0.45, 1.38));
+    float ribbonA = exp(-pow(abs(across) / 0.58, 1.38));
     ribbonA *= smoothstep(-0.42, -0.02, along);
     ribbonA *= 1.0 - smoothstep(1.35, 2.10, along);
-    float ribbonB = exp(-pow(abs(across + 0.38) / 0.34, 1.45));
+    float ribbonB = exp(-pow(abs(across + 0.38) / 0.45, 1.45));
     ribbonB *= smoothstep(-0.78, -0.20, along);
     ribbonB *= 1.0 - smoothstep(0.95, 1.72, along);
     float envelope = saturate(ribbonA * 0.78 + ribbonB * 0.58);
@@ -101,7 +101,7 @@ float3 Nebula(float2 p)
     float cloudNoise = broad * 0.72 + detail * 0.38;
     float wisps = smoothstep(0.30, 0.72, cloudNoise);
     float knots = smoothstep(0.43, 0.82, cloudNoise);
-    float distantClouds = smoothstep(0.46, 0.72, cloudNoise);
+    float distantClouds = smoothstep(0.38, 0.68, cloudNoise);
     float cloudMass = envelope * (0.22 + 0.78 * wisps);
     float filamentCenter = 0.095 * sin(along * 4.0 + broad * 7.0);
     float filament = exp(-pow(abs(across - filamentCenter) / 0.085, 1.45));
@@ -114,12 +114,12 @@ float3 Nebula(float2 p)
     result += float3(0.00, 0.62, 0.69) * cyan * cyan * 0.44;
     // Low-contrast noise clouds continue beyond the brighter ribbons, so the
     // nebula reaches across the map while retaining plenty of open space.
-    result += float3(0.00, 0.095, 0.22) * distantClouds * 0.72;
+    result += float3(0.00, 0.12, 0.27) * distantClouds * 0.88;
 
     // A few diffuse wisps outside the ribbons keep the nebula spread through
     // the background without turning it into a solid wash of color.
-    float2 veil = (cloudP - float2(0.46, -0.27)) * float2(0.86, 1.32);
-    float veilShape = exp(-dot(veil, veil) / 0.70);
+    float2 veil = (cloudP - float2(0.46, -0.27)) * float2(0.76, 1.16);
+    float veilShape = exp(-dot(veil, veil) / 0.82);
     veilShape *= 0.18 + 0.82 * smoothstep(0.36, 0.74, detail * 0.62 + broad * 0.52);
     result += float3(0.00, 0.095, 0.23) * veilShape;
     return result;

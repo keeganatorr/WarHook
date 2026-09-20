@@ -103,7 +103,7 @@ namespace MonogameTest
                 "Opening spawn cadence is not 0.25 to 0.33 seconds");
             people.Clear();
             UpdateUfoDifficulty(16);
-            int ordinaryGain = bigspeed - StartingUfoSpeed;
+            long ordinaryGain = bigspeed - StartingUfoSpeed;
             Require(ordinaryGain == 60 && max_time == 120 && missileDifficultySpeed == StartingMissileSpeed + 60, "Base ramp or harder interval failed");
             resetGame();
             repairLevel = 1;
@@ -120,7 +120,7 @@ namespace MonogameTest
                 "Ten abductions did not produce the 3.5x difficulty ramp");
             Require(roundSeconds == 0 && RoundMultiplier == 1 && RoundReward == 9,
                 "Difficulty clock advanced survival rewards");
-            int before = bigspeed, spawnTimer = time_until_new_bean;
+            long before = bigspeed; int spawnTimer = time_until_new_bean;
             paused = true;
             UpdateUfo(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(1)), new KeyboardState());
             Require(bigspeed == before && time_until_new_bean == spawnTimer && roundSeconds == 0,
@@ -137,14 +137,25 @@ namespace MonogameTest
             Require(max_time == 0x32, "Score-based spawn tiers stopped working");
             bigspeed = 0x7F0; smallspeed = 1;
             UpdateUfoDifficulty(1);
-            Require(bigspeed == 0x7F0, "Accelerated difficulty exceeded original speed cap");
-            int previousMissileSpeed = missileDifficultySpeed;
+            Require(bigspeed > 0x7F0, "UFO spawn difficulty stopped at the original speed cap");
+            long previousMissileSpeed = missileDifficultySpeed;
             UpdateUfoDifficulty(16);
             Require(missileDifficultySpeed > previousMissileSpeed,
-                "Missile ramp stopped when spawn difficulty reached its cap");
+                "Missile ramp stopped after spawn difficulty passed its original cap");
             missileDifficultySpeed = 0x7F0;
             UpdateUfoDifficulty(1);
-            Require(missileDifficultySpeed == 0x7F0, "Missile speed exceeded its cap");
+            Require(missileDifficultySpeed > 0x7F0, "UFO missile speed stopped at the original cap");
+            resetGame();
+            Require(Math.Abs(UfoDifficultyLevel - 1) < .001, "New flight did not start at difficulty level 1.0");
+            missileDifficultySpeed = StartingMissileSpeed + MissileSpeedPerDifficultyLevel - 1;
+            Require(UfoDifficultyLevel > 1.9 && UfoDifficultyLevel < 2,
+                "Difficulty decimal did not track progress within its speed band");
+            missileDifficultySpeed++;
+            Require(Math.Abs(UfoDifficultyLevel - 2) < .001, "Difficulty level did not advance with missile speed");
+            missileDifficultySpeed = 0x7F0;
+            Require(UfoDifficultyLevel > 13.8, "Difficulty level did not advance beyond the original cap");
+            missileDifficultySpeed = 1_000_000;
+            Require(UfoDifficultyLevel > 7_800, "Difficulty level display imposed a fixed maximum");
             resetGame();
         }
 

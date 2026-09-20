@@ -16,7 +16,7 @@ namespace MonogameTest
         const float LiftSpeed = 30, TractorCenterSpeed = 15, TractorAcquireCooldown = .04f, BulletSpeed = 160;
         const int SoldierMaxHealth = 100, BulletDamage = SoldierMaxHealth;
         const int StartingUfoSpeed = 0x600, StartingUfoSpawnInterval = 0x78;
-        const int StartingMissileSpeed = 0x180;
+        const int StartingMissileSpeed = 0x180, MissileSpeedPerDifficultyLevel = 0x80;
         const double DifficultyRatePerAbduction = .25;
         Texture2D ufoAtlas;
         Texture2D abductedSoldierAtlas;
@@ -41,7 +41,7 @@ namespace MonogameTest
         float shieldRegenTimer;
         bool shieldActive;
         int roundAbductions;
-        int missileDifficultySpeed;
+        long missileDifficultySpeed;
         double difficultyTickRemainder;
         double roundSeconds, roundGrowth, roundStartMultiplier;
         string roundId;
@@ -72,6 +72,7 @@ namespace MonogameTest
         float FlightSpeed => ShipSpeed * (1 + engineBonus) * globalBonus;
         float TractorLiftSpeed => LiftSpeed * (1 + tractorBonus) * globalBonus;
         float TractorPullSpeed => TractorCenterSpeed * (1 + tractorBonus) * globalBonus;
+        double UfoDifficultyLevel => 1 + Math.Max(0L, missileDifficultySpeed - StartingMissileSpeed) / (double)MissileSpeedPerDifficultyLevel;
         float ShieldRegenDelay => Math.Max(.5f, 2f - Math.Max(0, shieldLevel - 1) * .25f);
         bool CriticalHullFlash => shipHealth <= 25 && ((int)(roundSeconds * 8) & 1) == 0;
 
@@ -296,7 +297,7 @@ namespace MonogameTest
             if (time_until_new_bean <= 0)
             {
                 int jitter = ((max_time >> 2) * NextBeanRandom(ref randnum)) >> 16;
-                time_until_new_bean = ((max_time - jitter) << 8) / bigspeed;
+                time_until_new_bean = (int)Math.Max(1, ((long)(max_time - jitter) << 8) / bigspeed);
                 int beanSpeed = 0x40 + ((0x40 * NextBeanRandom(ref randnum2)) >> 16);
                 int targetX = PLAYFIELD_LEFT + 8
                     + (((PLAYFIELD_RIGHT - PLAYFIELD_LEFT - 16) * NextBeanRandom(ref randnum3)) >> 16);
@@ -314,10 +315,10 @@ namespace MonogameTest
             if (time_until_new_bean > 0) time_until_new_bean--;
         }
 
-        void UpdateBeanDifficulty()
+        void UpdateBeanDifficulty(bool uncapped = false)
         {
             // Called after movement/scoring, matching the original update order.
-            speedloop();
+            speedloop(uncapped);
             if (score == 0) max_time = 0xB4;
             if (score >= 1000 && score < 2999) max_time = 0x78;
             if (score >= 3000 && score < 4999) max_time = 0x5F;
@@ -335,17 +336,20 @@ namespace MonogameTest
             difficultyTickRemainder -= ticks;
             for (int i = 0; i < ticks; i++)
             {
-                UpdateBeanDifficulty();
+                UpdateBeanDifficulty(true);
                 // speedloop resets this counter to 16 whenever speed advances.
                 // Keep missile speed independent of the denser spawn baseline,
-                // and let it keep rising after spawn difficulty reaches its cap.
+                // while both UFO speed curves continue rising without a cap.
                 if (smallspeed == 0x10)
-                    missileDifficultySpeed = Math.Min(0x7F0, missileDifficultySpeed + 1);
+                {
+                    if (missileDifficultySpeed < long.MaxValue) missileDifficultySpeed++;
+                }
             }
             max_time = Math.Min(max_time, StartingUfoSpawnInterval);
         }
 
-        float BeanMissileSpeed(int beanSpeed) => ((beanSpeed * missileDifficultySpeed) >> 8) / 256f * targetFPS;
+        float BeanMissileSpeed(int beanSpeed) =>
+            (float)(Math.Floor(beanSpeed * (double)missileDifficultySpeed / 256d) / 256d * targetFPS);
 
         void UpdateGroundPeople(float dt)
         {
@@ -940,6 +944,9 @@ namespace MonogameTest
                 font6.Draw(spriteBatch, RoundMultiplier.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "X",
                     new Vector2(190, 13), MultiplierBandColor((int)Math.Floor(RoundMultiplier)));
                 font6.Draw(spriteBatch, "BEAM " + abductees.Count + "/" + beamCapacity, new Vector2(225, 13), new Color(96, 230, 222));
+                string difficultyLabel = "DIFF " + UfoDifficultyLevel.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                font6.Draw(spriteBatch, difficultyLabel,
+                    new Vector2(NATIVE_WIDTH - 8 - font6.Measure(difficultyLabel).X, 13), new Color(255, 177, 94));
                 font6.Draw(spriteBatch, "CREW " + (roundSoldiers * soldierValueLevel),
                     new Vector2(8, NATIVE_HEIGHT - 10), new Color(95, 245, 255));
                 const string controls = "X/SPACE FIRE Z/SHIFT BEAM";

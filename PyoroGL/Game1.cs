@@ -178,7 +178,7 @@ namespace MonogameTest
         int[] bean_type;
         float[] bean_rainbow_counter;
         int smallspeed = 0xFF;
-        int bigspeed = 0x100;
+        long bigspeed = 0x100;
         int blocktocheck = 0;
         bool paused = false;
         int pyorosquat = 0;
@@ -266,7 +266,7 @@ namespace MonogameTest
         
 
 
-        void speedloop()
+        void speedloop(bool uncapped = false)
         {
             if(smallspeed>0)
             {
@@ -275,13 +275,20 @@ namespace MonogameTest
             if(smallspeed==0)
             {
                 smallspeed = 0x10;
-                bigspeed++;
+                if (uncapped)
+                {
+                    if (bigspeed < long.MaxValue) bigspeed++;
+                }
+                else if (bigspeed < 0x7F0)
+                {
+                    bigspeed++;
+                }
             }
             if (bigspeed < 0x100)
             {
                 bigspeed = 0x100;
             }
-            if (bigspeed>=0x7F0)
+            if (!uncapped && bigspeed>=0x7F0)
             {
                 bigspeed = 0x7F0;
             }

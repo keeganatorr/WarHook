@@ -106,12 +106,15 @@ from reading the code or `git log`.
 - UFO spawns reuse the original 60 Hz bean RNG, spawn arithmetic, and
   `speedloop`; score is not shown or awarded in UFO play. ResetUfo starts bigspeed at 0x600 and caps
   max_time at 0x78 (0.25–0.33s opening spawn intervals, subject to the
-  16-slot pool). Missile velocity uses a separate missileDifficultySpeed,
-  starting at 0x180 (1.5x original speed). Both speeds advance on the same
-  smallspeed rollover; missiles continue scaling after spawn speed caps.
+  16-slot pool). UFO spawn and missile speed use uncapped 64-bit counters;
+  spawn intervals bottom at one 60 Hz tick. Missile velocity uses a separate
+  missileDifficultySpeed, starting at 0x180 (1.5x original speed). Both speeds
+  advance on the same smallspeed rollover. Original bean replay keeps its 0x7F0 cap.
   UpdateUfoDifficulty advances fractional 60 Hz difficulty ticks at
   1 + 0.25 * roundAbductions; both soldier and engineer deliveries count.
   It does not advance spawns, movement, or the separate survival/reward clock.
+  The gameplay HUD's right-aligned DIFF level advances in 0x80 missile-speed
+  bands from level 1 and displays one decimal place.
   The original replay test explicitly restores the old starting constants.
   Each event has a fixed 3-second run-in to its assigned X;
   ordinary beans fire once; special beans become non-firing engineers only

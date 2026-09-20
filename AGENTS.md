@@ -101,7 +101,8 @@ from reading the code or `git log`.
   their reserved bean slot and slowly drifting toward the cone centre. Release
   or cone separation drops the person. Rockets are never affected by suction.
   People fall and resume their paused run-in from their shifted X. The two-layer
-  skyline is background scenery for altitude reference, with no building collisions.
+  skyline spans the full 384px viewport as background scenery for altitude
+  reference, with no building collisions.
 - UFO spawns reuse the original 60 Hz bean RNG, spawn arithmetic, and
   `speedloop`; score is not shown or awarded in UFO play. ResetUfo starts bigspeed at 0x600 and caps
   max_time at 0x78 (0.25–0.33s opening spawn intervals, subject to the

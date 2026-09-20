@@ -742,9 +742,9 @@ namespace MonogameTest
             // Two fixed skyline layers provide altitude landmarks without
             // introducing obstacles. People and projectiles draw over them.
             for (int i = 0; i < 48; i++)
-                spriteBatch.Draw(beamPixel, new Rectangle(9 + (i * 73 % 270), 12 + (i * 37 % (GroundY - 32)), 1, 1),
+                spriteBatch.Draw(beamPixel, new Rectangle(4 + (i * 73 % (NATIVE_WIDTH - 8)), 12 + (i * 37 % (GroundY - 32)), 1, 1),
                     i % 3 == 0 ? new Color(105, 169, 186) : new Color(36, 66, 94));
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < (NATIVE_WIDTH + 19) / 20; i++)
             {
                 int left = i * 20 - 5;
                 int height = 38 + i * 29 % 57;
@@ -754,7 +754,7 @@ namespace MonogameTest
                 if (i % 3 == 0)
                     spriteBatch.Draw(beamPixel, new Rectangle(left + 8, roof - 12, 1, 8), new Color(35, 53, 69));
             }
-            int[] heights = { 44, 68, 52, 80, 46, 64, 86, 44, 58 };
+            int[] heights = { 44, 68, 52, 80, 46, 64, 86, 44, 58, 72, 50, 78 };
             for (int i = 0; i < heights.Length; i++)
             {
                 int left = i * 34 - 12, width = 28, height = heights[i];

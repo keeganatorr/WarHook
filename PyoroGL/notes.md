@@ -9,6 +9,10 @@ make the shield an outline and not an oval
 
 make progress bars at the top of scrren have the text centered inside it and opposite color as background (per pixel)
 
+when ufo is dead apply physics to it and allow rockets to still hit it (so it bounces along)
+
+when abducting the units at the highest y position (y closest to ufo) has precedent over lower dudes
+
 
 visual work
 ------

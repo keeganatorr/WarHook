@@ -26,22 +26,24 @@ namespace MonogameTest
             if (heading.LengthSquared() < .001f) heading = -Vector2.UnitY;
             else heading.Normalize();
             lastImpactHeading = heading;
-            impactShakeTime = .24f;
+            impactShakeTime = .30f;
             impactShakeAge = 0;
-            impactShakeStrength = 2.4f;
+            impactShakeStrength = 3.4f;
             impactShakeSeed += 1.37f;
 
-            // Push in the rocket's travel direction, with a small immediate
-            // displacement so the hit reads even if the hull is destroyed.
-            shipVelocity += heading * 52;
-            shipX = MathHelper.Clamp(shipX + heading.X * 2.5f, ShipSideMargin, NATIVE_WIDTH - ShipSideMargin);
-            shipY = MathHelper.Clamp(shipY + heading.Y * 2.5f, ShipMinY, ShipMaxY);
+            // Push in the rocket's travel direction, with a stronger immediate
+            // displacement and a visible rotational impulse so each hit reads
+            // clearly before the normal flight easing takes over.
+            shipVelocity += heading * 92;
+            shipX = MathHelper.Clamp(shipX + heading.X * 4f, ShipSideMargin, NATIVE_WIDTH - ShipSideMargin);
+            shipY = MathHelper.Clamp(shipY + heading.Y * 4f, ShipMinY, ShipMaxY);
+            shipTilt = MathHelper.Clamp(shipTilt + heading.X * .34f, -.48f, .48f);
         }
 
         Matrix ImpactShakeTransform()
         {
             if (impactShakeTime <= 0) return Matrix.Identity;
-            float fade = MathHelper.Clamp(impactShakeTime / .24f, 0, 1);
+            float fade = MathHelper.Clamp(impactShakeTime / .30f, 0, 1);
             float x = (float)Math.Sin(impactShakeAge * 91 + impactShakeSeed) * impactShakeStrength * fade;
             float y = (float)Math.Cos(impactShakeAge * 113 + impactShakeSeed * 1.7f) * impactShakeStrength * .65f * fade;
             return Matrix.CreateTranslation(x, y, 0);

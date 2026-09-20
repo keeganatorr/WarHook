@@ -206,7 +206,7 @@ from reading the code or `git log`.
   DrawUfoGameplay renders the compact tally over the skyline, crashed UFO,
   animated fire, and rising smoke. RoundResults is deliberately a gameplay
   render path (not a title scene), while gameover still freezes combat state.
-- UfoImpactEffects.cs applies a short .24s camera shake and directional
-  knockback on rocket impact. DamageShip receives the missile heading so normal
-  and altitude-defense rockets push the ship in their travel direction;
+- UfoImpactEffects.cs applies a .30s camera shake, stronger directional
+  knockback, and rotational tilt impulse on rocket impact. DamageShip receives
+  the missile heading so normal and altitude-defense rockets push the ship in their travel direction;
   impact motion resets with each flight and does not alter the combat timer.

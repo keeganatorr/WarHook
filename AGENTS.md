@@ -205,6 +205,10 @@ from reading the code or `git log`.
   The upgrade screen uses a dedicated 1152×648 render target and a full 576×324
   logical research canvas at 2×; gameplay uses a 384×216 16:9 target, fitted to
   the current window while preserving its aspect ratio.
+  The upgrades nebula lives in `Content/upgrade-clouds.fx` and renders into a
+  half-size target before being blended behind the starfield and map. Desktop
+  builds compile it through `PyoroGL.csproj`; its BlazorGL-compatible XNB is
+  checked in at `WarHookWeb/wwwroot/Content/upgrade-clouds.xnb`.
   Map mouse coordinates are promoted into the graph canvas. Keep map geometry
   aligned to that 2× graph transform so Font6 stays crisp.
   --shots checks graph reachability, multi-parent gates, any-three capstones,

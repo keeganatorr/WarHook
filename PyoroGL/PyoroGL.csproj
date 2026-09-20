@@ -44,6 +44,7 @@
          separately so the checked-in SpriteFont XNBs keep their established
          platform format. -->
     <Exec Command="$(MGCBExe) /platform:DesktopGL /outputDir:. /intermediateDir:obj/Crt /importer:EffectImporter /processor:EffectProcessor /build:crt.fx" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
+    <Exec Command="$(MGCBExe) /platform:DesktopGL /outputDir:. /intermediateDir:obj/UpgradeClouds /importer:EffectImporter /processor:EffectProcessor /build:upgrade-clouds.fx" WorkingDirectory="$(MSBuildProjectDirectory)/Content" />
   </Target>
 
   <!-- Single-file publish settings for win-x64 / linux-x64 -->

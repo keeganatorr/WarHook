@@ -17,7 +17,9 @@ namespace MonogameTest
         SpriteBatch spriteBatch;
         RenderTarget2D _nativeRenderTarget;
         RenderTarget2D _upgradeRenderTarget;
+        RenderTarget2D _upgradeCloudRenderTarget;
         Effect crtEffect;
+        Effect upgradeCloudEffect;
         RasterizerState playfieldRasterizer;
 
         const int NATIVE_WIDTH = 384;
@@ -730,6 +732,10 @@ namespace MonogameTest
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
             _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice,
                 UpgradeLogicalWidth * UpgradeMapRenderScale, UpgradeLogicalHeight * UpgradeMapRenderScale);
+            // Nebula noise is generated at half the research target's width
+            // and height, then smoothly enlarged beneath crisp map geometry.
+            _upgradeCloudRenderTarget = new RenderTarget2D(GraphicsDevice,
+                UpgradeLogicalWidth, UpgradeLogicalHeight);
             Window.ClientSizeChanged += Window_ClientSizeChanged;
 
             if (GameAssets.IsWeb)
@@ -834,6 +840,7 @@ namespace MonogameTest
             arial = Content.Load<SpriteFont>("font");
             smallfont = Content.Load<SpriteFont>("smallfont");
             crtEffect = Content.Load<Effect>("crt");
+            upgradeCloudEffect = Content.Load<Effect>("upgrade-clouds");
             fontAtlas = loadPng("font8x8_atlas");
             upgradeIcons = loadPng("upgrade-icons");
             font6 = new Font6(GraphicsDevice);
@@ -1160,8 +1167,10 @@ namespace MonogameTest
             playfieldRasterizer.Dispose();
             _nativeRenderTarget.Dispose();
             _upgradeRenderTarget?.Dispose();
+            _upgradeCloudRenderTarget?.Dispose();
             upgradeIcons?.Dispose();
             crtEffect?.Dispose();
+            upgradeCloudEffect?.Dispose();
             spriteBatch.Dispose();
         }
 

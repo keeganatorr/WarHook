@@ -1,3 +1,20 @@
+steam overlay wishlist
+utm_source links
+
+enemy types?
+snipers???
+tanks??
+
+make the shield an outline and not an oval
+
+make progress bars at the top of scrren have the text centered inside it and opposite color as background (per pixel)
+
+
+visual work
+------
+smoke trails on rockets?
+fire on rockets?
+muzzle flash on rockets???
 
 enemy/rocket kills drops mult pickups
 auto fire?

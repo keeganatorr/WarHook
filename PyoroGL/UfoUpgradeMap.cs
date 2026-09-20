@@ -579,6 +579,33 @@ namespace MonogameTest
             // A dark base keeps the plasma subdued enough for the web to read.
             spriteBatch.Draw(beamPixel, UpgradeMapView, UpgradeBase);
             spriteBatch.Draw(borderCamo, UpgradeMapView, Color.White * .16f);
+            spriteBatch.End();
+            if (upgradeCloudEffect != null)
+            {
+                GraphicsDevice.SetRenderTarget(_upgradeCloudRenderTarget);
+                GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+                GraphicsDevice.ScissorRectangle = new Rectangle(0, 0,
+                    UpgradeLogicalWidth, UpgradeLogicalHeight);
+                GraphicsDevice.Clear(Color.Transparent);
+                upgradeCloudEffect.Parameters["TextureSize"]?.SetValue(new Vector2(UpgradeMapView.Width, UpgradeMapView.Height));
+                upgradeCloudEffect.Parameters["Time"]?.SetValue((float)borderTime);
+                upgradeCloudEffect.Parameters["CloudOpacity"]?.SetValue(.38f);
+                spriteBatch.Begin(blendState: BlendState.Opaque, samplerState: SamplerState.PointClamp,
+                    rasterizerState: RasterizerState.CullNone, effect: upgradeCloudEffect);
+                spriteBatch.Draw(beamPixel, new Rectangle(0, 0,
+                    UpgradeLogicalWidth, UpgradeLogicalHeight), Color.White);
+                spriteBatch.End();
+                GraphicsDevice.SetRenderTarget(_upgradeRenderTarget);
+                GraphicsDevice.ScissorRectangle = new Rectangle(0, 0,
+                    UpgradeLogicalWidth * UpgradeMapRenderScale, UpgradeLogicalHeight * UpgradeMapRenderScale);
+                spriteBatch.Begin(blendState: BlendState.Additive, samplerState: SamplerState.LinearClamp,
+                    rasterizerState: playfieldRasterizer,
+                    transformMatrix: Matrix.CreateScale(UpgradeMapRenderScale));
+                spriteBatch.Draw(_upgradeCloudRenderTarget, UpgradeMapView, Color.White);
+                spriteBatch.End();
+            }
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: playfieldRasterizer,
+                transformMatrix: Matrix.CreateScale(UpgradeMapRenderScale));
             DrawUpgradeStarfield();
             for (int y = 2; y < UpgradeMapView.Height; y += 2)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, y, UpgradeMapView.Width, 1), UpgradeStructureDim * .35f);

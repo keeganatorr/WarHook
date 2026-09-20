@@ -571,6 +571,13 @@ namespace MonogameTest
             Require(UpgradeNodeVisible(UfoProgression.Index("fire"))
                 && !UpgradeNodeVisible(UfoProgression.Index("fire2")),
                 "Unconnected upgrades should stay hidden until a neighbor is purchased");
+            mapPreviousMouse = Mouse.GetState();
+            var mapKeyTick = new GameTime(TimeSpan.Zero, TimeSpan.FromMilliseconds(16));
+            UpdateUpgradeMap(mapKeyTick, key => key == Keys.OemPipe, _ => false, false, false, false);
+            Require(mapRevealAll && UpgradeNodeVisible(UfoProgression.Index("fire2")),
+                "The US backslash key did not reveal the full research map");
+            UpdateUpgradeMap(mapKeyTick, key => key == Keys.OemPipe, _ => false, false, false, false);
+            Require(!mapRevealAll, "The US backslash key did not toggle the full research map off");
             mapRevealAll = true;
             var seen = new System.Collections.Generic.HashSet<int> { UfoProgression.Index("core") };
             var queue = new System.Collections.Generic.Queue<int>(seen);

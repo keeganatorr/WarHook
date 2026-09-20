@@ -11,7 +11,9 @@ namespace MonogameTest
         static readonly Keys[] PhysicalControlKeys = {
             Keys.A, Keys.D, Keys.W, Keys.S, Keys.X, Keys.Z, Keys.Space,
             Keys.LeftShift, Keys.RightShift, Keys.Left, Keys.Right, Keys.Up, Keys.Down,
-            Keys.OemBackslash
+            // The ordinary US '\\' key is OemPipe in XNA; OemBackslash is
+            // the separate ISO-102 key and remains accepted directly too.
+            Keys.OemPipe
         };
 #endif
 

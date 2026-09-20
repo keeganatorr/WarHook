@@ -174,7 +174,8 @@ namespace MonogameTest
             screen = MenuScreen.Upgrades;
             paused = false;
             mapInputReady = false; mapDragging = false; confirmPrestige = false; mapHoverSelection = -1;
-            mapMouseInspectionMode = true;
+            if (!UpgradeNodeVisible(mapSelection)) mapSelection = UfoProgression.Index("core");
+            mapMouseInspectionMode = false;
             mapPopupNode = mapPopupTargetNode = -1; mapPopupAmount = 0;
             mapPreviousMouse = Mouse.GetState();
             mapMessage = ""; mapMessageTime = 0;
@@ -260,7 +261,7 @@ namespace MonogameTest
             }
             if (!acceptHeld) mapInputReady = true;
             int oldSelection = mapSelection;
-            if (pressed(Keys.OemBackslash))
+            if (pressed(Keys.OemPipe) || pressed(Keys.OemBackslash))
             {
                 mapRevealAll = !mapRevealAll;
                 mapMouseInspectionMode = false;
@@ -288,9 +289,6 @@ namespace MonogameTest
             bool inMap = UpgradeMapView.Contains(mapPoint);
             int wheel = mouse.ScrollWheelValue - mapPreviousMouse.ScrollWheelValue;
             bool mouseMoved = mouse.X != mapPreviousMouse.X || mouse.Y != mapPreviousMouse.Y;
-            if ((!mapKeyboardPanning && (mouseMoved || down || up || wheel != 0)) ||
-                (down && inMap) || (inMap && wheel != 0))
-                mapMouseInspectionMode = true;
             if (confirmPrestige)
             {
                 mapPreviousMouse = mouse;
@@ -338,8 +336,11 @@ namespace MonogameTest
             if (inMap && wheel != 0) ZoomUpgradeMap(wheel > 0 ? Math.Min(2, mapZoom * 2) : Math.Max(.5f, mapZoom / 2), mapPointer);
             if ((down && UpgradeZoomButton.Contains(mapPoint)) || padPressed(Buttons.RightShoulder))
                 ZoomUpgradeMap(mapZoom >= 2 ? .5f : mapZoom * 2, MapViewCenter);
+            int pointerUpgrade = !mapDragging && !mapKeyboardPanning && inMap ? UpgradeNodeAt(mapPoint) : -1;
+            if (pointerUpgrade >= 0 && (mouseMoved || down || up || wheel != 0))
+                mapMouseInspectionMode = true;
             mapHoverSelection = mapMouseInspectionMode && !mapDragging && !mapKeyboardPanning && inMap
-                ? UpgradeNodeAt(mapPoint) : -1;
+                ? pointerUpgrade : -1;
             if (oldSelection != mapSelection)
             {
                 mapBounceSelection = mapSelection;

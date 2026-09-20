@@ -207,7 +207,7 @@ namespace MonogameTest
                 {
                     graphics.HardwareModeSwitch = false;
                     graphics.ToggleFullScreen();
-                    computeIntegerScale();
+                    computeViewportRect();
                 }
                 else if (optionsSelection == 1 && adjust != 0)
                 {

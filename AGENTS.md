@@ -93,7 +93,8 @@ from reading the code or `git log`.
 - UFO gameplay has no score or high-score submission; its persistent currency
   is the round-end crew reward. Siege mode is removed from the visible UFO
   menus; older mode values in saves migrate to the remaining UFO mode.
-- UFO playfield is 288×216; the ship is 44×20 and its centre moves within
+- UFO playfield is 384×216 (16:9); desktop and web presentation fit a 16:9 viewport,
+  with point-sampled scaling. The ship is 44×20 and its centre moves within
   Y=34..159 (GroundY - 38 at the low bound) using Up/Down, W/S or the controller. Both previous ship coordinates
   feed missile collision sweeps; firing and tractor origins follow altitude. X/Space (pad A) fires downward; Z/Shift (pad Y)
   holds the tractor cone. Captured people stay in the people list, keeping
@@ -184,10 +185,11 @@ from reading the code or `git log`.
   is integrated analytically, with Long Haul applying after 120 active seconds.
   The reward timer and abduction-driven difficulty clock remain separate.
 - UfoUpgradeMap uses world coordinates, spatial keyboard selection, free drag,
-  discrete .5/1/2 zoom and a clickable overview. Icons are code-drawn pixels
-  (existing UFO atlas for core/capstone); no additional raster assets required.
-  The upgrade screen uses a dedicated 1152×864 render target and a full 576×432
-  logical research canvas at 2×, while gameplay remains on the 288×216 target.
+  discrete .5/1/2 zoom and a clickable overview. Upgrade icons come from the
+  8×5, 64px-cell `Assets/upgrade-icons.png` atlas and use point sampling.
+  The upgrade screen uses a dedicated 1152×648 render target and a full 576×324
+  logical research canvas at 2×; gameplay uses a 384×216 16:9 target, fitted to
+  the current window while preserving its aspect ratio.
   Map mouse coordinates are promoted into the graph canvas. Keep map geometry
   aligned to that 2× graph transform so Font6 stays crisp.
   --shots checks graph reachability, multi-parent gates, any-three capstones,

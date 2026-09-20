@@ -20,7 +20,7 @@ namespace MonogameTest
         Effect crtEffect;
         RasterizerState playfieldRasterizer;
 
-        const int NATIVE_WIDTH = 288;
+        const int NATIVE_WIDTH = 384;
         const int NATIVE_HEIGHT = 216;
         const int PLAYFIELD_LEFT = 8;
         const int PLAYFIELD_RIGHT = NATIVE_WIDTH - 8;
@@ -53,10 +53,10 @@ namespace MonogameTest
             LoadSaveSlots();
         }
 
-        // Compute the largest integer scale factor that fits the current window,
-        // preserving the 288x216 aspect ratio. Also center the render target
-        // destination and fill leftover space with the border colour.
-        void computeIntegerScale()
+        // Fit the native 16:9 canvas to the current window without cropping.
+        // Fractional presentation scaling lets gameplay use the full viewport;
+        // point sampling keeps the pixel art edges crisp.
+        void computeViewportRect()
         {
             int winW = Window.ClientBounds.Width;
             int winH = Window.ClientBounds.Height;
@@ -64,19 +64,13 @@ namespace MonogameTest
             // Guard against degenerate sizes.
             if (winW < 1 || winH < 1)
             {
-                gameSize = 1;
                 rect = new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT);
                 return;
             }
 
-            // Largest integer multiplier where both dimensions still fit,
-            // keeping the 4:3 aspect ratio.
-            int s = Math.Min(winW / NATIVE_WIDTH, winH / NATIVE_HEIGHT);
-            if (s < 1) s = 1;
-            gameSize = s;
-
-            int dstW = NATIVE_WIDTH * s;
-            int dstH = NATIVE_HEIGHT * s;
+            float scale = Math.Min(winW / (float)NATIVE_WIDTH, winH / (float)NATIVE_HEIGHT);
+            int dstW = Math.Min(winW, (int)Math.Round(NATIVE_WIDTH * scale));
+            int dstH = Math.Min(winH, (int)Math.Round(NATIVE_HEIGHT * scale));
             int offX = (winW - dstW) / 2;
             int offY = (winH - dstH) / 2;
             rect = new Rectangle(offX, offY, dstW, dstH);
@@ -87,7 +81,7 @@ namespace MonogameTest
             // Recompute the integer scale and centered destination rectangle so
             // the scaled game always snaps to an even multiplier with the
             // remaining window area filled by the clear colour.
-            computeIntegerScale();
+            computeViewportRect();
         }
 
         int targetFPS = 60;
@@ -165,7 +159,6 @@ namespace MonogameTest
         
         float speed = 1.0f;
         MouseState mouseState;
-        int gameSize = 4;
         bool[] blocks;
         float tongueX, tongueY;
         int facingright = 1;
@@ -474,7 +467,7 @@ namespace MonogameTest
             angelQueueTimer = 16;
         }
 
-        // Play a 3-frame 16x16 explosion animation at a native (288x216) position.
+        // Play a 3-frame 16x16 explosion animation at a native (384x216) position.
         // Mirrors the pico-8 smoke/burst used when a block or bean disappears.
         void spawnExplosion(float x, float y, bool playSound = true)
         {
@@ -639,7 +632,7 @@ namespace MonogameTest
         }
 
         // Add points to the running score and spawn a short-lived "+pts" popup
-        // at the given native (288x216) position, mirroring the pico-8 version.
+        // at the given native (384x216) position, mirroring the pico-8 version.
         void addScore(float x, float y, int pts)
         {
             // Background effects continue after game over, but the result is final.
@@ -748,7 +741,7 @@ namespace MonogameTest
             }
             Window.Title = "WarHook: UFO Abduction";
             graphics.ApplyChanges();
-            computeIntegerScale();
+                    computeViewportRect();
             x = PLAYER_START_X;
             y = PLAYER_START_Y;
             tongueoffsetX = 1; // mirrored barrel tip
@@ -1409,7 +1402,7 @@ namespace MonogameTest
         // side-by-side (48x16), mirroring the pico-8 spritesheet burst effect.
         class Explosion
         {
-            public float x, y;      // native (288x216) centre position
+            public float x, y;      // native (384x216) centre position
             public int timer;           // elapsed frames
             public int frameDuration;   // frames per sprite frame
 

@@ -942,16 +942,26 @@ namespace MonogameTest
                 font6.Draw(spriteBatch, "BEAM " + abductees.Count + "/" + beamCapacity, new Vector2(225, 13), new Color(96, 230, 222));
                 font6.Draw(spriteBatch, "CREW " + (roundSoldiers * soldierValueLevel),
                     new Vector2(8, NATIVE_HEIGHT - 10), new Color(95, 245, 255));
-                font6.Draw(spriteBatch, "X/SPACE FIRE Z/SHIFT BEAM", new Vector2(132, NATIVE_HEIGHT - 10), new Color(180, 210, 220));
+                const string controls = "X/SPACE FIRE Z/SHIFT BEAM";
+                font6.Draw(spriteBatch, controls,
+                    new Vector2(NATIVE_WIDTH - 8 - font6.Measure(controls).X, NATIVE_HEIGHT - 10),
+                    new Color(180, 210, 220));
             }
             if (gameover && screen != MenuScreen.Scores && screen != MenuScreen.RoundResults)
             {
-                spriteBatch.Draw(beamPixel, new Rectangle(24, 85, 240, 63), Color.Black * .85f);
-                DrawStringBitmap(spriteBatch, "SHIP DISABLED", new Vector2(92, 90), Color.White);
+                int panelX = (NATIVE_WIDTH - 240) / 2;
+                spriteBatch.Draw(beamPixel, new Rectangle(panelX, 85, 240, 63), Color.Black * .85f);
+                const string disabled = "SHIP DISABLED";
+                DrawStringBitmap(spriteBatch, disabled,
+                    new Vector2((NATIVE_WIDTH - disabled.Length * FONT_CELL) / 2, 90), Color.White);
                 if (retryMusicVisible)
                 {
-                    font6.Draw(spriteBatch, "MUSIC " + retryMusic, new Vector2(106, 108), Color.Yellow);
-                    font6.Draw(spriteBatch, "LEFT/RIGHT CHANGE   ENTER LAUNCH", new Vector2(48, 124), Color.White);
+                    string musicLabel = "MUSIC " + retryMusic;
+                    string musicHelp = "LEFT/RIGHT CHANGE   ENTER LAUNCH";
+                    font6.Draw(spriteBatch, musicLabel,
+                        new Vector2((NATIVE_WIDTH - font6.Measure(musicLabel).X) / 2, 108), Color.Yellow);
+                    font6.Draw(spriteBatch, musicHelp,
+                        new Vector2((NATIVE_WIDTH - font6.Measure(musicHelp).X) / 2, 124), Color.White);
                 }
             }
 

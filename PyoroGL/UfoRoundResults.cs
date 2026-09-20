@@ -11,7 +11,7 @@ namespace MonogameTest
         const double ResultsLineDelay = 1.15;
         const double ResultsCountDuration = .7;
         const double ResultsCompleteTime = ResultsFirstLine + ResultsLineDelay * 2 + ResultsCountDuration + .25;
-        static readonly Rectangle ResultsContinueButton = new Rectangle(52, 141, 184, 18);
+        static readonly Rectangle ResultsContinueButton = new Rectangle((NATIVE_WIDTH - 184) / 2, 141, 184, 18);
         double resultsTime, resultsMultiplier, resultsReward, resultsSurvival;
         int resultsCrew;
         bool resultsInputReady;
@@ -73,7 +73,7 @@ namespace MonogameTest
             // One gentle overshoot on arrival; all elements grow about the row centre.
             float bounce = 1 + .075f * (float)Math.Sin(Math.PI * Math.Clamp(age / .4, 0, 1));
             float alpha = MathHelper.Clamp((float)(age / .1), 0, 1);
-            Vector2 center = new Vector2(144, 63 + line * 24);
+            Vector2 center = new Vector2(NATIVE_WIDTH / 2f, 63 + line * 24);
             var box = new Rectangle((int)(center.X - 99 * bounce), (int)(center.Y - 10 * bounce),
                 (int)(198 * bounce), (int)(20 * bounce));
             spriteBatch.Draw(beamPixel, box, new Color(12, 28, 44) * alpha);
@@ -90,19 +90,21 @@ namespace MonogameTest
             // This is drawn over the still-visible crash scene. Keep the panel
             // compact and translucent so the landing, fire, and smoke remain
             // readable around it.
-            spriteBatch.Draw(beamPixel, new Rectangle(34, 20, 220, 140), new Color(3, 10, 20) * .88f);
-            spriteBatch.Draw(beamPixel, new Rectangle(39, 25, 210, 1), new Color(82, 118, 134) * .9f);
-            DrawResultsText(resultsHeading, new Vector2(144, 35), new Color(255, 145, 112), 1.05f);
-            DrawResultsText("SURVIVED " + FormatRoundTime(resultsSurvival), new Vector2(144, 47), new Color(129, 162, 184));
+            int panelX = (NATIVE_WIDTH - 220) / 2;
+            Vector2 center = new Vector2(NATIVE_WIDTH / 2f, 0);
+            spriteBatch.Draw(beamPixel, new Rectangle(panelX, 20, 220, 140), new Color(3, 10, 20) * .88f);
+            spriteBatch.Draw(beamPixel, new Rectangle(panelX + 5, 25, 210, 1), new Color(82, 118, 134) * .9f);
+            DrawResultsText(resultsHeading, center + new Vector2(0, 35), new Color(255, 145, 112), 1.05f);
+            DrawResultsText("SURVIVED " + FormatRoundTime(resultsSurvival), center + new Vector2(0, 47), new Color(129, 162, 184));
             DrawResultsLine(0, "CREW COLLECTED", resultsCrew, new Color(88, 236, 241));
             DrawResultsLine(1, "MULTIPLIER", resultsMultiplier, new Color(139, 181, 255));
             DrawResultsLine(2, "TOTAL REWARD", resultsReward, new Color(255, 220, 128));
             if (!ResultsComplete) return;
             DrawResultsText(roundBanked ? "CREW ADDED TO BALANCE" : "SAVE PENDING - RETRY",
-                new Vector2(144, 132), roundBanked ? new Color(129, 162, 184) : new Color(255, 145, 112));
+                center + new Vector2(0, 132), roundBanked ? new Color(129, 162, 184) : new Color(255, 145, 112));
             spriteBatch.Draw(beamPixel, ResultsContinueButton, new Color(20, 66, 89) * .92f);
             DrawResultsText(resultsInputReady ? "ENTER / X / A  UPGRADES" : "RELEASE TO CONTINUE",
-                new Vector2(144, 150), new Color(88, 236, 241));
+                center + new Vector2(0, 150), new Color(88, 236, 241));
         }
     }
 }

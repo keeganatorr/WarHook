@@ -38,7 +38,7 @@ namespace MonogameTest
                 people.Clear();
                 UpdateBeanDifficulty();
             }
-            if (events != 99 || hash != 0x1689FA91 || bigspeed != 503 || time_until_new_bean != 19)
+            if (events != 99 || hash != 0x6BA769F5 || bigspeed != 503 || time_until_new_bean != 19)
                 throw new InvalidOperationException("UFO spawn schedule diverged from original bean replay");
             bigspeed = missileDifficultySpeed = 0x100;
             if (BeanMissileSpeed(0x40) != 15 || BeanMissileSpeed(0x7F) != 29.765625f)
@@ -158,7 +158,7 @@ namespace MonogameTest
             resetGame(); screen = MenuScreen.Playing;
             Require(ShipMaxY == GroundY - 38, "Lower flight limit was not moved toward the rooftops");
             MoveShip(1, dt);
-            Require(shipX > 144 && shipTilt > 0 && shipTilt < .18f, "Movement tilt did not ease in");
+            Require(shipX > NATIVE_WIDTH / 2f && shipTilt > 0 && shipTilt < .18f, "Movement tilt did not ease in");
             float tilt = shipTilt;
             MoveShip(0, dt);
             Require(shipTilt > 0 && shipTilt < tilt, "Movement tilt did not ease out");
@@ -285,13 +285,13 @@ namespace MonogameTest
             foreach (float target in new[] { 50f, 230f })
             {
                 resetGame(); shipX = previousShipX = target;
-                shipY = previousShipY = target < 144 ? ShipMinY : ShipMaxY;
+                shipY = previousShipY = target < NATIVE_WIDTH / 2f ? ShipMinY : ShipMaxY;
                 LaunchMissile(new GroundPerson { TargetX = 144, BeanSpeed = 96 });
                 UfoMissile rocket = missiles[0];
                 Vector2 expected = Vector2.Normalize(ShipPosition - rocket.Position);
                 Require(Vector2.Distance(rocket.Heading, expected) < .0001f && rocket.Velocity.Y < 0,
                     "Missile did not aim at the launch-time UFO position");
-                shipX = previousShipX = 288 - target;
+                shipX = previousShipX = NATIVE_WIDTH - target;
                 UpdateMissiles(.1f);
                 Require(Vector2.Distance(Vector2.Normalize(rocket.Velocity), expected) < .0001f,
                     "Missile unexpectedly homed after launch");
@@ -391,7 +391,7 @@ namespace MonogameTest
             UpdateUfo(tickTime, new KeyboardState(Keys.Y));
             Require(!tractorActive && SmokeAbductee == null, "Old keyboard Y binding still activates the tractor");
             UpdateUfo(tickTime, new KeyboardState(Keys.Z, Keys.X, Keys.Right));
-            Require(tractorActive && SmokeAbductee != null && shipBullets.Count == 1 && shipX > 144,
+            Require(tractorActive && SmokeAbductee != null && shipBullets.Count == 1 && shipX > NATIVE_WIDTH / 2f,
                 "Simultaneous movement / X / Z input failed");
             paused = true;
             float savedX = shipX, savedY = SmokeAbductee.Y, savedCooldown = shotCooldown;
@@ -758,9 +758,9 @@ namespace MonogameTest
             { if (!condition) throw new InvalidOperationException(message); }
             progression = new UfoProgression(true);
             resetGame(); screen = MenuScreen.Playing;
-            shipX = previousShipX = 144; shipY = previousShipY = 80; shipHealth = 100;
+            shipX = previousShipX = NATIVE_WIDTH / 2f; shipY = previousShipY = 80; shipHealth = 100;
             DamageShip(Vector2.UnitX);
-            Require(shipHealth == 75 && impactShakeTime > 0 && shipX > 144 && shipVelocity.X > 0,
+            Require(shipHealth == 75 && impactShakeTime > 0 && shipX > NATIVE_WIDTH / 2f && shipVelocity.X > 0,
                 "Rocket hit did not apply a directional knockback and shake");
             Matrix transform = ImpactShakeTransform();
             Require(transform.Translation.Length() > 0, "Rocket impact shake had no camera offset");
@@ -774,7 +774,7 @@ namespace MonogameTest
             Require(impactShakeTime == 0 && shipVelocity == Vector2.Zero, "New flight retained impact motion");
             // A fatal hit should hand its direction and momentum to the wreck,
             // rather than making every crash fall straight down identically.
-            shipHealth = 25; shipX = previousShipX = 144; shipY = previousShipY = 80;
+            shipHealth = 25; shipX = previousShipX = NATIVE_WIDTH / 2f; shipY = previousShipY = 80;
             DamageShip(Vector2.UnitX);
             float crashStartX = shipX, crashStartTilt = crashTilt;
             UpdateCrashLanding(.2f);

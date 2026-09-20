@@ -10,7 +10,8 @@ namespace MonogameTest
         // avoids AZERTY's physical W / printed Z activating movement AND beam.
         static readonly Keys[] PhysicalControlKeys = {
             Keys.A, Keys.D, Keys.W, Keys.S, Keys.X, Keys.Z, Keys.Space,
-            Keys.LeftShift, Keys.RightShift, Keys.Left, Keys.Right, Keys.Up, Keys.Down
+            Keys.LeftShift, Keys.RightShift, Keys.Left, Keys.Right, Keys.Up, Keys.Down,
+            Keys.OemBackslash
         };
 #endif
 

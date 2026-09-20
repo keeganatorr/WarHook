@@ -31,10 +31,17 @@ namespace MonogameTest
         const float MapLabelScale = 1f;
         const int UpgradeMapRenderScale = 2;
         int mapSelection = UfoProgression.Index("core");
-        Vector2 mapCamera, mapDragCamera, mapDragStart;
+        Vector2 mapCamera, mapCameraTarget, mapDragCamera, mapDragStart;
         float mapZoom = .5f;
         double mapPulse;
-        bool mapInputReady, mapDragging, confirmPrestige;
+        bool mapInputReady, mapDragging, mapKeyboardPanning, confirmPrestige;
+        bool mapMouseInspectionMode = true;
+        bool mapRevealAll;
+        int mapHoverSelection = -1;
+        int mapBounceSelection = -1;
+        float mapBounceTime;
+        int mapPopupNode = -1, mapPopupTargetNode = -1;
+        float mapPopupAmount;
         MouseState mapPreviousMouse;
         string mapMessage = "";
         double mapMessageTime;
@@ -45,11 +52,50 @@ namespace MonogameTest
         float MapWorldScale => mapZoom * 1.2f;
         Vector2 MapToScreen(Vector2 world) => MapViewCenter + (world - mapCamera) * MapWorldScale;
         Vector2 UpgradeNodePosition(int index) => MapToScreen(UfoProgression.Nodes[index].Position);
-        void ClampMapCamera() => mapCamera = Vector2.Clamp(mapCamera, new Vector2(-430, -185), new Vector2(430, 260));
-        void FocusUpgradeNode()
+        void ClampMapCamera()
         {
-            mapCamera = mapZoom == .5f ? new Vector2(0, 40) : UfoProgression.Nodes[mapSelection].Position;
+            Vector2 minimum = new Vector2(-430, -185), maximum = new Vector2(430, 260);
+            mapCamera = Vector2.Clamp(mapCamera, minimum, maximum);
+            mapCameraTarget = Vector2.Clamp(mapCameraTarget, minimum, maximum);
+        }
+        void FocusUpgradeNode(bool smooth = false)
+        {
+            mapCameraTarget = UfoProgression.Nodes[mapSelection].Position;
+            if (!smooth)
+            {
+                mapCamera = mapCameraTarget;
+                mapKeyboardPanning = false;
+            }
+            else mapKeyboardPanning = Vector2.DistanceSquared(mapCamera, mapCameraTarget) > .0001f;
             ClampMapCamera();
+        }
+        int UpgradeNodeAt(Point point)
+        {
+            int closest = -1;
+            float closestDistance = float.PositiveInfinity;
+            for (int i = 0; i < UfoProgression.Nodes.Length; i++)
+            {
+                if (!UpgradeNodeVisible(i)) continue;
+                Rectangle box = UpgradeNodeRect(i);
+                if (!box.Contains(point)) continue;
+                float distance = Vector2.DistanceSquared(new Vector2(point.X, point.Y),
+                    new Vector2(box.Center.X, box.Center.Y));
+                if (distance < closestDistance) { closest = i; closestDistance = distance; }
+            }
+            return closest;
+        }
+        bool UpgradeNodeVisible(int index)
+        {
+            if (mapRevealAll || progression.Rank(index) > 0) return true;
+            foreach (var requirement in UfoProgression.Nodes[index].Requires)
+                if (progression.Rank(requirement.Node) > 0) return true;
+            for (int child = 0; child < UfoProgression.Nodes.Length; child++)
+            {
+                if (progression.Rank(child) <= 0) continue;
+                foreach (var requirement in UfoProgression.Nodes[child].Requires)
+                    if (requirement.Node == UfoProgression.Nodes[index].Id) return true;
+            }
+            return false;
         }
         Rectangle UpgradeNodeRect(int index)
         {
@@ -58,12 +104,39 @@ namespace MonogameTest
                 * mapZoom * MapNodeVisualScale);
             return new Rectangle((int)Math.Round(p.X) - size / 2, (int)Math.Round(p.Y) - size / 2, size, size);
         }
+        float UpgradeNodeBounceScale(int index)
+        {
+            if (mapMouseInspectionMode || index != mapBounceSelection || mapBounceTime >= .42f) return 1;
+            return 1 + .34f * (float)Math.Exp(-10 * mapBounceTime) * (float)Math.Sin(23 * mapBounceTime);
+        }
+        void UpdateUpgradePopup(float dt)
+        {
+            int target = confirmPrestige ? -1 : mapMouseInspectionMode ? mapHoverSelection : mapSelection;
+            if (target >= 0 && !UpgradeNodeVisible(target)) target = -1;
+            if (target != mapPopupTargetNode)
+            {
+                mapPopupTargetNode = target;
+                if (target >= 0)
+                {
+                    mapPopupNode = target;
+                    mapPopupAmount = 0;
+                }
+            }
+            float desired = target >= 0 ? 1 : 0;
+            mapPopupAmount += (desired - mapPopupAmount) * (1 - (float)Math.Exp(-14 * dt));
+            if (target < 0 && mapPopupAmount < .01f)
+            {
+                mapPopupAmount = 0;
+                mapPopupNode = -1;
+            }
+        }
 
         int SpatialUpgradeNeighbor(int selected, Vector2 direction)
         {
             int best = selected; float distance = float.PositiveInfinity;
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
             {
+                if (i == selected || !UpgradeNodeVisible(i)) continue;
                 Vector2 delta = UfoProgression.Nodes[i].Position - UfoProgression.Nodes[selected].Position;
                 float forward = Vector2.Dot(delta, direction);
                 if (forward <= 0) continue;
@@ -79,8 +152,8 @@ namespace MonogameTest
             Vector2 world = mapCamera + (anchor - MapViewCenter) / MapWorldScale;
             mapZoom = next;
             mapCamera = world - (anchor - MapViewCenter) / MapWorldScale;
-            if (next == .5f) mapCamera = new Vector2(0, 40); // Overview fits the complete web.
-            ClampMapCamera(); mapDragging = false;
+            mapCameraTarget = mapCamera;
+            ClampMapCamera(); mapDragging = false; mapKeyboardPanning = false;
         }
         void EndIncrementalRound(bool showResults = false)
         {
@@ -100,7 +173,9 @@ namespace MonogameTest
         {
             screen = MenuScreen.Upgrades;
             paused = false;
-            mapInputReady = false; mapDragging = false; confirmPrestige = false;
+            mapInputReady = false; mapDragging = false; confirmPrestige = false; mapHoverSelection = -1;
+            mapMouseInspectionMode = true;
+            mapPopupNode = mapPopupTargetNode = -1; mapPopupAmount = 0;
             mapPreviousMouse = Mouse.GetState();
             mapMessage = ""; mapMessageTime = 0;
             FocusUpgradeNode();
@@ -160,7 +235,7 @@ namespace MonogameTest
             paused = gameover = pyorodead = false;
             people.Clear(); missiles.Clear(); shipBullets.Clear(); abductees.Clear();
             mapSelection = UfoProgression.Index("core");
-            mapCamera = new Vector2(0, 40); FocusUpgradeNode();
+            FocusUpgradeNode();
             mapMessage = "PRESTIGE " + progression.PrestigeCount + " - ZOOM INCREASED";
             mapMessageTime = 3;
             mapInputReady = false;
@@ -170,19 +245,38 @@ namespace MonogameTest
         void UpdateUpgradeMap(GameTime time, Func<Keys, bool> pressed, Func<Buttons, bool> padPressed,
             bool accept, bool acceptHeld, bool cancel)
         {
-            mapPulse += time.ElapsedGameTime.TotalSeconds;
-            mapMessageTime = Math.Max(0, mapMessageTime - time.ElapsedGameTime.TotalSeconds);
+            float dt = (float)time.ElapsedGameTime.TotalSeconds;
+            mapPulse += dt;
+            mapMessageTime = Math.Max(0, mapMessageTime - dt);
+            if (!mapDragging && dt > 0)
+            {
+                float pan = 1 - (float)Math.Exp(-9 * dt);
+                mapCamera = Vector2.Lerp(mapCamera, mapCameraTarget, pan);
+                if (Vector2.DistanceSquared(mapCamera, mapCameraTarget) < .0001f)
+                {
+                    mapCamera = mapCameraTarget;
+                    mapKeyboardPanning = false;
+                }
+            }
             if (!acceptHeld) mapInputReady = true;
             int oldSelection = mapSelection;
+            if (pressed(Keys.OemBackslash))
+            {
+                mapRevealAll = !mapRevealAll;
+                mapMouseInspectionMode = false;
+                if (!UpgradeNodeVisible(mapSelection)) mapSelection = UfoProgression.Index("core");
+            }
             Vector2 direction = Vector2.Zero;
             if (pressed(Keys.Left) || pressed(Keys.A) || padPressed(Buttons.DPadLeft)) direction = -Vector2.UnitX;
             if (pressed(Keys.Right) || pressed(Keys.D) || padPressed(Buttons.DPadRight)) direction = Vector2.UnitX;
             if (pressed(Keys.Up) || pressed(Keys.W) || padPressed(Buttons.DPadUp)) direction = -Vector2.UnitY;
             if (pressed(Keys.Down) || pressed(Keys.S) || padPressed(Buttons.DPadDown)) direction = Vector2.UnitY;
             if (direction != Vector2.Zero) mapSelection = SpatialUpgradeNeighbor(mapSelection, direction);
-            if (pressed(Keys.C) || pressed(Keys.Home) || padPressed(Buttons.LeftStick)) mapSelection = UfoProgression.Index("core");
-            if (oldSelection != mapSelection || pressed(Keys.C) || pressed(Keys.Home) || padPressed(Buttons.LeftStick))
-            { FocusUpgradeNode(); beamAudio?.PlayMenuBlip(); }
+            bool centerOnCore = pressed(Keys.C) || pressed(Keys.Home) || padPressed(Buttons.LeftStick);
+            if (centerOnCore) mapSelection = UfoProgression.Index("core");
+            if (direction != Vector2.Zero || centerOnCore) mapMouseInspectionMode = false;
+            if (oldSelection != mapSelection || centerOnCore)
+            { FocusUpgradeNode(smooth: true); beamAudio?.PlayMenuBlip(); }
             MouseState mouse = Mouse.GetState();
             Vector2 pointer = UpgradePointer(mouse);
             // The graph is a separate 576x324 logical surface, so promote map
@@ -192,10 +286,16 @@ namespace MonogameTest
             bool down = mouse.LeftButton == ButtonState.Pressed && mapPreviousMouse.LeftButton == ButtonState.Released;
             bool up = mouse.LeftButton == ButtonState.Released && mapPreviousMouse.LeftButton == ButtonState.Pressed;
             bool inMap = UpgradeMapView.Contains(mapPoint);
+            int wheel = mouse.ScrollWheelValue - mapPreviousMouse.ScrollWheelValue;
+            bool mouseMoved = mouse.X != mapPreviousMouse.X || mouse.Y != mapPreviousMouse.Y;
+            if ((!mapKeyboardPanning && (mouseMoved || down || up || wheel != 0)) ||
+                (down && inMap) || (inMap && wheel != 0))
+                mapMouseInspectionMode = true;
             if (confirmPrestige)
             {
                 mapPreviousMouse = mouse;
                 mapDragging = false;
+                mapHoverSelection = -1;
                 if (cancel || (down && (PrestigeConfirmNoButton.Contains(mapPoint) || UpgradeMenuButton.Contains(mapPoint))))
                 {
                     confirmPrestige = false;
@@ -205,6 +305,7 @@ namespace MonogameTest
                 }
                 else if ((mapInputReady && accept) || (down && PrestigeConfirmYesButton.Contains(mapPoint)))
                     ConfirmPrestige();
+                UpdateUpgradePopup(dt);
                 return;
             }
             if (down && mapZoom > .5f && UpgradeMiniMap.Contains(mapPoint))
@@ -212,21 +313,40 @@ namespace MonogameTest
                 mapCamera = new Vector2((mapPointer.X - UpgradeMiniMap.X) / UpgradeMiniMap.Width * 860 - 430,
                     (mapPointer.Y - UpgradeMiniMap.Y) / UpgradeMiniMap.Height * 445 - 185);
                 ClampMapCamera();
+                mapCameraTarget = mapCamera;
+                mapKeyboardPanning = false;
             }
-            else if (down && inMap) { mapDragging = true; mapDragStart = mapPointer; mapDragCamera = mapCamera; }
+            else if (down && inMap)
+            {
+                mapCameraTarget = mapCamera;
+                mapKeyboardPanning = false;
+                mapDragging = true; mapDragStart = mapPointer; mapDragCamera = mapCamera;
+            }
             if (mapDragging && mouse.LeftButton == ButtonState.Pressed)
-            { mapCamera = mapDragCamera - (mapPointer - mapDragStart) / MapWorldScale; ClampMapCamera(); }
+            {
+                mapCamera = mapDragCamera - (mapPointer - mapDragStart) / MapWorldScale;
+                ClampMapCamera(); mapCameraTarget = mapCamera;
+            }
             if (up && mapDragging)
             {
                 if (Vector2.Distance(mapPointer, mapDragStart) < 8 && inMap)
                     for (int i = 0; i < UfoProgression.Nodes.Length; i++)
-                        if (UpgradeNodeRect(i).Contains(mapPoint)) { mapSelection = i; beamAudio?.PlayMenuBlip(); break; }
+                        if (UpgradeNodeVisible(i) && UpgradeNodeRect(i).Contains(mapPoint))
+                        { mapSelection = i; beamAudio?.PlayMenuBlip(); break; }
                 mapDragging = false;
             }
-            int wheel = mouse.ScrollWheelValue - mapPreviousMouse.ScrollWheelValue;
             if (inMap && wheel != 0) ZoomUpgradeMap(wheel > 0 ? Math.Min(2, mapZoom * 2) : Math.Max(.5f, mapZoom / 2), mapPointer);
             if ((down && UpgradeZoomButton.Contains(mapPoint)) || padPressed(Buttons.RightShoulder))
                 ZoomUpgradeMap(mapZoom >= 2 ? .5f : mapZoom * 2, MapViewCenter);
+            mapHoverSelection = mapMouseInspectionMode && !mapDragging && !mapKeyboardPanning && inMap
+                ? UpgradeNodeAt(mapPoint) : -1;
+            if (oldSelection != mapSelection)
+            {
+                mapBounceSelection = mapSelection;
+                mapBounceTime = 0;
+            }
+            else mapBounceTime += dt;
+            UpdateUpgradePopup(dt);
             bool buy = down && UpgradeBuyButton.Contains(mapPoint);
             bool launch = down && UpgradeLaunchButton.Contains(mapPoint);
             cancel |= down && UpgradeMenuButton.Contains(mapPoint);
@@ -385,6 +505,63 @@ namespace MonogameTest
             return needs;
         }
 
+        void DrawUpgradeInfoCard(int index, float amount)
+        {
+            var node = UfoProgression.Nodes[index];
+            Rectangle nodeBox = UpgradeNodeRect(index);
+            const int cardWidth = 210, cardHeight = 78;
+            int x = Math.Clamp(nodeBox.Center.X - cardWidth / 2, 4, UpgradeMapView.Width - cardWidth - 4);
+            int y = nodeBox.Top - cardHeight - 8 + (int)Math.Round((1 - amount) * 8);
+            if (y < 4) y = nodeBox.Bottom + 8;
+            y = Math.Clamp(y, 4, UpgradeBuyButton.Y - cardHeight - 4);
+            Rectangle card = new Rectangle(x, y, cardWidth, cardHeight);
+            float eased = amount * amount * (3 - 2 * amount);
+            Color tint = BranchColor(node.Branch);
+            TechBox(card, UpgradeStructure * eased, UpgradeBase * eased);
+            spriteBatch.Draw(beamPixel, new Rectangle(card.X, card.Bottom - 20, card.Width, 20), tint * (.65f * eased));
+
+            int current = progression.Rank(index);
+            font6.Draw(spriteBatch, node.Title, new Vector2(card.X + 12, card.Y + 9), Color.White * eased);
+            string level = node.Effect == UfoUpgradeEffect.Prestige
+                ? "PRESTIGE " + progression.PrestigeCount
+                : node.Id == "capacity5" ? "LV " + current + "/INFINITY"
+                : "LV " + current + "/" + node.MaxRank;
+            font6.Draw(spriteBatch, level, new Vector2(card.X + 12, card.Y + 21), UpgradeText * eased);
+            string effect = UpgradeEffectAt(index, current);
+            if (current < node.MaxRank && node.Effect != UfoUpgradeEffect.Prestige)
+            {
+                string next = UpgradeEffectAt(index, current + 1);
+                int plus = next.IndexOf('+');
+                effect = plus >= 0 && effect.Contains('+') ? effect + " > " + next.Substring(plus) : "NEXT: " + next;
+            }
+            if (effect.Length > 44) effect = "NEXT: " + UpgradeEffectAt(index, Math.Min(node.MaxRank, current + 1));
+            if (effect.Length > 29) effect = effect.Substring(0, 29);
+            font6.Draw(spriteBatch, effect, new Vector2(card.X + 12, card.Y + 33), Color.White * eased);
+            string requirement = mapMessageTime > 0 ? mapMessage : UpgradeRequirementText(index);
+            if (requirement.Length > 30) requirement = requirement.Substring(0, 30);
+            if (!requirement.StartsWith("COST ", StringComparison.Ordinal))
+                font6.Draw(spriteBatch, requirement, new Vector2(card.X + 12, card.Y + 46), UpgradeText * eased);
+            if (node.Effect == UfoUpgradeEffect.Prestige)
+            {
+                string prestige = "NEXT PRESTIGE " + (progression.PrestigeCount + 1);
+                float textWidth = font6.Measure(prestige).X;
+                font6.Draw(spriteBatch, prestige,
+                    new Vector2(card.Center.X - textWidth / 2, card.Y + 64), Color.White * eased);
+            }
+            else
+            {
+                string cost = progression.Cost(index).ToString(CultureInfo.InvariantCulture);
+                float textWidth = font6.Measure(cost).X;
+                const int crewWidth = 10, crewHeight = 13, gap = 5;
+                float groupWidth = textWidth + gap + crewWidth;
+                float groupLeft = card.Center.X - groupWidth / 2;
+                font6.Draw(spriteBatch, cost, new Vector2(groupLeft, card.Y + 64), Color.White * eased);
+                DrawUfoSprite(4,
+                    new Rectangle((int)Math.Round(groupLeft + textWidth + gap), card.Y + 61, crewWidth, crewHeight),
+                    Color.White * eased);
+            }
+        }
+
         void DrawUpgradeMap()
         {
             // drawTitleScene starts a compact batch for the other menu scenes.
@@ -404,12 +581,28 @@ namespace MonogameTest
             for (int y = 2; y < UpgradeMapView.Height; y += 2)
                 spriteBatch.Draw(beamPixel, new Rectangle(0, y, UpgradeMapView.Width, 1), UpgradeStructureDim * .35f);
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
-                foreach (var req in UfoProgression.Nodes[i].Requires) DrawTechEdge(UfoProgression.Index(req.Node), i, req.Rank);
+            {
+                if (!UpgradeNodeVisible(i)) continue;
+                foreach (var req in UfoProgression.Nodes[i].Requires)
+                {
+                    int parent = UfoProgression.Index(req.Node);
+                    if (UpgradeNodeVisible(parent)) DrawTechEdge(parent, i, req.Rank);
+                }
+            }
+            int highlightedNode = mapMouseInspectionMode ? mapHoverSelection : -1;
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
             {
+                if (!UpgradeNodeVisible(i)) continue;
                 var node = UfoProgression.Nodes[i]; var box = UpgradeNodeRect(i);
+                float bounceScale = UpgradeNodeBounceScale(i);
+                if (bounceScale != 1)
+                {
+                    int width = Math.Max(1, (int)Math.Round(box.Width * bounceScale));
+                    int height = Math.Max(1, (int)Math.Round(box.Height * bounceScale));
+                    box = new Rectangle(box.Center.X - width / 2, box.Center.Y - height / 2, width, height);
+                }
                 if (!UpgradeMapView.Intersects(new Rectangle(box.X - 22, box.Y - 4, box.Width + 44, box.Height + 16))) continue;
-                bool bought = progression.Rank(i) > 0, unlocked = progression.Unlocked(i), selected = i == mapSelection;
+                bool bought = progression.Rank(i) > 0, unlocked = progression.Unlocked(i), selected = i == highlightedNode;
                 bool canBuy = progression.CanBuy(i);
                 bool hasUpgrade = progression.Rank(i) < node.MaxRank;
                 Color tint = BranchColor(node.Branch);
@@ -436,7 +629,7 @@ namespace MonogameTest
                 Color iconTint = !unlocked ? new Color(63, 87, 110)
                     : !unaffordable ? tint * (canBuy ? 1.05f + .1f * (float)Math.Sin(mapPulse * 4) : 1)
                     : tint * .12f;
-                DrawTechIcon(node, new Vector2(box.Center.X, box.Center.Y), mapZoom * MapNodeVisualScale, iconTint);
+                DrawTechIcon(node, new Vector2(box.Center.X, box.Center.Y), mapZoom * MapNodeVisualScale * bounceScale, iconTint);
                 if (node.MaxRank > 1 && mapZoom >= 1)
                 {
                     // The fleet beam upgrade has no gameplay rank ceiling;
@@ -451,28 +644,36 @@ namespace MonogameTest
                             rankThreshold <= progression.Rank(i) ? tint : new Color(32, 51, 69));
                     }
                 }
-                if (mapZoom >= 1) font6.Draw(spriteBatch, node.ShortName,
+                if (selected && mapZoom >= 1) font6.Draw(spriteBatch, node.ShortName,
                     new Vector2(box.Center.X - font6.Measure(node.ShortName).X * MapLabelScale / 2, box.Bottom + 4),
-                    selected ? Color.White : border, MapLabelScale);
+                    Color.White, MapLabelScale);
             }
-            void Label(string label, Vector2 world, Vector2 overview, UfoBranch branch)
+            void Label(string label, Vector2 world, UfoBranch branch)
             {
-                Vector2 pos = mapZoom == .5f ? overview * UpgradeMapRenderScale : MapToScreen(world);
+                Vector2 pos = MapToScreen(world);
                 var size = font6.Measure(label) * MapLabelScale;
                 spriteBatch.Draw(beamPixel, new Rectangle((int)pos.X - 3, (int)pos.Y - 2, (int)size.X + 6, 10), UpgradeBase);
                 font6.Draw(spriteBatch, label, pos, BranchColor(branch) * .8f, MapLabelScale);
             }
-            Label("WEAPONS", new Vector2(-295, -130), new Vector2(12, 18), UfoBranch.Weapons);
-            Label("BEAM SYSTEMS", new Vector2(210, -182), new Vector2(410, 18), UfoBranch.Beam);
-            Label("SHIP SYSTEMS", new Vector2(-293, 207), new Vector2(12, 146), UfoBranch.Ship);
-            Label("YIELD SYSTEMS", new Vector2(210, 177), new Vector2(410, 146), UfoBranch.Yield);
+            Label("WEAPONS", new Vector2(-295, -130), UfoBranch.Weapons);
+            Label("BEAM SYSTEMS", new Vector2(210, -182), UfoBranch.Beam);
+            Label("SHIP SYSTEMS", new Vector2(-293, 207), UfoBranch.Ship);
+            Label("YIELD SYSTEMS", new Vector2(210, 177), UfoBranch.Yield);
 
-            // Header and wallet follow the reference's quiet, information-first
-            // layout. The selected node becomes a compact purchase tooltip.
+            // Header and wallet stay fixed while a hovered node carries its
+            // contextual upgrade card above it.
             font6.Draw(spriteBatch, "UFO RESEARCH", new Vector2(18, 12), UpgradeText);
-            string wallet = "CREW " + Money(progression.Balance);
-            TechBox(new Rectangle(18, 48, 108, 28), new Color(176, 184, 224), new Color(16, 19, 56));
-            font6.Draw(spriteBatch, wallet, new Vector2(28, 59), new Color(255, 224, 138));
+            string wallet = Money(progression.Balance);
+            Rectangle walletBox = new Rectangle(18, 48, 108, 28);
+            TechBox(walletBox, new Color(176, 184, 224), new Color(16, 19, 56));
+            const int walletCrewWidth = 10, walletCrewHeight = 14, walletGap = 5;
+            float walletWidth = font6.Measure(wallet).X;
+            float walletGroupWidth = walletCrewWidth + walletGap + walletWidth;
+            float walletGroupX = walletBox.Center.X - walletGroupWidth / 2;
+            DrawUfoSprite(4, new Rectangle((int)Math.Round(walletGroupX), walletBox.Center.Y - walletCrewHeight / 2,
+                walletCrewWidth, walletCrewHeight), Color.White);
+            font6.Draw(spriteBatch, wallet, new Vector2(walletGroupX + walletCrewWidth + walletGap, 59),
+                new Color(255, 224, 138));
             TechBox(UpgradeMenuButton, new Color(255, 100, 93), new Color(82, 18, 29));
             font6.Draw(spriteBatch, "X", new Vector2(541, 18), Color.White, 2);
             TechBox(UpgradeZoomButton, new Color(75, 110, 193), new Color(14, 22, 67));
@@ -480,33 +681,7 @@ namespace MonogameTest
 
             var selectedNode = UfoProgression.Nodes[mapSelection];
             Color selectedTint = BranchColor(selectedNode.Branch);
-            TechBox(new Rectangle(190, 18, 210, 78), UpgradeStructure, UpgradeBase);
-            spriteBatch.Draw(beamPixel, new Rectangle(190, 76, 210, 20), selectedTint * .65f);
-            int current = progression.Rank(mapSelection);
-            font6.Draw(spriteBatch, selectedNode.Title, new Vector2(202, 27), Color.White);
-            string level = selectedNode.Effect == UfoUpgradeEffect.Prestige
-                ? "PRESTIGE " + progression.PrestigeCount
-                : selectedNode.Id == "capacity5" ? "LV " + current + "/INFINITY"
-                : "LV " + current + "/" + selectedNode.MaxRank;
-            font6.Draw(spriteBatch, level, new Vector2(202, 39), UpgradeText);
-            string effect = UpgradeEffectAt(mapSelection, current);
-            if (current < selectedNode.MaxRank && selectedNode.Effect != UfoUpgradeEffect.Prestige)
-            {
-                string next = UpgradeEffectAt(mapSelection, current + 1);
-                // Show compact current -> next values for the common percent stats.
-                int plus = next.IndexOf('+');
-                effect = plus >= 0 && effect.Contains('+') ? effect + " > " + next.Substring(plus) : "NEXT: " + next;
-            }
-            if (effect.Length > 44) effect = "NEXT: " + UpgradeEffectAt(mapSelection, Math.Min(selectedNode.MaxRank, current + 1));
-            if (effect.Length > 29) effect = effect.Substring(0, 29);
-            font6.Draw(spriteBatch, effect, new Vector2(202, 51), Color.White);
-            string requirement = mapMessageTime > 0 ? mapMessage : UpgradeRequirementText(mapSelection);
-            if (requirement.Length > 30) requirement = requirement.Substring(0, 30);
-            font6.Draw(spriteBatch, requirement, new Vector2(202, 64), UpgradeText);
-            string cost = selectedNode.Effect == UfoUpgradeEffect.Prestige
-                ? "NEXT PRESTIGE " + (progression.PrestigeCount + 1)
-                : "COST " + progression.Cost(mapSelection) + " CREW";
-            font6.Draw(spriteBatch, cost, new Vector2(202, 82), Color.White);
+            if (mapPopupNode >= 0 && mapPopupAmount > 0) DrawUpgradeInfoCard(mapPopupNode, mapPopupAmount);
 
             TechBox(UpgradeBuyButton, progression.CanBuy(mapSelection) ? selectedTint : UpgradeStructure, UpgradeBase);
             string buyLabel = selectedNode.Effect == UfoUpgradeEffect.Prestige ? "PRESTIGE" : mapInputReady ? "ENTER BUY" : "RELEASE";

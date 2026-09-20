@@ -7,6 +7,7 @@ upgrade defence from rockets (percentage)
 
 orbiting defense drone blocking closest missle to drone (moves slowly can upgrade)
 
+powerup unlocks (novelty) - get fast speed for 3 seconds etc
 
 Analytics
 bombs???

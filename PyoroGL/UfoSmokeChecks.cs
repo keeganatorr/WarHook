@@ -567,6 +567,11 @@ namespace MonogameTest
             progression = new UfoProgression(true); progression.Bank("web-funds", 1000000);
             Require(UfoProgression.Nodes.Length == 34 && progression.Rank("core") == 1
                 && !progression.Buy(UfoProgression.Index("core")), "Core must be owned and non-purchasable");
+            mapRevealAll = false;
+            Require(UpgradeNodeVisible(UfoProgression.Index("fire"))
+                && !UpgradeNodeVisible(UfoProgression.Index("fire2")),
+                "Unconnected upgrades should stay hidden until a neighbor is purchased");
+            mapRevealAll = true;
             var seen = new System.Collections.Generic.HashSet<int> { UfoProgression.Index("core") };
             var queue = new System.Collections.Generic.Queue<int>(seen);
             while (queue.Count > 0)
@@ -579,6 +584,7 @@ namespace MonogameTest
                 }
             }
             Require(seen.Count == UfoProgression.Nodes.Length, "Spatial navigation strands a node");
+            mapRevealAll = false;
             BuyTo("twin", 1);
             Require(!progression.Unlocked(UfoProgression.Index("plasma")), "Merge unlocked with one parent");
             resetGame(); UpdateShipWeapon(.1f, true);

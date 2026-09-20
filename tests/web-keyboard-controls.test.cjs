@@ -72,6 +72,18 @@ test('virtual keyboards without a code retain letter-key support', () => {
     assert.equal(c.state(), 0);
 });
 
+test('backslash works by physical key code and virtual key value', () => {
+    const c = controls();
+    c.send('keydown', { code: 'Backslash', key: '\\' });
+    assert.equal(c.state(), 8192);
+    c.send('keyup', { code: 'Backslash', key: '|' });
+    assert.equal(c.state(), 0);
+    c.send('keydown', { code: 'IntlBackslash', key: '\\' });
+    assert.equal(c.state(), 8192);
+    c.send('keyup', { code: '', key: '\\' });
+    assert.equal(c.state(), 0);
+});
+
 test('movement, fire and suction remain held through repeated events', () => {
     const c = controls();
     c.send('keydown', { code: 'ArrowRight', key: 'ArrowRight' });

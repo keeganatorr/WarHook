@@ -70,6 +70,8 @@
          output Assets/ folder. Copied on EVERY build so edits always propagate
          when pressing F5. -->
     <None Update="Assets/beam-audio.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <None Update="Assets/upgrade-fonts/*.png;Assets/upgrade-fonts/fonts.json"
+          CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
     <None Update="Assets/ufo-atlas.png;Assets/ufo-abducted-soldier.png;Assets/ufo-abducted-engineer.png;Assets/explosion-new.png;Assets/parachute.png;Assets/mainmenu.png;Assets/title.png;Assets/tank-pixelart.png;Assets/mortars-pixelart-cleaned.png;Assets/framewide.png;Assets/newbackdrop.png;Assets/score.png;Assets/highscore.png;Assets/numbers.png;Assets/font8x8_atlas.png;Assets/upgrade-icons.png;Assets/frame_panel.png;Assets/block_atlas.png;Assets/menu.ogg;Assets/gameplay1.ogg;Assets/gameplay2.ogg;Assets/gameplay3.ogg;Assets/gameplay4.ogg;Assets/gameplay5.ogg;Assets/gameover.ogg"
           CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>

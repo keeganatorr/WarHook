@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.IO;
+using System.Text.Json;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -8,24 +10,23 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        // The research graph has its own native 16:9 canvas. Draw it directly
-        // at 1x, then scale the completed canvas to the window presentation.
-        const int UpgradeLogicalWidth = 576;
-        const int UpgradeLogicalHeight = 324;
+        // The research graph's native 640x360 canvas maps cleanly to 1920x1080
+        // at 3x, so its pixel art fills the default display without letterboxing.
+        const int UpgradeLogicalWidth = 640;
+        const int UpgradeLogicalHeight = 360;
         static readonly Rectangle UpgradeMapView = new Rectangle(0, 0, UpgradeLogicalWidth, UpgradeLogicalHeight);
-        static readonly Rectangle UpgradeLaunchButton = new Rectangle(450, 274, 110, 34);
-        static readonly Rectangle UpgradeBuyButton = new Rectangle(18, 274, 150, 34);
-        static readonly Rectangle UpgradeMenuButton = new Rectangle(530, 10, 32, 28);
-        static readonly Rectangle PrestigeConfirmYesButton = new Rectangle(172, 175, 112, 23);
-        static readonly Rectangle PrestigeConfirmNoButton = new Rectangle(292, 175, 112, 23);
-        static readonly Rectangle UpgradeMiniMap = new Rectangle(496, 50, 66, 42);
-        static readonly Rectangle UpgradeZoomButton = new Rectangle(458, 18, 28, 22);
+        static readonly Rectangle UpgradeLaunchButton = new Rectangle(514, 310, 110, 34);
+        static readonly Rectangle PrestigeConfirmYesButton = new Rectangle(204, 193, 112, 23);
+        static readonly Rectangle PrestigeConfirmNoButton = new Rectangle(324, 193, 112, 23);
+        static readonly Rectangle UpgradeMiniMap = new Rectangle(560, 50, 66, 42);
         // One graph coordinate now maps to one pixel in the native research
         // canvas; the final presentation scales this canvas to the viewport.
         const float MapNodeVisualScale = 1.6f;
         const float MapConnectorScale = .9f;
         const float MapLabelScale = 1f;
         const int UpgradeMapRenderScale = 1;
+        UpgradePixelFont[] upgradeFonts = Array.Empty<UpgradePixelFont>();
+        int upgradeFontIndex;
         int mapSelection = UfoProgression.Index("core");
         Vector2 mapCamera, mapCameraTarget, mapDragCamera, mapDragStart;
         float mapZoom = .5f;
@@ -41,6 +42,121 @@ namespace MonogameTest
         MouseState mapPreviousMouse;
         string mapMessage = "";
         double mapMessageTime;
+
+        sealed class UpgradeFontManifest
+        {
+            public int CellWidth { get; set; }
+            public int CellHeight { get; set; }
+            public int Columns { get; set; }
+            public int FirstCodepoint { get; set; }
+            public int LineHeight { get; set; }
+            public UpgradeFontDefinition[] Fonts { get; set; }
+        }
+
+        sealed class UpgradeFontDefinition
+        {
+            public string Name { get; set; }
+            public string Asset { get; set; }
+            public int[] Advances { get; set; }
+            public int[] Widths { get; set; }
+            public int[] Heights { get; set; }
+        }
+
+        sealed class UpgradePixelFont
+        {
+            public readonly string Name;
+            readonly Texture2D atlas;
+            readonly int cellWidth, cellHeight, columns, firstCodepoint, lineHeight;
+            readonly int[] advances, widths, heights;
+
+            public UpgradePixelFont(string name, Texture2D atlas, int cellWidth, int cellHeight,
+                int columns, int firstCodepoint, int lineHeight, int[] advances, int[] widths, int[] heights)
+            {
+                Name = name;
+                this.atlas = atlas;
+                this.cellWidth = cellWidth;
+                this.cellHeight = cellHeight;
+                this.columns = columns;
+                this.firstCodepoint = firstCodepoint;
+                this.lineHeight = lineHeight;
+                this.advances = advances;
+                this.widths = widths;
+                this.heights = heights;
+            }
+
+            public Vector2 Measure(string text)
+            {
+                float width = 0;
+                foreach (char character in text)
+                {
+                    int index = char.ToUpperInvariant(character) - firstCodepoint;
+                    if ((uint)index < (uint)advances.Length) width += advances[index];
+                }
+                return new Vector2(width, lineHeight);
+            }
+
+            public void Draw(SpriteBatch batch, string text, Vector2 position, Color color, float scale = 1)
+            {
+                float penX = position.X;
+                foreach (char original in text)
+                {
+                    char character = char.ToUpperInvariant(original);
+                    int index = character - firstCodepoint;
+                    if ((uint)index >= (uint)advances.Length) continue;
+                    int width = widths[index], height = heights[index];
+                    if (width > 0 && height > 0)
+                    {
+                        Rectangle source = new Rectangle((index % columns) * cellWidth,
+                            (index / columns) * cellHeight, width, height);
+                        batch.Draw(atlas, new Vector2((float)Math.Round(penX), (float)Math.Round(position.Y)),
+                            source, color, 0, Vector2.Zero, scale, SpriteEffects.None, 0);
+                    }
+                    penX += advances[index] * scale;
+                }
+            }
+        }
+
+        void LoadUpgradePixelFonts()
+        {
+            using Stream stream = GameAssets.Open("upgrade-fonts/fonts.json");
+            UpgradeFontManifest manifest = JsonSerializer.Deserialize<UpgradeFontManifest>(stream,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (manifest?.Fonts == null || manifest.Fonts.Length == 0)
+                throw new InvalidDataException("Upgrade pixel font manifest is empty.");
+
+            upgradeFonts = new UpgradePixelFont[manifest.Fonts.Length];
+            for (int i = 0; i < manifest.Fonts.Length; i++)
+            {
+                UpgradeFontDefinition font = manifest.Fonts[i];
+                upgradeFonts[i] = new UpgradePixelFont(font.Name,
+                    loadPng("upgrade-fonts/" + Path.GetFileNameWithoutExtension(font.Asset)),
+                    manifest.CellWidth, manifest.CellHeight, manifest.Columns, manifest.FirstCodepoint,
+                    manifest.LineHeight, font.Advances, font.Widths, font.Heights);
+                if (font.Name == "Pixel Sans") upgradeFontIndex = i;
+            }
+        }
+
+        Vector2 MeasureUpgradeText(string text) => upgradeFonts.Length == 0
+            ? font6.Measure(text) : upgradeFonts[upgradeFontIndex].Measure(text);
+
+        void DrawUpgradeText(string text, Vector2 position, Color color, float scale = 1)
+        {
+            if (upgradeFonts.Length == 0) font6.Draw(spriteBatch, text, position, color, scale);
+            else upgradeFonts[upgradeFontIndex].Draw(spriteBatch, text, position, color, scale);
+        }
+
+        string FitUpgradeText(string text, float maxWidth)
+        {
+            if (MeasureUpgradeText(text).X <= maxWidth) return text;
+            const string suffix = "...";
+            while (text.Length > 0)
+            {
+                text = text.Substring(0, text.Length - 1);
+                if (MeasureUpgradeText(text + suffix).X <= maxWidth) return text + suffix;
+            }
+            return suffix;
+        }
+
         static string Money(double value) => value >= 10000 ? (value / 1000).ToString("F1", CultureInfo.InvariantCulture) + "K"
             : value.ToString("F2", CultureInfo.InvariantCulture);
         static string FormatRoundTime(double seconds) => ((int)seconds / 60).ToString("D2") + ":" + ((int)seconds % 60).ToString("D2");
@@ -245,6 +361,13 @@ namespace MonogameTest
             float dt = (float)time.ElapsedGameTime.TotalSeconds;
             mapPulse += dt;
             mapMessageTime = Math.Max(0, mapMessageTime - dt);
+            if (upgradeFonts.Length > 0)
+            {
+                if (pressed(Keys.OemMinus))
+                    upgradeFontIndex = (upgradeFontIndex + upgradeFonts.Length - 1) % upgradeFonts.Length;
+                if (pressed(Keys.OemPlus) || pressed(Keys.Add))
+                    upgradeFontIndex = (upgradeFontIndex + 1) % upgradeFonts.Length;
+            }
             if (!mapDragging && dt > 0)
             {
                 float pan = 1 - (float)Math.Exp(-9 * dt);
@@ -289,7 +412,7 @@ namespace MonogameTest
                 mapPreviousMouse = mouse;
                 mapDragging = false;
                 mapHoverSelection = -1;
-                if (cancel || (down && (PrestigeConfirmNoButton.Contains(mapPoint) || UpgradeMenuButton.Contains(mapPoint))))
+                if (cancel || (down && PrestigeConfirmNoButton.Contains(mapPoint)))
                 {
                     confirmPrestige = false;
                     mapInputReady = false;
@@ -329,7 +452,7 @@ namespace MonogameTest
                 mapDragging = false;
             }
             if (inMap && wheel != 0) ZoomUpgradeMap(wheel > 0 ? Math.Min(2, mapZoom * 2) : Math.Max(.5f, mapZoom / 2), mapPointer);
-            if ((down && UpgradeZoomButton.Contains(mapPoint)) || padPressed(Buttons.RightShoulder))
+            if (padPressed(Buttons.RightShoulder))
                 ZoomUpgradeMap(mapZoom >= 2 ? .5f : mapZoom * 2, MapViewCenter);
             int pointerUpgrade = !mapDragging && !mapKeyboardPanning && inMap ? UpgradeNodeAt(mapPoint) : -1;
             if (pointerUpgrade >= 0 && (mouseMoved || down || up || wheel != 0))
@@ -343,11 +466,9 @@ namespace MonogameTest
             }
             else mapBounceTime += dt;
             UpdateUpgradePopup(dt);
-            bool buy = down && UpgradeBuyButton.Contains(mapPoint);
             bool launch = down && UpgradeLaunchButton.Contains(mapPoint);
-            cancel |= down && UpgradeMenuButton.Contains(mapPoint);
             mapPreviousMouse = mouse;
-            if (buy || (mapInputReady && accept)) PurchaseUpgrade();
+            if (mapInputReady && accept) PurchaseUpgrade();
             if (launch || pressed(Keys.R) || padPressed(Buttons.Start) || cancel)
             {
                 if (!roundActive && roundId != null && !roundBanked && !progression.Bank(roundId, RoundReward))
@@ -556,7 +677,7 @@ namespace MonogameTest
             int x = Math.Clamp(nodeBox.Center.X - cardWidth / 2, 4, UpgradeMapView.Width - cardWidth - 4);
             int y = nodeBox.Top - cardHeight - 8 + (int)Math.Round((1 - amount) * 8);
             if (y < 4) y = nodeBox.Bottom + 8;
-            y = Math.Clamp(y, 4, UpgradeBuyButton.Y - cardHeight - 4);
+            y = Math.Clamp(y, 4, UpgradeLaunchButton.Y - cardHeight - 4);
             Rectangle card = new Rectangle(x, y, cardWidth, cardHeight);
             float eased = amount * amount * (3 - 2 * amount);
             Color tint = BranchColor(node.Branch);
@@ -564,12 +685,12 @@ namespace MonogameTest
             spriteBatch.Draw(beamPixel, new Rectangle(card.X, card.Bottom - 20, card.Width, 20), tint * (.65f * eased));
 
             int current = progression.Rank(index);
-            font6.Draw(spriteBatch, node.Title, new Vector2(card.X + 12, card.Y + 9), Color.White * eased);
+            DrawUpgradeText(node.Title, new Vector2(card.X + 12, card.Y + 9), Color.White * eased);
             string level = node.Effect == UfoUpgradeEffect.Prestige
                 ? "PRESTIGE " + progression.PrestigeCount
                 : node.Id == "capacity5" ? "LV " + current + "/INFINITY"
                 : "LV " + current + "/" + node.MaxRank;
-            font6.Draw(spriteBatch, level, new Vector2(card.X + 12, card.Y + 21), UpgradeText * eased);
+            DrawUpgradeText(level, new Vector2(card.X + 12, card.Y + 21), UpgradeText * eased);
             string effect = UpgradeEffectAt(index, current);
             if (current < node.MaxRank && node.Effect != UfoUpgradeEffect.Prestige)
             {
@@ -577,28 +698,29 @@ namespace MonogameTest
                 int plus = next.IndexOf('+');
                 effect = plus >= 0 && effect.Contains('+') ? effect + " > " + next.Substring(plus) : "NEXT: " + next;
             }
-            if (effect.Length > 44) effect = "NEXT: " + UpgradeEffectAt(index, Math.Min(node.MaxRank, current + 1));
-            if (effect.Length > 29) effect = effect.Substring(0, 29);
-            font6.Draw(spriteBatch, effect, new Vector2(card.X + 12, card.Y + 33), Color.White * eased);
+            if (MeasureUpgradeText(effect).X > card.Width - 24)
+                effect = "NEXT: " + UpgradeEffectAt(index, Math.Min(node.MaxRank, current + 1));
+            effect = FitUpgradeText(effect, card.Width - 24);
+            DrawUpgradeText(effect, new Vector2(card.X + 12, card.Y + 33), Color.White * eased);
             string requirement = mapMessageTime > 0 ? mapMessage : UpgradeRequirementText(index);
-            if (requirement.Length > 30) requirement = requirement.Substring(0, 30);
+            requirement = FitUpgradeText(requirement, card.Width - 24);
             if (!requirement.StartsWith("COST ", StringComparison.Ordinal))
-                font6.Draw(spriteBatch, requirement, new Vector2(card.X + 12, card.Y + 46), UpgradeText * eased);
+                DrawUpgradeText(requirement, new Vector2(card.X + 12, card.Y + 46), UpgradeText * eased);
             if (node.Effect == UfoUpgradeEffect.Prestige)
             {
                 string prestige = "NEXT PRESTIGE " + (progression.PrestigeCount + 1);
-                float textWidth = font6.Measure(prestige).X;
-                font6.Draw(spriteBatch, prestige,
+                float textWidth = MeasureUpgradeText(prestige).X;
+                DrawUpgradeText(prestige,
                     new Vector2(card.Center.X - textWidth / 2, card.Y + 64), Color.White * eased);
             }
             else
             {
                 string cost = progression.Cost(index).ToString(CultureInfo.InvariantCulture);
-                float textWidth = font6.Measure(cost).X;
+                float textWidth = MeasureUpgradeText(cost).X;
                 const int crewWidth = 10, crewHeight = 13, gap = 5;
                 float groupWidth = textWidth + gap + crewWidth;
                 float groupLeft = card.Center.X - groupWidth / 2;
-                font6.Draw(spriteBatch, cost, new Vector2(groupLeft, card.Y + 64), Color.White * eased);
+                DrawUpgradeText(cost, new Vector2(groupLeft, card.Y + 64), Color.White * eased);
                 DrawUfoSprite(4,
                     new Rectangle((int)Math.Round(groupLeft + textWidth + gap), card.Y + 61, crewWidth, crewHeight),
                     Color.White * eased);
@@ -608,7 +730,7 @@ namespace MonogameTest
         void DrawUpgradeMap()
         {
             // drawTitleScene starts a compact batch for the other menu scenes.
-            // The research screen replaces it with its native 576x324 canvas.
+            // The research screen replaces it with its native 640x360 canvas.
             spriteBatch.End();
             GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, UpgradeMapView.Width * UpgradeMapRenderScale,
                 UpgradeMapView.Height * UpgradeMapRenderScale);
@@ -714,63 +836,58 @@ namespace MonogameTest
                             rankThreshold <= progression.Rank(i) ? tint : new Color(32, 51, 69));
                     }
                 }
-                if (selected && mapZoom >= 1) font6.Draw(spriteBatch, node.ShortName,
-                    new Vector2(box.Center.X - font6.Measure(node.ShortName).X * MapLabelScale / 2, box.Bottom + 4),
+                if (selected && mapZoom >= 1) DrawUpgradeText(node.ShortName,
+                    new Vector2(box.Center.X - MeasureUpgradeText(node.ShortName).X * MapLabelScale / 2, box.Bottom + 4),
                     Color.White, MapLabelScale);
             }
             void Label(string label, Vector2 world, UfoBranch branch)
             {
                 Vector2 pos = MapToScreen(world);
-                var size = font6.Measure(label) * MapLabelScale;
+                var size = MeasureUpgradeText(label) * MapLabelScale;
                 spriteBatch.Draw(beamPixel, new Rectangle((int)pos.X - 3, (int)pos.Y - 2, (int)size.X + 6, 10), UpgradeBase);
-                font6.Draw(spriteBatch, label, pos, BranchColor(branch) * .8f, MapLabelScale);
+                DrawUpgradeText(label, pos, BranchColor(branch) * .8f, MapLabelScale);
             }
             Label("WEAPONS", new Vector2(-295, -130), UfoBranch.Weapons);
             Label("BEAM SYSTEMS", new Vector2(210, -182), UfoBranch.Beam);
             Label("SHIP SYSTEMS", new Vector2(-293, 207), UfoBranch.Ship);
             Label("YIELD SYSTEMS", new Vector2(210, 177), UfoBranch.Yield);
 
-            // Header and wallet stay fixed while a hovered node carries its
+            // The wallet stays fixed while a hovered node carries its
             // contextual upgrade card above it.
-            font6.Draw(spriteBatch, "UFO RESEARCH", new Vector2(18, 12), UpgradeText);
             string wallet = Money(progression.Balance);
             Rectangle walletBox = new Rectangle(18, 48, 108, 28);
             TechBox(walletBox, new Color(176, 184, 224), new Color(16, 19, 56));
             const int walletCrewWidth = 10, walletCrewHeight = 14, walletGap = 5;
-            float walletWidth = font6.Measure(wallet).X;
+            float walletWidth = MeasureUpgradeText(wallet).X;
             float walletGroupWidth = walletCrewWidth + walletGap + walletWidth;
             float walletGroupX = walletBox.Center.X - walletGroupWidth / 2;
             DrawUfoSprite(4, new Rectangle((int)Math.Round(walletGroupX), walletBox.Center.Y - walletCrewHeight / 2,
                 walletCrewWidth, walletCrewHeight), Color.White);
-            font6.Draw(spriteBatch, wallet, new Vector2(walletGroupX + walletCrewWidth + walletGap, 59),
+            DrawUpgradeText(wallet, new Vector2(walletGroupX + walletCrewWidth + walletGap, 59),
                 new Color(255, 224, 138));
-            TechBox(UpgradeMenuButton, new Color(255, 100, 93), new Color(82, 18, 29));
-            font6.Draw(spriteBatch, "X", new Vector2(541, 18), Color.White, 2);
-            TechBox(UpgradeZoomButton, new Color(75, 110, 193), new Color(14, 22, 67));
-            font6.Draw(spriteBatch, mapZoom.ToString("0.#", CultureInfo.InvariantCulture) + "X", new Vector2(463, 25), Color.White);
-
-            var selectedNode = UfoProgression.Nodes[mapSelection];
-            Color selectedTint = BranchColor(selectedNode.Branch);
+            if (upgradeFonts.Length > 0)
+            {
+                string fontLabel = "FONT: " + upgradeFonts[upgradeFontIndex].Name;
+                float fontWidth = MeasureUpgradeText(fontLabel).X;
+                DrawUpgradeText(fontLabel, new Vector2(UpgradeMapView.Width - 12 - fontWidth, 12), UpgradeText);
+            }
             if (mapPopupNode >= 0 && mapPopupAmount > 0) DrawUpgradeInfoCard(mapPopupNode, mapPopupAmount);
 
-            TechBox(UpgradeBuyButton, progression.CanBuy(mapSelection) ? selectedTint : UpgradeStructure, UpgradeBase);
-            string buyLabel = selectedNode.Effect == UfoUpgradeEffect.Prestige ? "PRESTIGE" : mapInputReady ? "ENTER BUY" : "RELEASE";
-            font6.Draw(spriteBatch, buyLabel, new Vector2(35, 287), Color.White);
             TechBox(UpgradeLaunchButton, UpgradeStructure, UpgradeStructureDim);
-            font6.Draw(spriteBatch, "START", new Vector2(480, 287), Color.White, 1.5f);
-            font6.Draw(spriteBatch, "DRAG  WHEEL ZOOM  ARROWS SELECT", new Vector2(194, 296), UpgradeText);
+            DrawUpgradeText("START", new Vector2(544, 323), Color.White, 1.5f);
+            DrawUpgradeText("DRAG  WHEEL ZOOM  ARROWS SELECT", new Vector2(226, 332), UpgradeText);
 
             if (confirmPrestige)
             {
                 spriteBatch.Draw(beamPixel, UpgradeMapView, Color.Black * .78f);
-                TechBox(new Rectangle(151, 105, 274, 104), UpgradeStructure, UpgradeBase);
-                font6.Draw(spriteBatch, "PRESTIGE AND RESET?", new Vector2(199, 119), new Color(232, 187, 255));
-                font6.Draw(spriteBatch, "CREW AND UPGRADES WILL RESET", new Vector2(174, 139), Color.White);
-                font6.Draw(spriteBatch, "PRESTIGE ZOOM AND ENEMY LIMIT STAY", new Vector2(158, 151), UpgradeText);
+                TechBox(new Rectangle(183, 123, 274, 104), UpgradeStructure, UpgradeBase);
+                DrawUpgradeText("PRESTIGE AND RESET?", new Vector2(231, 137), new Color(232, 187, 255));
+                DrawUpgradeText("CREW AND UPGRADES WILL RESET", new Vector2(206, 157), Color.White);
+                DrawUpgradeText("PRESTIGE ZOOM AND ENEMY LIMIT STAY", new Vector2(190, 169), UpgradeText);
                 TechBox(PrestigeConfirmYesButton, new Color(157, 103, 190), new Color(30, 24, 55));
-                font6.Draw(spriteBatch, "ENTER CONFIRM", new Vector2(183, 183), Color.White);
+                DrawUpgradeText("ENTER CONFIRM", new Vector2(215, 201), Color.White);
                 TechBox(PrestigeConfirmNoButton, UpgradeStructureDim, UpgradeBase);
-                font6.Draw(spriteBatch, "ESC CANCEL", new Vector2(318, 183), Color.White);
+                DrawUpgradeText("ESC CANCEL", new Vector2(350, 201), Color.White);
             }
         }
 
@@ -794,6 +911,35 @@ namespace MonogameTest
                 if (depth > .93f)
                     spriteBatch.Draw(beamPixel, new Rectangle((int)x - 2, (int)y, 2, 1), color * .35f);
             }
+        }
+
+        void DrawUpgradeFullCanvasBackground()
+        {
+            int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
+            if (width <= 0 || height <= 0) return;
+
+            // Extend the upgrade screen's animated nebula and starfield through
+            // the letterbox margins while the crisp, integer-scaled map stays
+            // centered on top.
+            GraphicsDevice.Viewport = new Viewport(0, 0, width, height);
+            GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, width, height);
+            if (upgradeCloudEffect != null)
+            {
+                upgradeCloudEffect.Parameters["TextureSize"]?.SetValue(new Vector2(width, height));
+                upgradeCloudEffect.Parameters["Time"]?.SetValue((float)borderTime);
+                upgradeCloudEffect.Parameters["CloudOpacity"]?.SetValue(.42f);
+                spriteBatch.Begin(blendState: BlendState.Additive, samplerState: SamplerState.LinearClamp,
+                    rasterizerState: RasterizerState.CullNone, effect: upgradeCloudEffect);
+                spriteBatch.Draw(beamPixel, new Rectangle(0, 0, width, height), Color.White);
+                spriteBatch.End();
+            }
+
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: RasterizerState.CullNone,
+                transformMatrix: Matrix.CreateScale(width / (float)UpgradeMapView.Width,
+                    height / (float)UpgradeMapView.Height, 1f));
+            DrawUpgradeStarfield();
+            spriteBatch.End();
         }
 
         void DrawTechIcon(UfoUpgrade node, Vector2 center, float scale, Color tint)

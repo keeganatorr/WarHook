@@ -202,14 +202,17 @@ from reading the code or `git log`.
 - UfoUpgradeMap uses world coordinates, spatial keyboard selection, free drag,
   discrete .5/1/2 zoom and a clickable overview. Upgrade icons come from the
   8×5, 64px-cell `Assets/upgrade-icons.png` atlas and use point sampling.
-  The upgrade screen renders natively to a dedicated 576×324 research target
-  at 1×, then uses centered integer point scaling when the window permits;
+  The upgrade screen renders natively to a dedicated 640×360 research target
+  at 1×, which fills 1920×1080 at 3× and 1280×720 at 2× with integer point scaling;
   gameplay uses a 384×216 target, fitted to the current window while preserving
   its aspect ratio. Graph connectors and pixel icons snap to the native grid.
   The upgrades nebula lives in `Content/upgrade-clouds.fx` and renders into a
   full-size research target before being blended behind the starfield and map. Desktop
   builds compile it through `PyoroGL.csproj`; its BlazorGL-compatible XNB is
   checked in at `WarHookWeb/wwwroot/Content/upgrade-clouds.xnb`.
+  Upgrade-screen typefaces are 19 CC0 fonts from `Content/CC0PixelFonts`,
+  rasterized by `tools/build-upgrade-font-atlases.py` into loose PNG atlases and
+  a JSON metrics manifest under `Assets/upgrade-fonts`; `-` and `+`/`=` cycle them.
   Map mouse coordinates map directly into the native graph canvas. Keep hit
   testing aligned with the 1× graph transform and presentation scaling.
   --shots checks graph reachability, multi-parent gates, any-three capstones,

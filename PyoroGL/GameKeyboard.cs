@@ -13,7 +13,7 @@ namespace MonogameTest
             Keys.LeftShift, Keys.RightShift, Keys.Left, Keys.Right, Keys.Up, Keys.Down,
             // The ordinary US '\\' key is OemPipe in XNA; OemBackslash is
             // the separate ISO-102 key and remains accepted directly too.
-            Keys.OemPipe
+            Keys.OemPipe, Keys.OemMinus, Keys.OemPlus, Keys.Add
         };
 #endif
 

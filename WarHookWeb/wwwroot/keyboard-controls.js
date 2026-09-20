@@ -6,7 +6,8 @@
         ['KeyX', 16], ['KeyZ', 32], ['Space', 64],
         ['ShiftLeft', 128], ['ShiftRight', 256],
         ['ArrowLeft', 512], ['ArrowRight', 1024], ['ArrowUp', 2048], ['ArrowDown', 4096],
-        ['Backslash', 8192], ['IntlBackslash', 8192]
+        ['Backslash', 8192], ['IntlBackslash', 8192],
+        ['Minus', 16384], ['Equal', 32768], ['NumpadAdd', 65536]
     ]);
     const held = new Set();
 
@@ -14,6 +15,8 @@
         // Some virtual keyboards omit code; retain a letter fallback there.
         if (event.code) return event.code;
         if (event.key === ' ') return 'Space';
+        if (event.key === '-') return 'Minus';
+        if (event.key === '+' || event.key === '=') return 'Equal';
         if (event.key === '\\' || event.key === '|') return 'Backslash';
         if (event.key === 'Shift') return event.location === 2 ? 'ShiftRight' : 'ShiftLeft';
         if (event.key && event.key.startsWith('Arrow')) return event.key;

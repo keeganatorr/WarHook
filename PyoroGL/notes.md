@@ -1,11 +1,19 @@
 steam overlay wishlist
 utm_source links
 
+steam trailer takes clips for the video for highlightin in store
+
 enemy types?
 snipers???
 tanks??
 
 make the shield an outline and not an oval
+
+remove the highlight on upgrade mouse over just keep the animation on mouse hover entry
+
+clicking empty space should close popup if popup is still visible
+
+clicking highlighted upgrade should not close and open popup, it should purchase the upgrade
 
 make progress bars at the top of scrren have the text centered inside it and opposite color as background (per pixel)
 

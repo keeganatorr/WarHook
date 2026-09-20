@@ -747,10 +747,8 @@ namespace MonogameTest
             }
             else
             {
-                // Half each monitor dimension gives one-quarter of its screen area.
-                DisplayMode monitor = GraphicsDevice.Adapter.CurrentDisplayMode;
-                graphics.PreferredBackBufferWidth = Math.Max(NATIVE_WIDTH, monitor.Width / 2);
-                graphics.PreferredBackBufferHeight = Math.Max(NATIVE_HEIGHT, monitor.Height / 2);
+                graphics.PreferredBackBufferWidth = 1920;
+                graphics.PreferredBackBufferHeight = 1080;
             }
             Window.Title = "WarHook: UFO Abduction";
             graphics.ApplyChanges();
@@ -844,6 +842,7 @@ namespace MonogameTest
             fontAtlas = loadPng("font8x8_atlas");
             upgradeIcons = loadPng("upgrade-icons");
             font6 = new Font6(GraphicsDevice);
+            LoadUpgradePixelFonts();
             loadPlayerTank();
             loadMuzzleFlash();
             yellowTankRight = makeYellowTank(pyororight);
@@ -1230,6 +1229,8 @@ namespace MonogameTest
             GraphicsDevice.SetRenderTarget(null);
             // Dynamic animated border fills the whole window behind the game.
             drawDynamicBorder();
+            if (highResolutionUpgradeMap)
+                DrawUpgradeFullCanvasBackground();
 
             // Draw the research target through the CRT pass only. Gameplay and
             // the other menus retain their clean pixel presentation.

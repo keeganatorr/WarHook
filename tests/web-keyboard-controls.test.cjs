@@ -110,3 +110,17 @@ test('Space and either Shift have independent held states', () => {
     c.send('blur');
     assert.equal(c.state(), 0);
 });
+
+test('physical minus, plus/equal, and numpad plus reach the upgrade font selector', () => {
+    const c = controls();
+    c.send('keydown', { code: 'Minus', key: '_' });
+    assert.equal(c.state(), 16384);
+    c.send('keydown', { code: 'Equal', key: '+', shiftKey: true });
+    assert.equal(c.state(), 16384 | 32768);
+    c.send('keyup', { code: 'Minus', key: '-' });
+    c.send('keyup', { code: 'Equal', key: '=' });
+    c.send('keydown', { code: 'NumpadAdd', key: '+' });
+    assert.equal(c.state(), 65536);
+    c.send('blur');
+    assert.equal(c.state(), 0);
+});

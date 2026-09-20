@@ -7,7 +7,7 @@ enemy types?
 snipers???
 tanks??
 
-make the shield an outline and not an oval
+make the shield an outline with glow and not an oval
 
 remove the highlight on upgrade mouse over just keep the animation on mouse hover entry
 

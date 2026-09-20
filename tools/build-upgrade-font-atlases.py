@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_DIR = ROOT / "PyoroGL" / "Content" / "CC0PixelFonts"
 OUTPUT_DIR = ROOT / "PyoroGL" / "Assets" / "upgrade-fonts"
 FONT_SIZE = 12
-CELL_WIDTH = 16
+CELL_WIDTH = 20
 CELL_HEIGHT = 16
 COLUMNS = 16
 GLYPH_FIRST = 32
@@ -72,9 +72,19 @@ def build_font(path: Path) -> dict:
     }
 
 
+def source_fonts() -> list[Path]:
+    paths = list(SOURCE_DIR.glob("*.ttf"))
+    # Keep the original font order stable and append the new Not Jam set so
+    # the selector does not reshuffle the options players already know.
+    return sorted(paths, key=lambda path: (
+        path.name.startswith("Not Jam ") or path.name == "Undead Pixel Light 8.ttf",
+        path.name.casefold(),
+    ))
+
+
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    fonts = [build_font(path) for path in sorted(SOURCE_DIR.glob("*.ttf"))]
+    fonts = [build_font(path) for path in source_fonts()]
     manifest = {
         "cellWidth": CELL_WIDTH,
         "cellHeight": CELL_HEIGHT,

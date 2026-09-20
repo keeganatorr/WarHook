@@ -218,7 +218,7 @@ namespace MonogameTest
         }
         float UpgradeNodeBounceScale(int index)
         {
-            if (mapMouseInspectionMode || index != mapBounceSelection || mapBounceTime >= .42f) return 1;
+            if (index != mapBounceSelection || mapBounceTime >= .42f) return 1;
             return 1 + .34f * (float)Math.Exp(-10 * mapBounceTime) * (float)Math.Sin(23 * mapBounceTime);
         }
         void UpdateUpgradePopup(float dt)
@@ -457,11 +457,17 @@ namespace MonogameTest
             int pointerUpgrade = !mapDragging && !mapKeyboardPanning && inMap ? UpgradeNodeAt(mapPoint) : -1;
             if (pointerUpgrade >= 0 && (mouseMoved || down || up || wheel != 0))
                 mapMouseInspectionMode = true;
+            int oldHoverSelection = mapHoverSelection;
             mapHoverSelection = mapMouseInspectionMode && !mapDragging && !mapKeyboardPanning && inMap
                 ? pointerUpgrade : -1;
             if (oldSelection != mapSelection)
             {
                 mapBounceSelection = mapSelection;
+                mapBounceTime = 0;
+            }
+            else if (mapHoverSelection >= 0 && mapHoverSelection != oldHoverSelection)
+            {
+                mapBounceSelection = mapHoverSelection;
                 mapBounceTime = 0;
             }
             else mapBounceTime += dt;
@@ -781,7 +787,8 @@ namespace MonogameTest
                     if (UpgradeNodeVisible(parent)) DrawTechEdge(parent, i, req.Rank);
                 }
             }
-            int highlightedNode = mapMouseInspectionMode ? mapHoverSelection : -1;
+            // Hover and keyboard focus use a one-shot bounce for feedback;
+            // neither draws a persistent selection frame around a node.
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
             {
                 if (!UpgradeNodeVisible(i)) continue;
@@ -794,7 +801,7 @@ namespace MonogameTest
                     box = new Rectangle(box.Center.X - width / 2, box.Center.Y - height / 2, width, height);
                 }
                 if (!UpgradeMapView.Intersects(new Rectangle(box.X - 22, box.Y - 4, box.Width + 44, box.Height + 16))) continue;
-                bool bought = progression.Rank(i) > 0, unlocked = progression.Unlocked(i), selected = i == highlightedNode;
+                bool bought = progression.Rank(i) > 0, unlocked = progression.Unlocked(i);
                 bool canBuy = progression.CanBuy(i);
                 bool hasUpgrade = progression.Rank(i) < node.MaxRank;
                 Color tint = BranchColor(node.Branch);
@@ -812,11 +819,8 @@ namespace MonogameTest
                     spriteBatch.Draw(beamPixel, new Rectangle(box.X - 5, box.Y - 5, box.Width + 10, box.Height + 10), glow);
                     spriteBatch.Draw(beamPixel, new Rectangle(box.X - 2, box.Y - 2, box.Width + 4, box.Height + 4), tint * (.24f + .12f * pulse));
                 }
-                bool selectedActive = canBuy || (bought && !unaffordable);
-                if (selected) TechBox(new Rectangle(box.X - 3, box.Y - 3, box.Width + 6, box.Height + 6),
-                    selectedActive ? new Color(239, 247, 229) : new Color(75, 86, 96), new Color(35, 48, 60));
-                else if (bought) spriteBatch.Draw(beamPixel, new Rectangle(box.X - 1, box.Y - 1, box.Width + 2, box.Height + 2), tint * .18f);
-                TechBox(box, border, selected ? UpgradeStructure : UpgradeBase,
+                if (bought) spriteBatch.Draw(beamPixel, new Rectangle(box.X - 1, box.Y - 1, box.Width + 2, box.Height + 2), tint * .18f);
+                TechBox(box, border, UpgradeBase,
                     Math.Max(1, (int)(mapZoom * MapConnectorScale)));
                 Color iconTint = !unlocked ? new Color(63, 87, 110)
                     : !unaffordable ? tint * (canBuy ? 1.05f + .1f * (float)Math.Sin(mapPulse * 4) : 1)
@@ -836,9 +840,6 @@ namespace MonogameTest
                             rankThreshold <= progression.Rank(i) ? tint : new Color(32, 51, 69));
                     }
                 }
-                if (selected && mapZoom >= 1) DrawUpgradeText(node.ShortName,
-                    new Vector2(box.Center.X - MeasureUpgradeText(node.ShortName).X * MapLabelScale / 2, box.Bottom + 4),
-                    Color.White, MapLabelScale);
             }
             void Label(string label, Vector2 world, UfoBranch branch)
             {

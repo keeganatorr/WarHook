@@ -42,6 +42,7 @@ namespace MonogameTest
             resultsTime += dt;
             UpdateImpactEffects(dt);
             UpdateCrashLanding(dt);
+            UpdatePostCrashGameplay(dt);
             MouseState mouse = Mouse.GetState();
             bool clicked = mouse.LeftButton == ButtonState.Pressed && resultsPreviousMouse.LeftButton == ButtonState.Released;
             resultsPreviousMouse = mouse;

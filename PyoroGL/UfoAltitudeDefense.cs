@@ -9,6 +9,8 @@ namespace MonogameTest
         const float AltitudeWarningSeconds = .85f, AltitudeShotInterval = .18f;
         const float AltitudeVolleyCooldown = 3.5f, AltitudeRocketSpeed = 90;
         const int AltitudeVolleySize = 6;
+        float AltitudeRocketSpeedAtCurrentDifficulty =>
+            (float)(AltitudeRocketSpeed * (double)missileDifficultySpeed / StartingMissileSpeed);
         float altitudeLineY, altitudeTimer, altitudeCooldown, altitudePulse;
         int altitudeShotsRemaining;
         Vector2 altitudeLeftSpawn, altitudeRightSpawn;
@@ -45,7 +47,7 @@ namespace MonogameTest
                 ? altitudeLeftSpawn : altitudeRightSpawn;
             Vector2 heading = Vector2.Normalize(ShipPosition - origin);
             missiles.Add(new UfoMissile {
-                Position = origin, Heading = heading, Velocity = heading * AltitudeRocketSpeed,
+                Position = origin, Heading = heading, Velocity = heading * AltitudeRocketSpeedAtCurrentDifficulty,
                 AltitudeDefense = true
             });
             altitudeShotsRemaining--;

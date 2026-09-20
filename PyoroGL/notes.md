@@ -7,8 +7,8 @@ upgrade defence from rockets (percentage)
 
 orbiting defense drone blocking closest missle to drone (moves slowly can upgrade)
 
-remove iframes
 
+Analytics
 bombs???
 
 increase abduct amount endlessly
@@ -18,6 +18,8 @@ make the node map only show locked one next to unlocked ones, if locked is not n
 ---
 done
 ---
+remove iframes
+
 remove seige mode, allow music selection on continue
 
 

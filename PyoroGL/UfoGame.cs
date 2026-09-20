@@ -571,15 +571,22 @@ namespace MonogameTest
                 UfoMissile missile = missiles[i];
                 Vector2 start = missile.Position;
                 Vector2 end = start + missile.Velocity * dt;
+                missile.Position = end;
+                // The wreck is no longer a collision target. Let rockets
+                // keep crossing the screen during the results overlay.
+                if (gameover)
+                {
+                    if (end.Y < -12 || end.Y > NATIVE_HEIGHT + 12 || end.X < -12 || end.X > NATIVE_WIDTH + 12)
+                        missiles.RemoveAt(i);
+                    continue;
+                }
                 Vector2 collisionSize = shieldActive ? ShieldCollisionHalfSize : ShipCollisionHalfSize;
                 float contact = SweptContactTime(start - PreviousShipPosition,
                     end - ShipPosition, collisionSize);
-                missile.Position = end;
                 if (!float.IsPositiveInfinity(contact))
                 {
                     missiles.RemoveAt(i);
                     DamageShip(missile.Heading);
-                    if (gameover) break;
                 }
                 else if (end.Y < -12 || end.Y > NATIVE_HEIGHT + 12 || end.X < -12 || end.X > NATIVE_WIDTH + 12)
                     missiles.RemoveAt(i);
@@ -705,6 +712,23 @@ namespace MonogameTest
                 autoRepairFraction -= healing;
                 repairTime = .2f;
             }
+        }
+
+        void UpdatePostCrashGameplay(float dt)
+        {
+            // End Round from the pause menu is still a clean stop. Only a real
+            // wreck keeps the surrounding flight simulation running behind
+            // the results tally.
+            if (dt <= 0 || screen != MenuScreen.RoundResults || !gameover || !crashLanding) return;
+            updateExplosions(); updateScorePopups();
+            UpdateBeanSpawns();
+            UpdateGroundPeople(dt);
+            foreach (UfoMissile missile in missiles)
+                if (missile.BeanSpeed > 0)
+                    missile.Velocity = missile.Heading * BeanMissileSpeed(missile.BeanSpeed);
+            UpdateShipBullets(dt);
+            UpdateMissiles(dt);
+            UpdateUfoDifficulty(dt);
         }
 
         void UpdateUfo(GameTime time, KeyboardState keys)

@@ -746,6 +746,8 @@ namespace MonogameTest
             progression = new UfoProgression(true);
             resetGame(); screen = MenuScreen.Playing;
             Require(altitudeLineY == 64 && shipY + ShipHeight / 2 < altitudeLineY, "Altitude line must start just below the UFO");
+            Require(Math.Abs(AltitudeRocketSpeedAtCurrentDifficulty - 90) < .001f,
+                "Side rockets should use their base speed at difficulty 1");
             shipY = altitudeLineY;
             UpdateAltitudeDefense(5);
             Require(altitudeShotsRemaining == 0 && missiles.Count == 0, "Safe altitude triggered a volley");
@@ -761,6 +763,9 @@ namespace MonogameTest
             gameover = true; UpdateAltitudeDefense(10); gameover = false;
             Require(altitudeTimer == timer && missiles.Count == 0, "Death launched pending rockets");
             shipY = ShipStartY; // A warned volley remains committed when the player retreats.
+            missileDifficultySpeed = StartingMissileSpeed + MissileSpeedPerDifficultyLevel * 2;
+            float expectedSideRocketSpeed = AltitudeRocketSpeedAtCurrentDifficulty;
+            Require(expectedSideRocketSpeed > 90, "Side rocket speed did not scale with difficulty");
             for (int i = 0; i < 6; i++)
             {
                 shipX = 120 + i * 5;
@@ -771,7 +776,8 @@ namespace MonogameTest
                 Require(rocket.Position == expected && rocket.AltitudeDefense && rocket.BeanSpeed == 0
                     && Vector2.Distance(rocket.Heading, Vector2.Normalize(ShipPosition - expected)) < .0001f,
                     "Rocket launch point moved away from its warning or missed current ship aim");
-                Require(Math.Abs(rocket.Velocity.Length() - 90) < .001f, "Side rocket speed changed");
+                Require(Math.Abs(rocket.Velocity.Length() - expectedSideRocketSpeed) < .001f,
+                    "Side rocket speed did not follow the difficulty ramp");
             }
             Require(altitudeShotsRemaining == 0 && ActiveBeanSpawnCount() == 0,
                 "Side rockets occupied the original bean pool");
@@ -866,6 +872,18 @@ namespace MonogameTest
             updateMenus(tick, new KeyboardState(Keys.X));
             Require(screen == MenuScreen.RoundResults && !roundActive && roundBanked && progression.Balance == 30,
                 "Death must show results and bank the exact reward immediately");
+            SpawnPerson(40, false, 1);
+            GroundPerson backgroundDude = people[people.Count - 1];
+            var backgroundRocket = new UfoMissile {
+                Position = new Vector2(30, 100), Velocity = new Vector2(0, -40),
+                Heading = -Vector2.UnitY, AltitudeDefense = true
+            };
+            missiles.Add(backgroundRocket);
+            time_until_new_bean = 0;
+            UpdateRoundResults(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(.1)), false, true);
+            Require(backgroundDude.X > 40 && backgroundRocket.Position.Y < 100
+                && people.Exists(person => !person.ReachedTarget) && roundSeconds == 180,
+                "Destroyed-ship results must keep ground units, rockets, and new spawns moving without changing the reward timer");
             Require(resultsCrew == 12 && resultsMultiplier == 2.5
                 && resultsReward == 30 && resultsSurvival == 180,
                 "Results must snapshot final round statistics");

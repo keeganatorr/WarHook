@@ -134,6 +134,8 @@ from reading the code or `git log`.
   Permanent ranks apply in ResetUfo, including beam capacity (1..5), hull,
   repair, cone width, and multiplier growth/start bonuses. Held people remain
   in the spawn pool and drop independently; releasing the beam drops all.
+  Tractor Drive keeps the stable `tractor` save ID; its ten ranks each add
+  20% lift and pull speed, with costs following the normal quadratic curve.
   Pickup feedback uses white `+value` soldier popups and blue `+repair` popups
   for engineers; these do not affect the legacy score field.
   Shield Array is a five-rank hull-branch defense: its blue ring absorbs one

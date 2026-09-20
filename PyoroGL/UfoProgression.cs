@@ -22,7 +22,7 @@ namespace MonogameTest
         // the web independently of array order. RequiredCount > 0 means any N.
         public static readonly UfoUpgrade[] Nodes = {
             new("fire", "RAPID FIRE", "RAPID FIRE", UfoUpgradeEffect.Fire, 0.2f, 3, 5, UfoBranch.Weapons, new Vector2(-76, -40), new UfoPrerequisite[] { new("core", 1) }),
-            new("tractor", "TRACTOR DRIVE", "TRACTOR", UfoUpgradeEffect.Tractor, 0.2f, 3, 5, UfoBranch.Beam, new Vector2(76, -40), new UfoPrerequisite[] { new("core", 1) }),
+            new("tractor", "TRACTOR DRIVE", "TRACTOR", UfoUpgradeEffect.Tractor, 0.2f, 3, 10, UfoBranch.Beam, new Vector2(76, -40), new UfoPrerequisite[] { new("core", 1) }),
             new("engine", "THRUSTERS", "THRUSTERS", UfoUpgradeEffect.Engine, 0.15f, 3, 5, UfoBranch.Ship, new Vector2(-76, 40), new UfoPrerequisite[] { new("core", 1) }),
             new("hull", "HULL PLATING", "HULL", UfoUpgradeEffect.Hull, 25f, 3, 5, UfoBranch.Hull, new Vector2(-76, 106), new UfoPrerequisite[] { new("core", 1) }),
             new("fire2", "PULSE ACCELERATOR", "PULSE", UfoUpgradeEffect.Fire, 0.15f, 10, 5, UfoBranch.Weapons, new Vector2(-155, -85), new UfoPrerequisite[] { new("fire", 2) }),

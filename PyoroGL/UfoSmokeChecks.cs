@@ -471,9 +471,13 @@ namespace MonogameTest
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
                 Require(progression.Rank(i) == UfoProgression.Nodes[i].MaxRank && !progression.Buy(i),
                     "Graph has unreachable nodes, insufficient fixture funds, or uncapped ranks");
+            Require(progression.Rank("tractor") == 10
+                && Math.Abs(progression.Bonus(UfoUpgradeEffect.Tractor) - 2f) < .0001f,
+                "Tractor Drive ranks did not increase lift/pull to the 3x cap");
             resetGame();
-            Require(beamCapacity == 5 && MaxShipHealth == 625 && Math.Abs(RoundMultiplier - 3.75) < .0001,
-                "Full tree capacity, hull, or starting multiplier failed");
+            Require(beamCapacity == 5 && MaxShipHealth == 625 && Math.Abs(RoundMultiplier - 3.75) < .0001
+                && Math.Abs(TractorLiftSpeed - 112.5f) < .001f && Math.Abs(TractorPullSpeed - 56.25f) < .001f,
+                "Full tree capacity, hull, tractor speed, or starting multiplier failed");
             shipHealth = 100;
             SpawnPerson(shipX, true, 1); DeliverPerson(people[0]);
             Require(shipHealth == 125 && roundSoldiers == 0, "Engineer repair upgrade failed");

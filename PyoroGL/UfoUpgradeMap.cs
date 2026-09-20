@@ -589,7 +589,7 @@ namespace MonogameTest
                 GraphicsDevice.Clear(Color.Transparent);
                 upgradeCloudEffect.Parameters["TextureSize"]?.SetValue(new Vector2(UpgradeMapView.Width, UpgradeMapView.Height));
                 upgradeCloudEffect.Parameters["Time"]?.SetValue((float)borderTime);
-                upgradeCloudEffect.Parameters["CloudOpacity"]?.SetValue(.38f);
+                upgradeCloudEffect.Parameters["CloudOpacity"]?.SetValue(.42f);
                 spriteBatch.Begin(blendState: BlendState.Opaque, samplerState: SamplerState.PointClamp,
                     rasterizerState: RasterizerState.CullNone, effect: upgradeCloudEffect);
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 0,

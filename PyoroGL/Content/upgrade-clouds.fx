@@ -66,11 +66,15 @@ float3 Nebula(float2 p)
 {
     // Slowly moving, differently scaled noise fields bend the cloud bands and
     // make their edges billow instead of sliding as a flat, repeating ribbon.
-    float2 warpA = float2(Time * 0.010, -Time * 0.006);
-    float2 warpB = float2(-Time * 0.007, Time * 0.009);
+    // The oscillating offsets evolve the noise seed smoothly over time, so the
+    // clouds gradually change shape as well as drift across the screen.
+    float2 noiseSeedA = float2(sin(Time * 0.30), cos(Time * 0.23)) * 0.24;
+    float2 noiseSeedB = float2(cos(Time * 0.20 + 1.7), sin(Time * 0.27 + 2.3)) * 0.24;
+    float2 warpA = float2(Time * 0.045, -Time * 0.030);
+    float2 warpB = float2(-Time * 0.033, Time * 0.042);
     float2 warp = float2(
-        WarpFbm(p * 2.15 + warpA + float2(3.1, 1.7)),
-        WarpFbm(p * 2.15 + warpB + float2(19.4, 7.2))
+        WarpFbm(p * 2.15 + warpA + noiseSeedA + float2(3.1, 1.7)),
+        WarpFbm(p * 2.15 + warpB + noiseSeedB + float2(19.4, 7.2))
     ) - 0.5;
     float2 cloudP = p + warp * 0.42;
 
@@ -91,9 +95,9 @@ float3 Nebula(float2 p)
     ribbonB *= 1.0 - smoothstep(0.95, 1.72, along);
     float envelope = saturate(ribbonA * 0.78 + ribbonB * 0.58);
 
-    float2 drift = float2(Time * 0.009, -Time * 0.005);
-    float broad = Fbm(cloudP * 2.45 + drift + warp * 0.7);
-    float detail = Fbm(cloudP * 5.1 - drift * 1.7 + float2(4.0, -2.0) + warp * 1.25);
+    float2 drift = float2(Time * 0.040, -Time * 0.024);
+    float broad = Fbm(cloudP * 2.45 + drift + noiseSeedB + warp * 0.7);
+    float detail = Fbm(cloudP * 5.1 - drift * 1.7 + noiseSeedA + float2(4.0, -2.0) + warp * 1.25);
     float cloudNoise = broad * 0.72 + detail * 0.38;
     float wisps = smoothstep(0.30, 0.72, cloudNoise);
     float knots = smoothstep(0.43, 0.82, cloudNoise);

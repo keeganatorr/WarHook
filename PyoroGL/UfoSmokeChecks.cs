@@ -201,6 +201,15 @@ namespace MonogameTest
             Require(shipHealth == 100, "Shrunken UFO retained the old wider collision box");
 
             resetGame();
+            beamCapacity = 2;
+            SpawnPerson(shipX, false, 1);
+            SpawnPerson(shipX + 8, false, -1);
+            UpdateTractor(dt, true);
+            Require(abductees.Count == 1, "Tractor acquired more than one person at once");
+            UpdateTractor(TractorAcquireCooldown, true);
+            Require(abductees.Count == 2, "Tractor handoff delay was not nearly instant");
+
+            resetGame();
             SpawnPerson(shipX, false, 1);
             SpawnPerson(shipX + 8, true, -1);
             GroundPerson soldier = people[0];

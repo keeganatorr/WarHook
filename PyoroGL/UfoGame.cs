@@ -13,7 +13,7 @@ namespace MonogameTest
         const float ShipStartY = 38, ShipMinY = 34, ShipMaxY = GroundY - 38, ShipSpeed = 90;
         const float ShipWidth = 44, ShipHeight = 20, ShipSideMargin = 23;
         const float EnemyRunInSeconds = 3f, EnemyExitSpeed = 24;
-        const float LiftSpeed = 30, TractorCenterSpeed = 15, BulletSpeed = 160;
+        const float LiftSpeed = 30, TractorCenterSpeed = 15, TractorAcquireCooldown = .04f, BulletSpeed = 160;
         const int SoldierMaxHealth = 100, BulletDamage = SoldierMaxHealth;
         const int StartingUfoSpeed = 0x600, StartingUfoSpawnInterval = 0x78;
         const int StartingMissileSpeed = 0x180;
@@ -524,7 +524,7 @@ namespace MonogameTest
             if (nearest != null)
             {
                 abductees.Add(nearest); nearest.Falling = false; nearest.FallSpeed = 0;
-                tractorCooldown = .25f;
+                tractorCooldown = TractorAcquireCooldown;
             }
         }
 

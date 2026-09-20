@@ -161,7 +161,8 @@ from reading the code or `git log`.
   (the stable `repair` save ID); they repair 5 hull per owned rank (5..25),
   capped to upgraded hull health; only soldiers earn currency. Missile damage
   is 25 and rocket impacts do not grant invincibility. Base fire interval is .8 seconds;
-  tractor lift/pull speeds are 30/15 px/s.
+  tractor lift/pull speeds are 30/15 px/s, with a .04s acquisition handoff
+  between units when the beam has capacity.
 - KNI WebAudio can throw `NullReferenceException` in `SourceNodeStop` when
   restarting a paused sound. `BeamAudio.Update` leaves menu voices 4/5
   unpaused and stops gameplay sounds on web pause (loops restart on resume).

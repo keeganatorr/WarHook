@@ -429,7 +429,6 @@ namespace MonogameTest
                 SetUfoMessage("SHIELD BREAK - REGENERATING");
                 return;
             }
-            if (hurtTime > 0) return;
             shipHealth = Math.Max(0, shipHealth - 25);
             TriggerRocketImpact(impactDirection ?? -Vector2.UnitY);
             timeWithoutDamage = autoRepairFraction = 0;

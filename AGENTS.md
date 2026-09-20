@@ -157,7 +157,7 @@ from reading the code or `git log`.
   points; all held people are protected. Engineer Tools rank 1 unlocks engineers
   (the stable `repair` save ID); they repair 5 hull per owned rank (5..25),
   capped to upgraded hull health; only soldiers earn currency. Missile damage
-  is 25 with a one-second grace period. Base fire interval is .8 seconds;
+  is 25 and rocket impacts do not grant invincibility. Base fire interval is .8 seconds;
   tractor lift/pull speeds are 30/15 px/s.
 - KNI WebAudio can throw `NullReferenceException` in `SourceNodeStop` when
   restarting a paused sound. `BeamAudio.Update` leaves menu voices 4/5

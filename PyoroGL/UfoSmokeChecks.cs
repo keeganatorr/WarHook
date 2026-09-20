@@ -318,7 +318,6 @@ namespace MonogameTest
                 missiles.Add(new UfoMissile { Position = new Vector2(shipX, 100), Velocity = new Vector2(0, -500) });
                 UpdateMissiles(.2f);
                 Require(shipHealth == 75 - hit * 25, "Swept rocket hit failed to damage ship");
-                if (hit == 0) { DamageShip(); Require(shipHealth == 75, "Hit grace period failed"); }
             }
             Require(gameover && pyorodead, "Empty hull health did not end the round");
 

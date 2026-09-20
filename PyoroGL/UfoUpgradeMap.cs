@@ -474,6 +474,7 @@ namespace MonogameTest
                 UfoUpgradeEffect.TripleShot => rank > 0 ? "THREE PARALLEL SHOTS" : "TWO SHOTS",
                 UfoUpgradeEffect.Plasma => "FIRE/BULLET SPEED " + percent,
                 UfoUpgradeEffect.PointDefense => "INTERCEPT +" + rank * 3 + "PX / BLAST " + rank * 8 + "PX",
+                UfoUpgradeEffect.AutoFire => "AUTO-FIRE AT CLOSEST ROCKET",
                 UfoUpgradeEffect.Shield => rank > 0
                     ? "SHIELD REGEN " + Math.Max(.5, 2 - Math.Max(0, rank - 1) * node.Amount).ToString("F2", CultureInfo.InvariantCulture) + " SEC"
                     : "SHIELD OFFLINE",
@@ -780,6 +781,10 @@ namespace MonogameTest
                 case UfoUpgradeEffect.PointDefense:
                     L(-4, -5, 4, -5); L(-4, 4, 4, 4); L(-5, -4, -5, 3); L(5, -4, 5, 3);
                     L(-8, 0, -2, 0); L(2, 0, 8, 0); L(0, -8, 0, -2); L(0, 2, 0, 7); P(-1, -1, 2, 2); break;
+                case UfoUpgradeEffect.AutoFire:
+                    L(-6, -4, -3, -7); L(-3, -7, 3, -7); L(3, -7, 6, -4);
+                    L(-6, 4, -3, 7); L(-3, 7, 3, 7); L(3, 7, 6, 4);
+                    L(-7, -3, -7, 3); L(7, -3, 7, 3); P(-2, -2, 4, 4); L(1, 1, 6, 6); break;
                 case UfoUpgradeEffect.Shield:
                     L(-7, -3, -4, -7); L(-4, -7, 4, -7); L(4, -7, 7, -3);
                     L(7, -3, 7, 3); L(7, 3, 4, 7); L(4, 7, -4, 7);
@@ -826,7 +831,7 @@ namespace MonogameTest
             "shield" => 21, "repair" => 22, "nano" => 23, "auto" => 24,
             "growth" => 25, "growth2" => 26, "growth3" => 27, "start" => 28,
             "start2" => 29, "interest" => 30, "exponential" => 31,
-            "soldier-value" => 32, "prestige" => -1, _ => -1
+            "soldier-value" => 32, "prestige" => -1, "auto-fire" => -1, _ => -1
         };
     }
 }

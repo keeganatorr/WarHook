@@ -31,7 +31,7 @@ namespace MonogameTest
         float hurtTime, repairTime, tractorCooldown, messageTime, beamAnimation;
         int shipHealth, weaponLevel, tractorLevel, engineLevel;
         float fireBonus, engineBonus, tractorBonus, plasmaBonus, focusBonus, matrixBonus, warpBonus;
-        int shotCount = 1, pointDefenseLevel, nanoHull;
+        int shotCount = 1, pointDefenseLevel, nanoHull, autoFireLevel;
         float autoRepairRate, timeWithoutDamage, autoRepairFraction;
         Vector2 shipVelocity;
         double longHaulBonus, exponentialRate, interestBonus;
@@ -241,6 +241,7 @@ namespace MonogameTest
             warpBonus = progression.Bonus(UfoUpgradeEffect.Warp);
             nanoHull = progression.Total(UfoUpgradeEffect.Nanohull);
             pointDefenseLevel = progression.Total(UfoUpgradeEffect.PointDefense);
+            autoFireLevel = progression.Total(UfoUpgradeEffect.AutoFire);
             shieldLevel = progression.Total(UfoUpgradeEffect.Shield);
             shotCount = progression.Total(UfoUpgradeEffect.TripleShot) > 0 ? 3 : progression.Total(UfoUpgradeEffect.TwinShot) > 0 ? 2 : 1;
             autoRepairRate = progression.Bonus(UfoUpgradeEffect.AutoRepair);
@@ -549,16 +550,68 @@ namespace MonogameTest
             }
         }
 
-        void UpdateShipWeapon(float dt, bool fire)
+        bool TryGetClosestRocketAim(Vector2 origin, out Vector2 direction)
+        {
+            direction = Vector2.UnitY;
+            UfoMissile closest = null;
+            float closestDistance = float.PositiveInfinity;
+            foreach (UfoMissile missile in missiles)
+            {
+                float distance = Vector2.DistanceSquared(origin, missile.Position);
+                if (distance < closestDistance)
+                { closest = missile; closestDistance = distance; }
+            }
+            if (closest == null) return false;
+
+            // Lead the closest rocket so the laser can intercept moving and
+            // difficulty-scaled missiles instead of aiming behind them.
+            Vector2 relative = closest.Position - origin;
+            Vector2 velocity = closest.Velocity;
+            float bulletSpeed = ShipBulletSpeed;
+            float a = velocity.LengthSquared() - bulletSpeed * bulletSpeed;
+            float b = 2 * Vector2.Dot(relative, velocity);
+            float c = relative.LengthSquared();
+            float interceptTime = float.PositiveInfinity;
+            if (Math.Abs(a) < .0001f)
+            {
+                if (b < -.0001f) interceptTime = -c / b;
+            }
+            else
+            {
+                float discriminant = b * b - 4 * a * c;
+                if (discriminant >= 0)
+                {
+                    float root = (float)Math.Sqrt(discriminant);
+                    float first = (-b - root) / (2 * a);
+                    float second = (-b + root) / (2 * a);
+                    if (first > .0001f) interceptTime = first;
+                    if (second > .0001f) interceptTime = Math.Min(interceptTime, second);
+                }
+            }
+            Vector2 aim = float.IsFinite(interceptTime) ? relative + velocity * interceptTime : relative;
+            if (aim.LengthSquared() > .0001f) direction = Vector2.Normalize(aim);
+            return true;
+        }
+
+        void UpdateShipWeapon(float dt, bool fire, bool autoFire = false)
         {
             shotCooldown = Math.Max(0, shotCooldown - dt);
             muzzleFlash = Math.Max(0, muzzleFlash - dt);
-            if (!fire || shotCooldown > .00001f) return;
+            Vector2 origin = TractorOrigin;
+            Vector2 aimDirection = Vector2.UnitY;
+            bool targetRocket = autoFire && TryGetClosestRocketAim(origin, out aimDirection);
+            if ((!fire && !targetRocket) || shotCooldown > .00001f) return;
+            Vector2 perpendicular = new Vector2(-aimDirection.Y, aimDirection.X);
             for (int i = 0; i < shotCount; i++)
+            {
+                float spread = (i - (shotCount - 1) / 2f) * 8;
                 shipBullets.Add(new ShipBullet {
-                    Position = TractorOrigin + new Vector2((i - (shotCount - 1) / 2f) * 8, 3),
-                    Velocity = Vector2.UnitY * ShipBulletSpeed
+                    Position = targetRocket
+                        ? origin + aimDirection * 3 + perpendicular * spread
+                        : origin + new Vector2(spread, 3),
+                    Velocity = targetRocket ? aimDirection * ShipBulletSpeed : Vector2.UnitY * ShipBulletSpeed
                 });
+            }
             shotCooldown = ShotInterval;
             muzzleFlash = .09f;
             beamAudio?.PlayGameBShot();
@@ -767,7 +820,7 @@ namespace MonogameTest
                 UpdateMissiles(dt);
                 if (!gameover)
                 {
-                    UpdateShipWeapon(dt, fire);
+                    UpdateShipWeapon(dt, fire, autoFireLevel > 0);
                     UpdateUfoDifficulty(dt);
                 }
             }

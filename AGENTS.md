@@ -127,7 +127,7 @@ from reading the code or `git log`.
   The cone narrows toward the UFO; horizontal pull is slower than ship movement,
   so moving too far away still drops people. Bullets sweep predicted missile
   motion before ship impacts and consume themselves on the first target.
-- Incremental progression lives in `UfoProgression.cs`; the pannable 34-node
+- Incremental progression lives in `UfoProgression.cs`; the pannable 35-node
   tech web is `UfoUpgradeMap.cs`. Soldier deliveries earn currency at round end:
   floor(soldiers × soldier value × multiplier × 100) / 100. The timer counts
   active play only;
@@ -145,6 +145,9 @@ from reading the code or `git log`.
   for engineers; these do not affect the legacy score field.
   Shield Array is a five-rank hull-branch defense: its blue ring absorbs one
   rocket, then regenerates after two seconds; later ranks shorten that delay.
+  Rocket Intercept (`auto-fire`, after Point Defence 1) auto-fires on the
+  normal weapon cooldown, leading the closest rocket with the existing laser
+  bullets; manual fire remains downward when no rocket is available.
   The gameplay HUD renders multiplier progress as a color-cycling 1x-wide bar
   with the numeric multiplier beside it; each integer band resets the fill.
 - Options volume sliders use ten percentage steps mapped across -20..0 dB;

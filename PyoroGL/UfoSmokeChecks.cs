@@ -565,7 +565,7 @@ namespace MonogameTest
                 while (progression.Rank(index) < rank) Require(progression.Buy(index), "Cannot reach " + id);
             }
             progression = new UfoProgression(true); progression.Bank("web-funds", 1000000);
-            Require(UfoProgression.Nodes.Length == 34 && progression.Rank("core") == 1
+            Require(UfoProgression.Nodes.Length == 35 && progression.Rank("core") == 1
                 && !progression.Buy(UfoProgression.Index("core")), "Core must be owned and non-purchasable");
             mapRevealAll = false;
             Require(UpgradeNodeVisible(UfoProgression.Index("fire"))
@@ -599,6 +599,24 @@ namespace MonogameTest
                 "Twin cannons failed to split the shot");
             BuyTo("point", 1);
             Require(progression.Unlocked(UfoProgression.Index("plasma")), "Merge remained locked with both parents");
+            BuyTo("auto-fire", 1);
+            resetGame();
+            Require(autoFireLevel == 1, "Rocket Intercept upgrade did not activate at flight start");
+            var nearestRocket = new UfoMissile {
+                Position = new Vector2(shipX + 36, shipY + 70), Velocity = new Vector2(-4, -40)
+            };
+            var fartherRocket = new UfoMissile {
+                Position = new Vector2(shipX - 65, shipY + 95), Velocity = new Vector2(-15, -60)
+            };
+            missiles.Add(nearestRocket); missiles.Add(fartherRocket);
+            Require(TryGetClosestRocketAim(TractorOrigin, out Vector2 rocketAim) && rocketAim.X > 0,
+                "Auto-target did not choose the closest rocket or lead its aim");
+            UpdateShipWeapon(.01f, false, autoFireLevel > 0);
+            Require(shipBullets.Count == shotCount && shipBullets[0].Velocity.X > 0,
+                "Auto-fire did not launch aimed shots without player input");
+            UpdateShipBullets(.5f);
+            Require(!missiles.Contains(nearestRocket) && missiles.Contains(fartherRocket),
+                "Auto-fire laser failed to intercept its closest rocket");
             BuyTo("shield", 1);
             resetGame();
             Require(shieldLevel == 1 && shieldActive && Math.Abs(ShieldRegenDelay - 2f) < .001f,
@@ -945,7 +963,7 @@ namespace MonogameTest
                 VerifyAltitudeDefense();
                 VerifyImpactEffects();
                 VerifyRoundResults();
-                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 34-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, shield, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
+                Console.WriteLine("UFO flight checks passed: eased tilt, horizontal/vertical controls and bounds, smaller collision box, moving gun and missile aim; X fire, one-hit kills, missile destruction and shootable engineers; persistent currency, survival multiplier, 35-node tech web, multi-parent prerequisites, capstones, save migration, spatial navigation, twin/triple guns, point defence, auto-fire rocket interception, shield, focus/matrix, warp, auto-repair, interest and exponential rewards; one-unit Z cone, gradual horizontal centring, movement, drop, landing, recapture, delivery and repairs; aimed missiles, rocket suction immunity, damage and game over; pause/reset; original bean replay (99 events / 4200 ticks), speed ramp, pool and one-shot runners.");
                 resetGame();
                 shipX = previousShipX = 146; shipY = previousShipY = ShipMaxY - 16;
                 shipTilt = .13f; shipHealth = 75; weaponLevel = 3;

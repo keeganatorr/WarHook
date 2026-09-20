@@ -9,6 +9,8 @@ orbiting defense drone blocking closest missle to drone (moves slowly can upgrad
 
 powerup unlocks (novelty) - get fast speed for 3 seconds etc
 
+auto fire towards rocket
+
 Analytics
 bombs???
 

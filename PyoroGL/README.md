@@ -85,13 +85,16 @@ with smoke and fire.
 The end-of-round **Tech Web** has 34 nodes, including the owned UFO Core.
 Routes fork and reconnect through multiple prerequisites. Weapon nodes are
 coral, beam nodes cyan, flight nodes blue, hull nodes green, and yield nodes
-gold. Mothership Link is a purple hybrid requiring any three completed branch
-capstones. Already purchased upgrades remain usable when loading older saves.
+gold. Prestige is a purple hybrid unlocked by any three completed branch
+capstones. Confirming prestige resets CREW and ordinary upgrades while keeping
+the prestige count; each prestige zooms the playfield out and adds four slots
+for enemies and rockets.
 
 - Weapons: Rapid Fire (+20% per rank), Pulse Accelerator (+15%), twin guns,
   Point Defence (+3px interception radius and 8px missile blast per rank),
   Plasma Cycler (+10% fire rate and bullet speed), and a three-shot Particle Array.
-- Beam: Tractor Drive (+20% lift/pull), wider aperture, capacity 2 through 5,
+- Beam: Tractor Drive (+20% lift/pull), wider aperture, capacity 2 through 4,
+  then uncapped Fleet Abduction ranks that keep raising capacity beyond five,
   stronger horizontal pull within 64px of the UFO, and a wider occupied cone.
 - Ship: Thrusters/Ion Engines (+15% movement), hull plating, engineer tools,
   Warp Core (+25% acceleration/vertical speed), Nanohull (+50 hull), and
@@ -102,7 +105,7 @@ capstones. Already purchased upgrades remain usable when loading older saves.
   starting bonuses; Long Haul boosts growth after two minutes; Interest adds
   +1% rewards per 100 unspent CREW per rank (capped at +10% per rank), fixed
   when the flight starts. Exponential Yield compounds growth at 5% per minute
-  per rank. Mothership adds 25% fire rate, movement, lift/pull, hull and rewards.
+  per rank.
 
 Costs remain base cost × (rank + 1)². Purchases take effect next flight and
 persist with unspent currency in the selected save slot. Old Particle Array

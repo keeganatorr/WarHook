@@ -125,7 +125,7 @@ namespace MonogameTest
                 int ranks = 0;
                 for (int n = 0; n < UfoProgression.Nodes.Length; n++) if (UfoProgression.Nodes[n].Effect != UfoUpgradeEffect.Core) ranks += slot.Rank(n);
                 string detail = !string.IsNullOrEmpty(slot.Error) ? "SAVE UNAVAILABLE"
-                    : slot.Exists ? "CREW " + Money(slot.Balance) + "   UPGRADES " + ranks
+                    : slot.Exists ? "CREW " + Money(slot.Balance) + "  UP " + ranks + "  P" + slot.PrestigeCount
                     : "START A FRESH COLONY";
                 font6.Draw(spriteBatch, detail, new Vector2(box.X + 8, box.Y + 22), Color.White);
             }

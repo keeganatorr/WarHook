@@ -16,6 +16,8 @@ namespace MonogameTest
         static readonly Rectangle UpgradeLaunchButton = new Rectangle(450, 274, 110, 34);
         static readonly Rectangle UpgradeBuyButton = new Rectangle(18, 274, 150, 34);
         static readonly Rectangle UpgradeMenuButton = new Rectangle(530, 10, 32, 28);
+        static readonly Rectangle PrestigeConfirmYesButton = new Rectangle(172, 175, 112, 23);
+        static readonly Rectangle PrestigeConfirmNoButton = new Rectangle(292, 175, 112, 23);
         static readonly Rectangle UpgradeMiniMap = new Rectangle(496, 50, 66, 42);
         static readonly Rectangle UpgradeZoomButton = new Rectangle(458, 18, 28, 22);
         // The research map is rendered above the native game resolution so its
@@ -32,7 +34,7 @@ namespace MonogameTest
         Vector2 mapCamera, mapDragCamera, mapDragStart;
         float mapZoom = .5f;
         double mapPulse;
-        bool mapInputReady, mapDragging;
+        bool mapInputReady, mapDragging, confirmPrestige;
         MouseState mapPreviousMouse;
         string mapMessage = "";
         double mapMessageTime;
@@ -98,7 +100,7 @@ namespace MonogameTest
         {
             screen = MenuScreen.Upgrades;
             paused = false;
-            mapInputReady = false; mapDragging = false;
+            mapInputReady = false; mapDragging = false; confirmPrestige = false;
             mapPreviousMouse = Mouse.GetState();
             mapMessage = ""; mapMessageTime = 0;
             FocusUpgradeNode();
@@ -114,6 +116,23 @@ namespace MonogameTest
                 roundBanked = progression.Bank(roundId, RoundReward);
                 if (!roundBanked) { mapMessage = progression.Error; mapMessageTime = 3; return; }
             }
+            if (UfoProgression.Nodes[mapSelection].Effect == UfoUpgradeEffect.Prestige)
+            {
+                if (progression.CanBuy(mapSelection))
+                {
+                    confirmPrestige = true;
+                    mapInputReady = false;
+                    mapMessage = "CONFIRM THE RESET";
+                    mapMessageTime = 2;
+                    beamAudio?.PlayMenuConfirm();
+                }
+                else
+                {
+                    mapMessage = "NEED ANY 3 CAPSTONES";
+                    mapMessageTime = 2;
+                }
+                return;
+            }
             if (progression.Buy(mapSelection))
             {
                 mapMessage = "UPGRADE SAVED FOR NEXT FLIGHT";
@@ -124,6 +143,28 @@ namespace MonogameTest
                 : progression.Rank(mapSelection) >= UfoProgression.Nodes[mapSelection].MaxRank ? "NODE COMPLETE"
                 : "COLLECT MORE SOLDIERS NEXT ROUND";
             mapMessageTime = 2;
+        }
+
+        void ConfirmPrestige()
+        {
+            if (!progression.Prestige())
+            {
+                mapMessage = !string.IsNullOrEmpty(progression.Error) ? progression.Error : "PRESTIGE REQUIREMENTS NOT MET";
+                mapMessageTime = 3;
+                confirmPrestige = false;
+                return;
+            }
+            confirmPrestige = false;
+            roundId = null; roundActive = roundBanked = false;
+            roundAbductions = roundSoldiers = 0; roundSeconds = 0;
+            paused = gameover = pyorodead = false;
+            people.Clear(); missiles.Clear(); shipBullets.Clear(); abductees.Clear();
+            mapSelection = UfoProgression.Index("core");
+            mapCamera = new Vector2(0, 40); FocusUpgradeNode();
+            mapMessage = "PRESTIGE " + progression.PrestigeCount + " - ZOOM INCREASED";
+            mapMessageTime = 3;
+            mapInputReady = false;
+            beamAudio?.PlayMenuConfirm();
         }
 
         void UpdateUpgradeMap(GameTime time, Func<Keys, bool> pressed, Func<Buttons, bool> padPressed,
@@ -151,6 +192,21 @@ namespace MonogameTest
             bool down = mouse.LeftButton == ButtonState.Pressed && mapPreviousMouse.LeftButton == ButtonState.Released;
             bool up = mouse.LeftButton == ButtonState.Released && mapPreviousMouse.LeftButton == ButtonState.Pressed;
             bool inMap = UpgradeMapView.Contains(mapPoint);
+            if (confirmPrestige)
+            {
+                mapPreviousMouse = mouse;
+                mapDragging = false;
+                if (cancel || (down && (PrestigeConfirmNoButton.Contains(mapPoint) || UpgradeMenuButton.Contains(mapPoint))))
+                {
+                    confirmPrestige = false;
+                    mapInputReady = false;
+                    mapMessage = "PRESTIGE CANCELLED";
+                    mapMessageTime = 2;
+                }
+                else if ((mapInputReady && accept) || (down && PrestigeConfirmYesButton.Contains(mapPoint)))
+                    ConfirmPrestige();
+                return;
+            }
             if (down && mapZoom > .5f && UpgradeMiniMap.Contains(mapPoint))
             {
                 mapCamera = new Vector2((mapPointer.X - UpgradeMiniMap.X) / UpgradeMiniMap.Width * 860 - 430,
@@ -278,6 +334,8 @@ namespace MonogameTest
         {
             var node = UfoProgression.Nodes[index];
             string percent = "+" + Math.Round(node.Amount * rank * 100).ToString(CultureInfo.InvariantCulture) + "%";
+            int capacityAtRank = (int)Math.Min(int.MaxValue,
+                rank > 0 ? (long)node.Amount + rank - 1 : (long)node.Amount - 1);
             return node.Effect switch {
                 UfoUpgradeEffect.Fire => "FIRE RATE " + percent,
                 UfoUpgradeEffect.Tractor => "LIFT/PULL " + percent,
@@ -290,7 +348,7 @@ namespace MonogameTest
                 UfoUpgradeEffect.BeamWidth => "CONE WIDTH " + percent,
                 UfoUpgradeEffect.Growth => "REWARD GROWTH " + percent,
                 UfoUpgradeEffect.StartingBonus => "START +" + (node.Amount * rank).ToString("F2", CultureInfo.InvariantCulture) + "X",
-                UfoUpgradeEffect.Capacity => "BEAM CAPACITY " + (rank > 0 ? (int)node.Amount : (int)node.Amount - 1),
+                UfoUpgradeEffect.Capacity => "BEAM CAPACITY " + capacityAtRank,
                 UfoUpgradeEffect.TwinShot => rank > 0 ? "TWO PARALLEL SHOTS" : "ONE SHOT",
                 UfoUpgradeEffect.TripleShot => rank > 0 ? "THREE PARALLEL SHOTS" : "TWO SHOTS",
                 UfoUpgradeEffect.Plasma => "FIRE/BULLET SPEED " + percent,
@@ -305,7 +363,7 @@ namespace MonogameTest
                 UfoUpgradeEffect.LongHaul => "GROWTH AFTER 2 MIN " + percent,
                 UfoUpgradeEffect.Interest => "+" + rank + "% /100 SAVED (MAX " + rank * 10 + "%)",
                 UfoUpgradeEffect.Exponential => "GROWTH COMPOUNDS " + rank * 5 + "% /MIN",
-                UfoUpgradeEffect.Mothership => "SYSTEMS AND REWARDS " + percent,
+                UfoUpgradeEffect.Prestige => "RESET TREE / ZOOM OUT",
                 _ => "YOUR COLONY STARTS HERE"
             };
         }
@@ -313,6 +371,7 @@ namespace MonogameTest
         {
             var node = UfoProgression.Nodes[index];
             if (progression.Rank(index) >= node.MaxRank) return node.Effect == UfoUpgradeEffect.Core ? "OWNED - CHOOSE A RESEARCH ROUTE" : "RESEARCH COMPLETE";
+            if (node.Effect == UfoUpgradeEffect.Prestige && progression.Unlocked(index)) return "RESET TECH - KEEP PRESTIGE";
             if (progression.Unlocked(index)) return "COST " + progression.Cost(index) + " CREW";
             if (node.RequiredCount > 0)
             {
@@ -379,9 +438,19 @@ namespace MonogameTest
                     : tint * .12f;
                 DrawTechIcon(node, new Vector2(box.Center.X, box.Center.Y), mapZoom * MapNodeVisualScale, iconTint);
                 if (node.MaxRank > 1 && mapZoom >= 1)
-                    for (int rank = 0; rank < node.MaxRank; rank++)
-                        spriteBatch.Draw(beamPixel, new Rectangle(box.Center.X - node.MaxRank * 2 + rank * 4, box.Bottom - 3, 1, 1),
-                            rank < progression.Rank(i) ? tint : new Color(32, 51, 69));
+                {
+                    // The fleet beam upgrade has no gameplay rank ceiling;
+                    // its ten pips show the first ten fleet increases.
+                    int rankMarkers = node.Id == "capacity5" ? 10 : Math.Min(node.MaxRank, 10);
+                    for (int marker = 0; marker < rankMarkers; marker++)
+                    {
+                        int rankThreshold = node.Id == "capacity5" ? marker + 1
+                            : (int)Math.Ceiling((marker + 1) * node.MaxRank / (double)rankMarkers);
+                        spriteBatch.Draw(beamPixel,
+                            new Rectangle(box.Center.X - rankMarkers * 2 + marker * 4, box.Bottom - 3, 1, 1),
+                            rankThreshold <= progression.Rank(i) ? tint : new Color(32, 51, 69));
+                    }
+                }
                 if (mapZoom >= 1) font6.Draw(spriteBatch, node.ShortName,
                     new Vector2(box.Center.X - font6.Measure(node.ShortName).X * MapLabelScale / 2, box.Bottom + 4),
                     selected ? Color.White : border, MapLabelScale);
@@ -415,10 +484,13 @@ namespace MonogameTest
             spriteBatch.Draw(beamPixel, new Rectangle(190, 76, 210, 20), selectedTint * .65f);
             int current = progression.Rank(mapSelection);
             font6.Draw(spriteBatch, selectedNode.Title, new Vector2(202, 27), Color.White);
-            string level = "LV " + current + "/" + selectedNode.MaxRank;
+            string level = selectedNode.Effect == UfoUpgradeEffect.Prestige
+                ? "PRESTIGE " + progression.PrestigeCount
+                : selectedNode.Id == "capacity5" ? "LV " + current + "/INFINITY"
+                : "LV " + current + "/" + selectedNode.MaxRank;
             font6.Draw(spriteBatch, level, new Vector2(202, 39), UpgradeText);
             string effect = UpgradeEffectAt(mapSelection, current);
-            if (current < selectedNode.MaxRank)
+            if (current < selectedNode.MaxRank && selectedNode.Effect != UfoUpgradeEffect.Prestige)
             {
                 string next = UpgradeEffectAt(mapSelection, current + 1);
                 // Show compact current -> next values for the common percent stats.
@@ -431,13 +503,30 @@ namespace MonogameTest
             string requirement = mapMessageTime > 0 ? mapMessage : UpgradeRequirementText(mapSelection);
             if (requirement.Length > 30) requirement = requirement.Substring(0, 30);
             font6.Draw(spriteBatch, requirement, new Vector2(202, 64), UpgradeText);
-            font6.Draw(spriteBatch, "COST " + progression.Cost(mapSelection) + " CREW", new Vector2(202, 82), Color.White);
+            string cost = selectedNode.Effect == UfoUpgradeEffect.Prestige
+                ? "NEXT PRESTIGE " + (progression.PrestigeCount + 1)
+                : "COST " + progression.Cost(mapSelection) + " CREW";
+            font6.Draw(spriteBatch, cost, new Vector2(202, 82), Color.White);
 
             TechBox(UpgradeBuyButton, progression.CanBuy(mapSelection) ? selectedTint : UpgradeStructure, UpgradeBase);
-            font6.Draw(spriteBatch, mapInputReady ? "ENTER BUY" : "RELEASE", new Vector2(35, 287), Color.White);
+            string buyLabel = selectedNode.Effect == UfoUpgradeEffect.Prestige ? "PRESTIGE" : mapInputReady ? "ENTER BUY" : "RELEASE";
+            font6.Draw(spriteBatch, buyLabel, new Vector2(35, 287), Color.White);
             TechBox(UpgradeLaunchButton, UpgradeStructure, UpgradeStructureDim);
             font6.Draw(spriteBatch, "START", new Vector2(480, 287), Color.White, 1.5f);
             font6.Draw(spriteBatch, "DRAG  WHEEL ZOOM  ARROWS SELECT", new Vector2(194, 296), UpgradeText);
+
+            if (confirmPrestige)
+            {
+                spriteBatch.Draw(beamPixel, UpgradeMapView, Color.Black * .78f);
+                TechBox(new Rectangle(151, 105, 274, 104), UpgradeStructure, UpgradeBase);
+                font6.Draw(spriteBatch, "PRESTIGE AND RESET?", new Vector2(199, 119), new Color(232, 187, 255));
+                font6.Draw(spriteBatch, "CREW AND UPGRADES WILL RESET", new Vector2(174, 139), Color.White);
+                font6.Draw(spriteBatch, "PRESTIGE ZOOM AND ENEMY LIMIT STAY", new Vector2(158, 151), UpgradeText);
+                TechBox(PrestigeConfirmYesButton, new Color(157, 103, 190), new Color(30, 24, 55));
+                font6.Draw(spriteBatch, "ENTER CONFIRM", new Vector2(183, 183), Color.White);
+                TechBox(PrestigeConfirmNoButton, UpgradeStructureDim, UpgradeBase);
+                font6.Draw(spriteBatch, "ESC CANCEL", new Vector2(318, 183), Color.White);
+            }
         }
 
         void DrawUpgradeStarfield()
@@ -483,9 +572,13 @@ namespace MonogameTest
             switch (node.Effect)
             {
                 case UfoUpgradeEffect.Core:
-                case UfoUpgradeEffect.Mothership:
                     DrawUfoSprite(0, new Rectangle((int)(center.X - 12 * scale), (int)(center.Y - 6 * scale), (int)(24 * scale), (int)(12 * scale)), tint);
-                    if (node.Effect == UfoUpgradeEffect.Mothership) { L(-7, -8, 7, -8); P(-1, -10, 2, 2); }
+                    break;
+                case UfoUpgradeEffect.Prestige:
+                    P(-1, -1, 3, 3);
+                    L(-3, -3, -8, -8); L(3, -3, 8, -8); L(-3, 3, -8, 8); L(3, 3, 8, 8);
+                    P(-9, -9, 3, 1); P(-9, -9, 1, 3); P(7, -9, 3, 1); P(9, -9, 1, 3);
+                    P(-9, 8, 3, 1); P(-9, 7, 1, 3); P(7, 8, 3, 1); P(9, 7, 1, 3);
                     break;
                 case UfoUpgradeEffect.Fire:
                 case UfoUpgradeEffect.TwinShot:
@@ -557,7 +650,7 @@ namespace MonogameTest
             "shield" => 21, "repair" => 22, "nano" => 23, "auto" => 24,
             "growth" => 25, "growth2" => 26, "growth3" => 27, "start" => 28,
             "start2" => 29, "interest" => 30, "exponential" => 31,
-            "soldier-value" => 32, "mothership" => 33, _ => -1
+            "soldier-value" => 32, "prestige" => -1, _ => -1
         };
     }
 }

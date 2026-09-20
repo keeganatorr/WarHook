@@ -45,10 +45,14 @@ Engineers and kills do not earn currency.
 
 Spend currency on the permanent 34-node tech web between rounds. Routes fork
 and merge across weapons, beams, flight/hull and yield. Unlock twin/triple
-guns, missile interception blasts, five-person beams, auto-repair and
-compounding reward growth. Mothership Link needs any three branch capstones.
-Purchases apply next flight. Old save IDs are retained; removed excess Array
-and Warp ranks are refunded at their original prices.
+guns, missile interception blasts, auto-repair, and compounding reward growth.
+The repeatable Fleet Abduction upgrade increases beam capacity one person per
+rank with no rank cap. After completing any three branch capstones, Prestige
+resets crew and upgrades while retaining the prestige count. Each prestige
+zooms gameplay out and adds four simultaneous enemy/projectile slots.
+Purchases apply next flight. Old save IDs are retained; a legacy Mothership
+Link purchase converts to prestige, and removed excess Array and Warp ranks
+are refunded at their original prices.
 Arrows/WASD choose nearby nodes; Enter/X buys. Drag pans; wheel or the zoom
 button switches 0.5x/1x/2x views. Click the miniature overview to travel the
 map. C/Home returns to the core. R launches; Escape returns to the menu.

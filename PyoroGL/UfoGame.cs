@@ -30,7 +30,7 @@ namespace MonogameTest
         float shipX, shipY, previousShipX, previousShipY, shipTilt, shotCooldown, muzzleFlash;
         float hurtTime, repairTime, tractorCooldown, messageTime, beamAnimation;
         int shipHealth, weaponLevel, tractorLevel, engineLevel;
-        float fireBonus, engineBonus, tractorBonus, plasmaBonus, focusBonus, matrixBonus, warpBonus, globalBonus = 1;
+        float fireBonus, engineBonus, tractorBonus, plasmaBonus, focusBonus, matrixBonus, warpBonus;
         int shotCount = 1, pointDefenseLevel, nanoHull;
         float autoRepairRate, timeWithoutDamage, autoRepairFraction;
         Vector2 shipVelocity;
@@ -54,11 +54,11 @@ namespace MonogameTest
                     ? (Math.Exp(Math.Min(40, exponentialRate * t)) - 1) / exponentialRate : t;
                 double growthTime = GrowthIntegral(roundSeconds);
                 if (roundSeconds > 120) growthTime += longHaulBonus * (GrowthIntegral(roundSeconds) - GrowthIntegral(120));
-                return Math.Min(1_000_000, (roundStartMultiplier + roundGrowth * growthTime) * (1 + interestBonus) * globalBonus);
+                return Math.Min(1_000_000, (roundStartMultiplier + roundGrowth * growthTime) * (1 + interestBonus));
             }
         }
         double RoundReward => Math.Floor(roundSoldiers * soldierValueLevel * RoundMultiplier * 100 + .000001) / 100;
-        int MaxShipHealth => (int)((100 + hullLevel * 25 + nanoHull * 50) * globalBonus);
+        int MaxShipHealth => 100 + hullLevel * 25 + nanoHull * 50;
         bool tractorActive, ufoShotFrozen;
         readonly List<GroundPerson> abductees = new();
         string ufoMessage = "";
@@ -67,12 +67,22 @@ namespace MonogameTest
         Vector2 ShipCollisionHalfSize => new Vector2(19, 10);
         Vector2 ShieldCollisionHalfSize => new Vector2(28, 18);
         Vector2 TractorOrigin => new Vector2(shipX, shipY + 8);
-        float ShotInterval => .8f / ((1 + fireBonus + plasmaBonus) * globalBonus);
+        float ShotInterval => .8f / (1 + fireBonus + plasmaBonus);
         float ShipBulletSpeed => BulletSpeed * (1 + plasmaBonus);
-        float FlightSpeed => ShipSpeed * (1 + engineBonus) * globalBonus;
-        float TractorLiftSpeed => LiftSpeed * (1 + tractorBonus) * globalBonus;
-        float TractorPullSpeed => TractorCenterSpeed * (1 + tractorBonus) * globalBonus;
+        float FlightSpeed => ShipSpeed * (1 + engineBonus);
+        float TractorLiftSpeed => LiftSpeed * (1 + tractorBonus);
+        float TractorPullSpeed => TractorCenterSpeed * (1 + tractorBonus);
         double UfoDifficultyLevel => 1 + Math.Max(0L, missileDifficultySpeed - StartingMissileSpeed) / (double)MissileSpeedPerDifficultyLevel;
+        float PrestigeWorldScale => (float)(1d / (1d + progression.PrestigeCount * .06d));
+        int UfoPoolLimit
+        {
+            get
+            {
+                long prestiges = progression.PrestigeCount;
+                return prestiges >= (int.MaxValue - max_amount_of_beans) / 4L
+                    ? int.MaxValue : max_amount_of_beans + (int)prestiges * 4;
+            }
+        }
         float ShieldRegenDelay => Math.Max(.5f, 2f - Math.Max(0, shieldLevel - 1) * .25f);
         bool CriticalHullFlash => shipHealth <= 25 && ((int)(roundSeconds * 8) & 1) == 0;
 
@@ -84,6 +94,14 @@ namespace MonogameTest
                 2 => new Color(255, 103, 137),
                 _ => new Color(185, 143, 255)
             };
+        }
+
+        Matrix PrestigeWorldTransform()
+        {
+            Vector2 anchor = new Vector2(NATIVE_WIDTH / 2f, GroundY);
+            return Matrix.CreateTranslation(-anchor.X, -anchor.Y, 0)
+                * Matrix.CreateScale(PrestigeWorldScale)
+                * Matrix.CreateTranslation(anchor.X, anchor.Y, 0);
         }
 
         void DrawMultiplierMeter()
@@ -221,7 +239,6 @@ namespace MonogameTest
             focusBonus = progression.Bonus(UfoUpgradeEffect.Focus);
             matrixBonus = progression.Bonus(UfoUpgradeEffect.Matrix);
             warpBonus = progression.Bonus(UfoUpgradeEffect.Warp);
-            globalBonus = 1 + progression.Bonus(UfoUpgradeEffect.Mothership);
             nanoHull = progression.Total(UfoUpgradeEffect.Nanohull);
             pointDefenseLevel = progression.Total(UfoUpgradeEffect.PointDefense);
             shieldLevel = progression.Total(UfoUpgradeEffect.Shield);
@@ -293,7 +310,7 @@ namespace MonogameTest
         void UpdateBeanSpawns()
         {
             // Original 60 Hz bean spawn arithmetic and RNG order. Consume all
-            // four rolls even when the original 16-slot pool is full.
+            // four rolls even when the prestige-scaled pool is full.
             if (time_until_new_bean <= 0)
             {
                 int jitter = ((max_time >> 2) * NextBeanRandom(ref randnum)) >> 16;
@@ -309,7 +326,7 @@ namespace MonogameTest
                     if (risingscore < 9000) risingscore += 2000;
                     else risingscore += 1000;
                 }
-                if (ActiveBeanSpawnCount() < max_amount_of_beans)
+                if (ActiveBeanSpawnCount() < UfoPoolLimit)
                     SpawnBeanRunner(targetX, beanType, beanSpeed);
             }
             if (time_until_new_bean > 0) time_until_new_bean--;
@@ -889,6 +906,13 @@ namespace MonogameTest
         void DrawUfoGameplay()
         {
             spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: ImpactShakeTransform());
+            // Keep the sky/backdrop full-frame while the skyline recedes with
+            // the rest of the world as prestige zoom increases.
+            spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT), new Color(7, 13, 30));
+            spriteBatch.End();
+
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp,
+                transformMatrix: PrestigeWorldTransform() * ImpactShakeTransform());
             DrawUfoLandscape();
             DrawAltitudeLine();
             DrawTractor();
@@ -930,6 +954,14 @@ namespace MonogameTest
             drawExplosions(spriteBatch);
             DrawAltitudeWarnings();
             foreach (ScorePopup popup in scorePopups) DrawScorePopup6(spriteBatch, popup);
+            spriteBatch.End();
+
+            // Keep the status bars and controls fixed while the world itself
+            // recedes with each prestige.
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            // The ground plane spans the viewport at every zoom level.
+            spriteBatch.Draw(beamPixel, new Rectangle(0, GroundY, NATIVE_WIDTH, 19), new Color(23, 43, 44));
+            spriteBatch.Draw(beamPixel, new Rectangle(0, GroundY, NATIVE_WIDTH, 1), new Color(83, 117, 86));
             if (screen != MenuScreen.Scores)
             {
                 spriteBatch.Draw(beamPixel, new Rectangle(0, 0, NATIVE_WIDTH, 12), new Color(6, 12, 22));

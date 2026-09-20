@@ -478,7 +478,7 @@ namespace MonogameTest
             Require(roundSoldiers == 1 && abductees.Count == 0, "Multi-person delivery failed");
             UpdateTractor(.3f, true); UpdateTractor(.1f, false);
             Require(abductees.Count == 0 && people[1].Falling, "Beam release failed");
-            progression.Bank("smoke-complete-tree", 1000000);
+            progression.Bank("smoke-complete-tree", 100000000);
             // Catalog order is not graph order: buy all reachable ranks until
             // the complete DAG is traversed, including multi-parent nodes.
             int bought;
@@ -486,17 +486,32 @@ namespace MonogameTest
             {
                 bought = 0;
                 for (int i = 0; i < UfoProgression.Nodes.Length; i++)
-                    while (progression.CanBuy(i)) { Require(progression.Buy(i), "Graph purchase failed"); bought++; }
+                    while (UfoProgression.Nodes[i].Effect != UfoUpgradeEffect.Prestige && progression.CanBuy(i))
+                    { Require(progression.Buy(i), "Graph purchase failed"); bought++; }
             } while (bought > 0);
             for (int i = 0; i < UfoProgression.Nodes.Length; i++)
-                Require(progression.Rank(i) == UfoProgression.Nodes[i].MaxRank && !progression.Buy(i),
-                    "Graph has unreachable nodes, insufficient fixture funds, or uncapped ranks");
+                if (UfoProgression.Nodes[i].Effect == UfoUpgradeEffect.Prestige)
+                    Require(progression.Rank(i) == 0 && progression.CanBuy(i), "Prestige did not unlock at the three-capstone gate");
+                else if (UfoProgression.Nodes[i].Id == "capacity5")
+                    Require(progression.Rank(i) > 0 && progression.Rank(i) < UfoProgression.Nodes[i].MaxRank,
+                        "Fleet Abduction should stay available beyond the former five-person cap");
+                else
+                    Require(progression.Rank(i) == UfoProgression.Nodes[i].MaxRank && !progression.Buy(i),
+                        "Graph has unreachable nodes, insufficient fixture funds, or uncapped ranks");
             Require(progression.Rank("tractor") == 10
                 && Math.Abs(progression.Bonus(UfoUpgradeEffect.Tractor) - 2f) < .0001f,
                 "Tractor Drive ranks did not increase lift/pull to the 3x cap");
+            progression.Bank("smoke-uncapped-beam", 1000000000);
+            int fleetIndex = UfoProgression.Index("capacity5");
+            while (progression.Rank(fleetIndex) < 105)
+                Require(progression.Buy(fleetIndex), "Fleet Abduction could not advance beyond rank 100");
+            Require(UfoProgression.Nodes[UfoProgression.Index("capacity5")].MaxRank == int.MaxValue
+                && progression.Capacity > 104,
+                "Fleet Abduction must keep increasing beam capacity beyond 104 people");
+            int highBeamCapacity = progression.Capacity;
             resetGame();
-            Require(beamCapacity == 5 && MaxShipHealth == 625 && Math.Abs(RoundMultiplier - 3.75) < .0001
-                && Math.Abs(TractorLiftSpeed - 112.5f) < .001f && Math.Abs(TractorPullSpeed - 56.25f) < .001f,
+            Require(beamCapacity == highBeamCapacity && MaxShipHealth == 500 && Math.Abs(RoundMultiplier - 3) < .0001
+                && Math.Abs(TractorLiftSpeed - 90f) < .001f && Math.Abs(TractorPullSpeed - 45f) < .001f,
                 "Full tree capacity, hull, tractor speed, or starting multiplier failed");
             shipHealth = 100;
             SpawnPerson(shipX, true, 1); DeliverPerson(people[0]);
@@ -609,7 +624,7 @@ namespace MonogameTest
             UpdateShipBullets(.3f);
             Require(missiles.Count == 1 && score == 0, "Point defence radius/blast failed");
             BuyTo("fire3", 1); BuyTo("capacity5", 1);
-            Require(!progression.Unlocked(UfoProgression.Index("mothership")), "Mothership unlocked before three capstones");
+            Require(!progression.Unlocked(UfoProgression.Index("prestige")), "Prestige unlocked before three capstones");
             resetGame(); UpdateShipWeapon(.1f, true);
             Require(shipBullets.Count == 3 && beamCapacity == 5, "Weapon/beam capstones failed");
             float emptyWidth = ConeHalfWidth(GroundY);
@@ -620,8 +635,8 @@ namespace MonogameTest
             Require(beforeX - SmokeAbductee.X > TractorPullSpeed * .1f, "Focus did not strengthen near-ship pull");
             DropPayload(); Require(Math.Abs(ConeHalfWidth(GroundY) - emptyWidth) < .001f, "Matrix stayed active with an empty beam");
             BuyTo("auto", 1);
-            Require(progression.Unlocked(UfoProgression.Index("mothership")) && progression.Rank("exponential") == 0,
-                "Mothership must accept any three complete capstones");
+            Require(progression.Unlocked(UfoProgression.Index("prestige")) && progression.Rank("exponential") == 0,
+                "Prestige must accept any three complete capstones");
             resetGame();
             Require(nanoHull == 3 && warpBonus > 0, "Ship merge bonuses failed");
             MoveShip(1, .01f, 1);
@@ -634,9 +649,8 @@ namespace MonogameTest
             shieldActive = false; shieldRegenTimer = ShieldRegenDelay;
             DamageShip(); UpdateAutoRepair(4); Require(shipHealth == 27, "Hit did not reset auto repair delay");
             UpdateAutoRepair(2); Require(shipHealth == 29, "Auto repair failed to restart after safety delay");
-            Require(progression.Buy(UfoProgression.Index("mothership")), "Mothership purchase failed");
-            BuyTo("exponential", 1); resetGame();
-            Require(globalBonus == 1.25f && interestBonus > 0, "Mothership/interest launch bonuses failed");
+            BuyTo("exponential", 3); resetGame();
+            Require(interestBonus > 0, "Interest upgrade failed at flight launch");
             roundSeconds = 0; double start = RoundMultiplier;
             roundSeconds = 60; double minute = RoundMultiplier;
             roundSeconds = 120; double twoMinutes = RoundMultiplier;
@@ -644,6 +658,25 @@ namespace MonogameTest
             roundSeconds = 121; double withLongHaul = RoundMultiplier;
             longHaulBonus = 0;
             Require(withLongHaul > RoundMultiplier, "Long Haul did not activate after two minutes");
+
+            float zoomBeforePrestige = PrestigeWorldScale;
+            int poolBeforePrestige = UfoPoolLimit;
+            Require(progression.Prestige() && progression.PrestigeCount == 1 && progression.Balance == 0
+                && progression.Rank("core") == 1 && progression.Rank("fire") == 0,
+                "Prestige did not bank its count and reset crew/upgrades");
+            resetGame();
+            Require(beamCapacity == 1 && PrestigeWorldScale < zoomBeforePrestige
+                && UfoPoolLimit == poolBeforePrestige + 4
+                && Vector2.Distance(Vector2.Transform(new Vector2(NATIVE_WIDTH / 2f, GroundY), PrestigeWorldTransform()),
+                    new Vector2(NATIVE_WIDTH / 2f, GroundY)) < .001f,
+                "Prestige failed to zoom out around the ground or expand the enemy pool");
+            progression.Bank("second-prestige-funds", 100000000);
+            BuyTo("fire3", 1); BuyTo("capacity5", 1); BuyTo("auto", 1); BuyTo("exponential", 3);
+            float firstPrestigeZoom = PrestigeWorldScale;
+            Require(progression.Prestige() && progression.PrestigeCount == 2
+                && UfoPoolLimit == poolBeforePrestige + 8 && 1 / (1 + progression.PrestigeCount * .06f) < firstPrestigeZoom,
+                "Repeated prestige did not keep increasing zoom and pool size");
+            resetGame();
             double beforeReset = RoundMultiplier;
             progression.StartNew();
             Require(RoundMultiplier == beforeReset, "Flight bonuses changed after launch");
@@ -651,13 +684,15 @@ namespace MonogameTest
             string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "warhook-tech-migration-" + Guid.NewGuid() + ".json");
             try
             {
-                System.IO.File.WriteAllText(path, "{\"version\":1,\"balance\":12.5,\"ranks\":{\"fire3\":5,\"engine3\":5,\"capacity5\":1}}");
+                System.IO.File.WriteAllText(path, "{\"version\":1,\"balance\":12.5,\"ranks\":{\"fire3\":5,\"engine3\":5,\"capacity5\":1,\"mothership\":1}}");
                 var migrated = new UfoProgression(false, path);
                 Require(migrated.Balance == 4157.5 && migrated.Rank("fire3") == 1 && migrated.Rank("engine3") == 3
-                    && migrated.Capacity == 5, "Legacy ranks/capacity or refund migration failed");
+                    && migrated.Capacity == 5 && migrated.PrestigeCount == 1,
+                    "Legacy ranks/capacity/prestige or refund migration failed");
                 Require(migrated.SavePreferences(0, 1), "Migrated save write failed");
                 var reloaded = new UfoProgression(false, path);
-                Require(reloaded.Balance == 4157.5, "Migration refunded ranks twice");
+                Require(reloaded.Balance == 4157.5 && reloaded.PrestigeCount == 1,
+                    "Migration refunded ranks twice or failed to save prestige");
             }
             finally { System.IO.File.Delete(path); }
 #endif

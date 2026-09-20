@@ -106,7 +106,7 @@ from reading the code or `git log`.
 - UFO spawns reuse the original 60 Hz bean RNG, spawn arithmetic, and
   `speedloop`; score is not shown or awarded in UFO play. ResetUfo starts bigspeed at 0x600 and caps
   max_time at 0x78 (0.25–0.33s opening spawn intervals, subject to the
-  16-slot pool). UFO spawn and missile speed use uncapped 64-bit counters;
+  base 16-slot pool plus four slots per prestige). UFO spawn and missile speed use uncapped 64-bit counters;
   spawn intervals bottom at one 60 Hz tick. Missile velocity uses a separate
   missileDifficultySpeed, starting at 0x180 (1.5x original speed). Both speeds
   advance on the same smallspeed rollover. Original bean replay keeps its 0x7F0 cap.
@@ -120,7 +120,7 @@ from reading the code or `git log`.
   ordinary beans fire once; special beans become non-firing engineers only
   after Engineer Tools rank 1 is owned, otherwise they become ordinary soldiers.
   Spawn timing, positions and RNG order are unchanged by the unlock. The
-  16-slot pool counts approaching soldiers, missiles, and engineers;
+  16-slot base pool counts approaching soldiers, missiles, and engineers;
   departing soldiers do not occupy a second slot. Rockets aim at the ship's
   launch-time position and keep that heading, with the original speed ramp.
 - Ship impacts and friendly bullets sweep relative movement.
@@ -135,7 +135,8 @@ from reading the code or `git log`.
   timed tally in UfoRoundResults.cs before the map. Bank immediately on round
   end; the tally only animates a snapshot. Require released confirm controls
   after the tally completes before continuing, then guard input again on the map.
-  Permanent ranks apply in ResetUfo, including beam capacity (1..5), hull,
+  Permanent ranks apply in ResetUfo, including uncapped Fleet Abduction beam
+  capacity, hull,
   repair, cone width, and multiplier growth/start bonuses. Held people remain
   in the spawn pool and drop independently; releasing the beam drops all.
   Tractor Drive keeps the stable `tractor` save ID; its ten ranks each add
@@ -181,10 +182,14 @@ from reading the code or `git log`.
 
 - Tech web catalog coordinates, branch colours, weighted bonuses and ID-based
   multi-prerequisites are in UfoProgression.cs; RequiredCount enables any-N
-  prerequisites (Mothership needs three completed capstones). Core is always
+  prerequisites (Prestige needs three completed capstones). Prestige resets
+  crew and ranks, retains its count, zooms out the playfield 6% cumulatively,
+  and adds four active enemy/projectile slots per prestige. The old mothership
+  rank migrates into the prestige count. Fleet Abduction ranks are uncapped,
+  with quadratic costs saturating at the maximum supported price. Core is always
   owned. Old purchased nodes are grandfathered through prerequisite changes.
-  Version-2 JSON retains all 20 old IDs and refunds excess old fire3/engine3
-  ranks at old costs before clamping; the storage filenames/keys stay unchanged.
+  Version-3 JSON persists prestige while preserving existing save filenames and
+  browser keys; version-1 excess fire3/engine3 ranks are refunded before clamping.
 - Tech effects are snapshotted in ResetUfo, including interest on launch-time
   balance. Auto repair integrates only time after five damage-free seconds;
   Point Defence expands rocket interception and blasts nearby missiles, while
@@ -208,7 +213,7 @@ from reading the code or `git log`.
   .18s apart at current ship positions (fixed heading, 90px/s). A committed
   volley finishes even after retreat; staying low retriggers after 3.5s.
   AltitudeDefense missiles share bullet/hull collisions but are excluded from
-  ActiveBeanSpawnCount so the original 16-slot schedule remains independent.
+  ActiveBeanSpawnCount so the prestige-scaled ordinary spawns remain independent.
 - UfoCrashLanding.cs owns the post-destruction visual state. DamageShip starts
   a downward, tilted landing whose slide, fall impulse, and tumble inherit the
   final rocket heading; RoundResults continues that short animation and

@@ -13,6 +13,7 @@ when ufo is dead apply physics to it and allow rockets to still hit it (so it bo
 
 when abducting the units at the highest y position (y closest to ufo) has precedent over lower dudes
 
+when panning the upgrades window it should not do half pixels everything should be pixel perfect
 
 visual work
 ------

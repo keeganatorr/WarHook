@@ -732,8 +732,8 @@ namespace MonogameTest
             _nativeRenderTarget = new RenderTarget2D(GraphicsDevice, NATIVE_WIDTH, NATIVE_HEIGHT);
             _upgradeRenderTarget = new RenderTarget2D(GraphicsDevice,
                 UpgradeLogicalWidth * UpgradeMapRenderScale, UpgradeLogicalHeight * UpgradeMapRenderScale);
-            // Nebula noise is generated at half the research target's width
-            // and height, then smoothly enlarged beneath crisp map geometry.
+            // Keep the nebula on the same native canvas as the research map
+            // so the final presentation applies only one scaling pass.
             _upgradeCloudRenderTarget = new RenderTarget2D(GraphicsDevice,
                 UpgradeLogicalWidth, UpgradeLogicalHeight);
             Window.ClientSizeChanged += Window_ClientSizeChanged;

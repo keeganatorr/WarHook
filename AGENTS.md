@@ -202,15 +202,16 @@ from reading the code or `git log`.
 - UfoUpgradeMap uses world coordinates, spatial keyboard selection, free drag,
   discrete .5/1/2 zoom and a clickable overview. Upgrade icons come from the
   8×5, 64px-cell `Assets/upgrade-icons.png` atlas and use point sampling.
-  The upgrade screen uses a dedicated 1152×648 render target and a full 576×324
-  logical research canvas at 2×; gameplay uses a 384×216 16:9 target, fitted to
-  the current window while preserving its aspect ratio.
+  The upgrade screen renders natively to a dedicated 576×324 research target
+  at 1×, then uses centered integer point scaling when the window permits;
+  gameplay uses a 384×216 target, fitted to the current window while preserving
+  its aspect ratio. Graph connectors and pixel icons snap to the native grid.
   The upgrades nebula lives in `Content/upgrade-clouds.fx` and renders into a
-  half-size target before being blended behind the starfield and map. Desktop
+  full-size research target before being blended behind the starfield and map. Desktop
   builds compile it through `PyoroGL.csproj`; its BlazorGL-compatible XNB is
   checked in at `WarHookWeb/wwwroot/Content/upgrade-clouds.xnb`.
-  Map mouse coordinates are promoted into the graph canvas. Keep map geometry
-  aligned to that 2× graph transform so Font6 stays crisp.
+  Map mouse coordinates map directly into the native graph canvas. Keep hit
+  testing aligned with the 1× graph transform and presentation scaling.
   --shots checks graph reachability, multi-parent gates, any-three capstones,
   new effects and rank-refund migration in addition to the gameplay checks.
 - UfoAltitudeDefense.cs owns the fixed Y=64 danger line and side volleys.

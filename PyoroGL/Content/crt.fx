@@ -52,8 +52,8 @@ float4 MainPS(VertexShaderOutput input) : COLOR0
     float3 phosphor = source + max(glow - source, 0.0) * 0.22;
 
     // Two subtly offset scanline frequencies avoid a harsh repeating band.
-    float scanA = 0.94 + 0.06 * sin(uv.y * TextureSize.y * 3.14159265);
-    float scanB = 0.975 + 0.025 * sin(uv.y * TextureSize.y * 1.57079632 + Time * 0.35);
+    float scanA = 0.985 + 0.015 * sin(uv.y * TextureSize.y * 3.14159265);
+    float scanB = 0.993 + 0.007 * sin(uv.y * TextureSize.y * 1.57079632 + Time * 0.35);
     phosphor *= scanA * scanB;
 
     float2 centered = uv * 2.0 - 1.0;

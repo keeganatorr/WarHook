@@ -8,8 +8,8 @@ namespace MonogameTest
 {
     public partial class Game1
     {
-        // The research graph has its own 16:9 logical canvas. It is rendered
-        // at 2x so bitmap text and 64px icons stay crisp when scaled.
+        // The research graph has its own native 16:9 canvas. Draw it directly
+        // at 1x, then scale the completed canvas to the window presentation.
         const int UpgradeLogicalWidth = 576;
         const int UpgradeLogicalHeight = 324;
         static readonly Rectangle UpgradeMapView = new Rectangle(0, 0, UpgradeLogicalWidth, UpgradeLogicalHeight);
@@ -20,16 +20,12 @@ namespace MonogameTest
         static readonly Rectangle PrestigeConfirmNoButton = new Rectangle(292, 175, 112, 23);
         static readonly Rectangle UpgradeMiniMap = new Rectangle(496, 50, 66, 42);
         static readonly Rectangle UpgradeZoomButton = new Rectangle(458, 18, 28, 22);
-        // The research map is rendered above the native game resolution so its
-        // dense graph and bitmap type stay crisp when shown in the menu.
-        const int UpgradeRenderScale = 2;
-        // Keep map geometry on whole pixels at the 2x render scale. The
-        // smaller logical footprint leaves room for the complete web and
-        // prevents labels from crowding the connectors at the default view.
+        // One graph coordinate now maps to one pixel in the native research
+        // canvas; the final presentation scales this canvas to the viewport.
         const float MapNodeVisualScale = 1.6f;
         const float MapConnectorScale = .9f;
         const float MapLabelScale = 1f;
-        const int UpgradeMapRenderScale = 2;
+        const int UpgradeMapRenderScale = 1;
         int mapSelection = UfoProgression.Index("core");
         Vector2 mapCamera, mapCameraTarget, mapDragCamera, mapDragStart;
         float mapZoom = .5f;
@@ -280,9 +276,8 @@ namespace MonogameTest
             { FocusUpgradeNode(smooth: true); beamAudio?.PlayMenuBlip(); }
             MouseState mouse = Mouse.GetState();
             Vector2 pointer = UpgradePointer(mouse);
-            // The graph is a separate 576x324 logical surface, so promote map
-            // input before hit testing, panning, and node selection.
-            Vector2 mapPointer = pointer * UpgradeMapRenderScale;
+            // Pointer coordinates and graph geometry share the native canvas.
+            Vector2 mapPointer = pointer;
             Point mapPoint = new Point((int)mapPointer.X, (int)mapPointer.Y);
             bool down = mouse.LeftButton == ButtonState.Pressed && mapPreviousMouse.LeftButton == ButtonState.Released;
             bool up = mouse.LeftButton == ButtonState.Released && mapPreviousMouse.LeftButton == ButtonState.Pressed;
@@ -378,6 +373,17 @@ namespace MonogameTest
         {
             int width = GraphicsDevice.PresentationParameters.BackBufferWidth;
             int height = GraphicsDevice.PresentationParameters.BackBufferHeight;
+            int integerScale = Math.Min(width / UpgradeMapView.Width, height / UpgradeMapView.Height);
+            if (integerScale >= 2)
+            {
+                int scaledWidth = UpgradeMapView.Width * integerScale;
+                int scaledHeight = UpgradeMapView.Height * integerScale;
+                return new Rectangle((width - scaledWidth) / 2, (height - scaledHeight) / 2,
+                    scaledWidth, scaledHeight);
+            }
+
+            // On smaller windows, use the available 16:9 area when an integer
+            // enlargement would leave the research map uncomfortably small.
             int targetHeight = Math.Max(1, width * 9 / 16);
             if (targetHeight <= height)
                 return new Rectangle(0, (height - targetHeight) / 2, width, targetHeight);
@@ -388,10 +394,10 @@ namespace MonogameTest
         Vector2 UpgradePointer(MouseState mouse)
         {
             Rectangle destination = UpgradePresentationRect();
-            float x = (mouse.X - destination.X) * (UpgradeMapView.Width / (float)UpgradeMapRenderScale) /
-                Math.Max(1, destination.Width);
-            float y = (mouse.Y - destination.Y) * (UpgradeMapView.Height / (float)UpgradeMapRenderScale) /
-                Math.Max(1, destination.Height);
+            float x = (mouse.X - destination.X) * UpgradeMapView.Width /
+                (float)Math.Max(1, destination.Width);
+            float y = (mouse.Y - destination.Y) * UpgradeMapView.Height /
+                (float)Math.Max(1, destination.Height);
             return new Vector2(x, y);
         }
         void RoundedBox(Rectangle box, Color color, int radius = 2)
@@ -420,14 +426,48 @@ namespace MonogameTest
             RoundedBox(new Rectangle(box.X + thickness, box.Y + thickness,
                 Math.Max(1, box.Width - thickness * 2), Math.Max(1, box.Height - thickness * 2)), fill, 1);
         }
-        void TechLine(Vector2 from, Vector2 to, Color color, bool dashed, float fraction = 1)
+
+        void DrawUpgradePixelLine(Vector2 from, Vector2 to, int thickness, Color color)
+        {
+            int x0 = (int)Math.Round(from.X), y0 = (int)Math.Round(from.Y);
+            int x1 = (int)Math.Round(to.X), y1 = (int)Math.Round(to.Y);
+            thickness = Math.Max(1, thickness);
+            int half = thickness / 2;
+            if (y0 == y1)
+            {
+                int left = Math.Min(x0, x1), right = Math.Max(x0, x1);
+                spriteBatch.Draw(beamPixel, new Rectangle(left, y0 - half, right - left + 1, thickness), color);
+                return;
+            }
+            if (x0 == x1)
+            {
+                int top = Math.Min(y0, y1), bottom = Math.Max(y0, y1);
+                spriteBatch.Draw(beamPixel, new Rectangle(x0 - half, top, thickness, bottom - top + 1), color);
+                return;
+            }
+
+            // Bresenham keeps diagonal icon strokes connected on the native
+            // one-pixel grid instead of rasterizing a subpixel rotated quad.
+            int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+            int dy = -Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+            int error = dx + dy;
+            while (true)
+            {
+                spriteBatch.Draw(beamPixel,
+                    new Rectangle(x0 - half, y0 - half, thickness, thickness), color);
+                if (x0 == x1 && y0 == y1) break;
+                int twiceError = error * 2;
+                if (twiceError >= dy) { error += dy; x0 += sx; }
+                if (twiceError <= dx) { error += dx; y0 += sy; }
+            }
+        }
+
+        void TechLine(Vector2 from, Vector2 to, Color color, float fraction = 1)
         {
             float length = Vector2.Distance(from, to);
             if (length < .5f) return;
-            if (!dashed) { drawBeamStroke(from, Vector2.Lerp(from, to, fraction), Math.Max(.7f, mapZoom * MapConnectorScale), color); return; }
-            for (float d = 0; d < length * fraction; d += 6 * mapZoom)
-                drawBeamStroke(Vector2.Lerp(from, to, d / length), Vector2.Lerp(from, to, Math.Min(length * fraction, d + 3 * mapZoom) / length),
-                    Math.Max(.7f, mapZoom * MapConnectorScale), color);
+            int thickness = Math.Max(1, (int)Math.Round(mapZoom * MapConnectorScale));
+            DrawUpgradePixelLine(from, Vector2.Lerp(from, to, Math.Clamp(fraction, 0, 1)), thickness, color);
         }
         void DrawTechEdge(int parent, int child, int requiredRank)
         {
@@ -445,8 +485,9 @@ namespace MonogameTest
             for (int i = 1; i < path.Length; i++)
             {
                 float length = Vector2.Distance(path[i - 1], path[i]);
-                TechLine(path[i - 1], path[i], new Color(39, 63, 84), true);
-                if (remaining > 0 && length > 0) TechLine(path[i - 1], path[i], tint * .75f, false, Math.Min(1, remaining / length));
+                TechLine(path[i - 1], path[i], new Color(39, 63, 84));
+                if (remaining > 0 && length > 0)
+                    TechLine(path[i - 1], path[i], tint * .75f, Math.Min(1, remaining / length));
                 remaining -= length;
             }
         }
@@ -567,7 +608,7 @@ namespace MonogameTest
         void DrawUpgradeMap()
         {
             // drawTitleScene starts a compact batch for the other menu scenes.
-            // The research screen replaces it with a full 576x324 canvas.
+            // The research screen replaces it with its native 576x324 canvas.
             spriteBatch.End();
             GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, UpgradeMapView.Width * UpgradeMapRenderScale,
                 UpgradeMapView.Height * UpgradeMapRenderScale);
@@ -770,8 +811,9 @@ namespace MonogameTest
             void P(int x, int y, int w = 1, int h = 1) => spriteBatch.Draw(beamPixel,
                 new Rectangle((int)Math.Round(center.X + x * scale), (int)Math.Round(center.Y + y * scale),
                     Math.Max(1, (int)Math.Round(w * scale)), Math.Max(1, (int)Math.Round(h * scale))), tint);
-            void L(int x, int y, int xx, int yy) => drawBeamStroke(center + new Vector2(x, y) * scale,
-                center + new Vector2(xx, yy) * scale, Math.Max(1, scale), tint);
+            void L(int x, int y, int xx, int yy) => DrawUpgradePixelLine(
+                center + new Vector2(x, y) * scale, center + new Vector2(xx, yy) * scale,
+                Math.Max(1, (int)Math.Round(scale)), tint);
             void Person(int x, int y) { P(x, y, 2, 2); P(x - 1, y + 3, 4, 4); P(x - 1, y + 7, 1, 2); P(x + 2, y + 7, 1, 2); }
             switch (node.Effect)
             {
